@@ -11,7 +11,7 @@
    Breakpoints: 1440px desktop / 768px tablet / 375px mobile
    =================================================================== */
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600;700&family=Doto:wght@700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@400;500;600;700&display=swap');
 
 :root {
   --bg-surface-primary:   #0B0E14;
@@ -72,7 +72,7 @@ body {
   border: 1px solid var(--border-default);
   border-radius: var(--radius-container);
   padding: 12px 24px; margin-bottom: 20px; flex-shrink: 0;
-  font-family: 'IBM Plex Mono', monospace; font-size: 12px;
+  font-family: 'Poppins', sans-serif; font-size: 12px;
   color: var(--text-content-secondary);
 }
 .status-left, .status-center, .status-right {
@@ -93,7 +93,7 @@ body {
 #theme-toggle {
   background: none; border: 1px solid var(--border-default);
   border-radius: var(--radius-element); color: var(--text-content-secondary);
-  cursor: pointer; font-family: 'IBM Plex Mono', monospace;
+  cursor: pointer; font-family: 'Poppins', sans-serif;
   font-size: 10px; font-weight: 600; text-transform: uppercase;
   letter-spacing: 0.06em; padding: 6px 12px; transition: all .18s;
 }
@@ -113,12 +113,12 @@ body {
   padding: 16px 20px;
 }
 .kpi-card .kpi-label {
-  font-family: 'IBM Plex Mono', monospace; font-size: 10px;
+  font-family: 'Poppins', sans-serif; font-size: 10px;
   font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em;
   color: var(--text-content-secondary); margin-bottom: 6px;
 }
 .kpi-card .kpi-value {
-  font-family: 'Doto', 'IBM Plex Mono', monospace;
+  font-family: 'Poppins', sans-serif;
   font-size: 36px; font-weight: 700; line-height: 1;
   color: var(--text-content-primary);
 }
@@ -161,7 +161,7 @@ main {
 .product-card.inactive { opacity: .3; pointer-events: none; }
 
 .product-card .slot-num {
-  font-family: 'IBM Plex Mono', monospace; font-size: 10px;
+  font-family: 'Poppins', sans-serif; font-size: 10px;
   font-weight: 500; text-transform: uppercase; letter-spacing: 0.08em;
   color: var(--text-content-secondary); margin-bottom: 4px;
 }
@@ -172,7 +172,7 @@ main {
 .product-card .product-icon {
   width: 36px; height: 36px; border-radius: 50%; margin-bottom: 6px;
   display: flex; align-items: center; justify-content: center;
-  font-family: 'IBM Plex Mono', monospace; font-size: 13px;
+  font-family: 'Poppins', sans-serif; font-size: 13px;
   font-weight: 700; color: var(--text-content-secondary);
   border: 1px solid var(--border-default);
 }
@@ -184,7 +184,7 @@ main {
   border-color: var(--status-negative); color: var(--status-negative);
 }
 .product-card .armed-qty {
-  font-family: 'Doto', 'IBM Plex Mono', monospace;
+  font-family: 'Poppins', sans-serif;
   font-size: 44px; font-weight: 700; line-height: 1;
   color: var(--text-content-primary); margin: 4px 0;
 }
@@ -218,7 +218,7 @@ main {
 /* Quick amounts */
 .quick-amounts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 10px 0; }
 .btn-amount {
-  font-family: 'IBM Plex Mono', monospace; font-size: 15px; font-weight: 600;
+  font-family: 'Poppins', sans-serif; font-size: 15px; font-weight: 600;
   padding: 14px 6px; background: var(--bg-surface-tertiary);
   border: 1px solid var(--border-default); border-radius: var(--radius-pill);
   color: var(--text-content-primary); cursor: pointer;
@@ -236,7 +236,7 @@ main {
 }
 .staged-row:last-child { border-bottom: none; }
 .staged-row .staged-name { font-weight: 600; }
-.staged-row .staged-price { font-family: 'IBM Plex Mono', monospace; font-weight: 600; font-size: 14px; color: var(--text-content-primary); }
+.staged-row .staged-price { font-family: 'Poppins', sans-serif; font-weight: 600; font-size: 14px; color: var(--text-content-primary); }
 .staged-row .staged-meta { font-size: 11px; color: var(--text-content-secondary); }
 .btn-remove {
   background: none; border: 1px solid var(--border-default);
@@ -251,7 +251,7 @@ main {
 .sale-actions { display: flex; gap: 8px; margin: 10px 0; }
 .sale-total {
   text-align: right; margin-top: 4px;
-  font-family: 'Doto', 'IBM Plex Mono', monospace;
+  font-family: 'Poppins', sans-serif;
   font-size: 28px; font-weight: 700; color: var(--text-content-primary);
 }
 
@@ -297,11 +297,11 @@ main {
 }
 .list-row:last-child { border-bottom: none; }
 .list-row .list-val {
-  font-family: 'IBM Plex Mono', monospace; font-weight: 600;
+  font-family: 'Poppins', sans-serif; font-weight: 600;
   font-size: 15px; color: var(--text-content-primary); white-space: nowrap;
 }
 .muted {
-  color: var(--text-content-secondary); font-family: 'IBM Plex Mono', monospace;
+  color: var(--text-content-secondary); font-family: 'Poppins', sans-serif;
   font-size: 11px; text-align: center; padding: 8px 0;
 }
 
@@ -321,7 +321,7 @@ main {
   font-size: 12px;
 }
 .empty-state .empty-action {
-  display: inline-block; margin-top: 8px; font-family: 'IBM Plex Mono', monospace;
+  display: inline-block; margin-top: 8px; font-family: 'Poppins', sans-serif;
   font-size: 11px; font-weight: 600; color: var(--accent-action);
   cursor: pointer; text-transform: uppercase; letter-spacing: 0.04em;
 }
@@ -346,7 +346,7 @@ main {
   text-align: center;
 }
 #offline-banner .offline-action {
-  display: inline-block; margin-left: 8px; font-family: 'IBM Plex Mono', monospace;
+  display: inline-block; margin-left: 8px; font-family: 'Poppins', sans-serif;
   font-size: 11px; font-weight: 600; color: var(--status-negative);
   cursor: pointer; text-decoration: underline; text-underline-offset: 3px;
 }
