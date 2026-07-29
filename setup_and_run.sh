@@ -95,7 +95,6 @@ build_cpp() {
 }
 
 build_cpp "coin_slot"
-build_cpp "iot_dispenser_v2"
 
 # --------------------------------------------------------------------------- #
 # 2. Create virtual-envs and install requirements
@@ -138,9 +137,7 @@ setup_venv() {
   fi
 }
 
-setup_venv "keyboard_monitoring"
 setup_venv "uploaderTransaction"
-setup_venv "usb_to_coin_module"
 
 # --------------------------------------------------------------------------- #
 # 3. Register processes with PM2
@@ -243,31 +240,12 @@ pm2_start_binary \
   "$COIN_SLOT_BIN" \
   "$SCRIPT_DIR/coin_slot"
 
-# 02_Coin_Acceptor — usb_to_coin_module/coin_counter.py
-pm2_start_python \
-  "02_Coin_Acceptor" \
-  "$SCRIPT_DIR/usb_to_coin_module/coin_counter.py" \
-  "$SCRIPT_DIR/usb_to_coin_module" \
-  "$SCRIPT_DIR/usb_to_coin_module"
-
 # 03_Street_Light — usb_to_coin_module/simple_on_off_led_relay.py
 pm2_start_python \
   "03_Street_Light" \
   "$SCRIPT_DIR/usb_to_coin_module/simple_on_off_led_relay.py" \
   "$SCRIPT_DIR/usb_to_coin_module" \
   "$SCRIPT_DIR/usb_to_coin_module"
-
-# 04_QR_Scanner — keyboard_monitoring/qr_code_monitoring.py
-# pynput needs DISPLAY=:0 and XAUTHORITY to connect to the Pi's local X server.
-# When this script runs over SSH (PuTTY), those vars are not set in the shell,
-# so we inject them explicitly via `sudo env` — the only reliable CLI method.
-pm2_start_python \
-  "04_QR_Scanner" \
-  "$SCRIPT_DIR/keyboard_monitoring/qr_code_monitoring.py" \
-  "$SCRIPT_DIR/keyboard_monitoring" \
-  "$SCRIPT_DIR/keyboard_monitoring" \
-  "DISPLAY=:0" \
-  "XAUTHORITY=${DISPLAY_USER_HOME}/.Xauthority"
 
 # 05_Water_Level — uploaderTransaction/water_level_monitoring_v2.py
 pm2_start_python \
@@ -290,6 +268,32 @@ pm2_start_python \
   "$SCRIPT_DIR/uploaderTransaction" \
   "$SCRIPT_DIR/uploaderTransaction"
 
+# 08_Cashier_Dashboard — cashier_dashboard Node.js server
+log "Installing cashier_dashboard npm dependencies..."
+pushd "$SCRIPT_DIR/cashier_dashboard" > /dev/null
+npm install --production
+popd > /dev/null
+log "Dashboard npm dependencies installed"
+
+pm2_start_binary \
+  "08_Cashier_Dashboard" \
+  "$(command -v node)" \
+  "$SCRIPT_DIR/cashier_dashboard" \
+  "NODE_ENV=production"
+
+# Override: use node to run server.js instead of the node binary directly
+if pm2_process_exists "08_Cashier_Dashboard"; then
+  log "[08_Cashier_Dashboard] Already registered — restarting"
+  sudo pm2 restart "08_Cashier_Dashboard"
+else
+  log "[08_Cashier_Dashboard] New process — starting for the first time"
+  sudo env NODE_ENV=production pm2 start "$SCRIPT_DIR/cashier_dashboard/server.js" \
+    --name "08_Cashier_Dashboard" \
+    --cwd "$SCRIPT_DIR/cashier_dashboard" \
+    --log "$SCRIPT_DIR/cashier_dashboard/pm2_08_Cashier_Dashboard.log" \
+    --time
+fi
+
 # Register PM2 as a systemd service so it auto-starts on every reboot.
 # This must run BEFORE pm2 save — the save writes the process list that the
 # generated pm2-root.service will resurrect on boot.
@@ -303,94 +307,12 @@ sudo pm2 save
 log "PM2 list saved"
 
 # --------------------------------------------------------------------------- #
-# 4. iot_dispenser_v2 — patch & start vendo_gui.service via systemctl
+# 4. Final status summary
 # --------------------------------------------------------------------------- #
-section "4. Configuring vendo_gui.service for iot_dispenser_v2"
-
-SERVICE_FILE="$SCRIPT_DIR/iot_dispenser_v2/vendo_gui.service"
-DEST_SERVICE="/etc/systemd/system/vendo_gui.service"
-MAIN_GUI_BIN="$SCRIPT_DIR/iot_dispenser_v2/main_gui"
-IOT_DIR="$SCRIPT_DIR/iot_dispenser_v2"
-# DISPLAY_USER is already set in Section 3
-log "Using display user: $DISPLAY_USER"
-
-if [ ! -f "$MAIN_GUI_BIN" ]; then
-  err "main_gui binary not found at $MAIN_GUI_BIN — did iot_dispenser_v2 build succeed?"
-else
-  log "Patching $SERVICE_FILE with current paths"
-
-  # Write a corrected service file (overwrite in-place)
-  cat > "$SERVICE_FILE" <<EOF
-[Unit]
-Description=Sabon Express Vendo GUI
-After=graphical.target
-Wants=graphical.target
-
-[Service]
-User=${DISPLAY_USER}
-# Wait up to 60 s for the X server socket to appear before launching the GUI.
-# graphical.target is reached before the display manager finishes starting X,
-# so without this wait the process starts, cannot open DISPLAY :0, and exits.
-ExecStartPre=/bin/bash -c 'c=0; until [ -S /tmp/.X11-unix/X0 ]; do sleep 1; c=\$((c+1)); [ \$c -ge 60 ] && exit 1; done; c=0; until DISPLAY=:0 XAUTHORITY=/home/${DISPLAY_USER}/.Xauthority xrandr 2>/dev/null | grep -qF "*"; do sleep 1; c=\$((c+1)); [ \$c -ge 30 ] && break; done'
-ExecStart=${MAIN_GUI_BIN}
-WorkingDirectory=${IOT_DIR}
-StandardOutput=journal
-StandardError=journal
-Restart=always
-RestartSec=5
-
-Environment="DISPLAY=:0"
-Environment="XAUTHORITY=/home/${DISPLAY_USER}/.Xauthority"
-
-[Install]
-WantedBy=graphical.target
-EOF
-
-  log "vendo_gui.service written — installing to $DEST_SERVICE"
-  # Remove any dangling symlink left by a previous 'systemctl enable' before copying
-  sudo rm -f "$DEST_SERVICE"
-  sudo cp "$SERVICE_FILE" "$DEST_SERVICE"
-  sudo systemctl daemon-reload
-  log "systemd daemon reloaded"
-
-  # Unmask first — a masked unit cannot be enabled or started
-  if systemctl is-enabled vendo_gui.service 2>/dev/null | grep -q "masked"; then
-    log "vendo_gui.service is masked — unmasking now"
-    sudo systemctl unmask vendo_gui.service
-    log "vendo_gui.service unmasked"
-  fi
-
-  sudo systemctl enable vendo_gui.service
-  log "vendo_gui.service enabled"
-
-  sudo systemctl restart vendo_gui.service
-  log "vendo_gui.service restarted"
-
-  # Give the ExecStartPre wait-for-X loop time to finish before reporting status.
-  # The X server is usually ready within a few seconds of graphical.target; 10 s
-  # is enough for a normal boot.  The service will keep retrying on its own
-  # (RestartSec=5) even if this check reports it as not yet active.
-  sleep 10
-  if systemctl is-active --quiet vendo_gui.service; then
-    log "vendo_gui.service — RUNNING"
-  else
-    warn "vendo_gui.service — NOT running yet (X may still be initialising)."
-    warn "Check: sudo journalctl -u vendo_gui.service -n 50"
-    warn "The service will auto-restart every 5 s until it succeeds."
-  fi
-fi
-
-# --------------------------------------------------------------------------- #
-# 5. Final status summary
-# --------------------------------------------------------------------------- #
-section "5. Final status summary"
+section "4. Final status summary"
 
 log "PM2 process list:"
 sudo pm2 list
-
-log ""
-log "vendo_gui systemd status:"
-systemctl status vendo_gui.service --no-pager || true
 
 log ""
 log "================================================================"
@@ -399,6 +321,4 @@ log "  Useful debugging commands:"
 log "    sudo pm2 logs                          # tail all PM2 logs"
 log "    sudo pm2 logs <name>                   # tail one process"
 log "    sudo pm2 monit                         # live dashboard"
-log "    sudo journalctl -u vendo_gui -f        # follow GUI service log"
-log "    sudo journalctl -u vendo_gui -n 100    # last 100 lines"
 log "================================================================"

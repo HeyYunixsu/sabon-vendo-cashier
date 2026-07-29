@@ -76,35 +76,13 @@ sudo apt update
 log "apt update — OK"
 
 # --------------------------------------------------------------------------- #
-# 2. Install FLTK
-# --------------------------------------------------------------------------- #
-# Reference: iot_dispenser_v2/README.md
-# --------------------------------------------------------------------------- #
-section "2. Installing FLTK (libfltk1.3-dev)"
-
-if dpkg -s libfltk1.3-dev &>/dev/null; then
-  log "libfltk1.3-dev is already installed — skipping"
-else
-  log "Installing libfltk1.3-dev via apt..."
-  sudo apt install -y libfltk1.3-dev
-  log "libfltk1.3-dev installed — OK"
-fi
-
-# Verify fltk-config is available (used by iot_dispenser_v2 Makefile)
-if command -v fltk-config &>/dev/null; then
-  log "fltk-config found: $(fltk-config --version)"
-else
-  warn "fltk-config not found after install — check the package."
-fi
-
-# --------------------------------------------------------------------------- #
-# 3. Install WiringPi (from source)
+# 2. Install WiringPi (from source)
 # --------------------------------------------------------------------------- #
 # The apt package for WiringPi is outdated / removed from Raspbian repos.
 # We build the .deb from the official GitHub source and install it locally.
 # Reference: coin_slot/basic_command.txt
 # --------------------------------------------------------------------------- #
-section "3. Installing WiringPi (from source)"
+section "2. Installing WiringPi (from source)"
 
 # Check if already installed
 if command -v gpio &>/dev/null; then
@@ -168,7 +146,7 @@ fi
 # Minimum required: v20.19.5+
 # We use the official NodeSource setup script which pins the major version.
 # --------------------------------------------------------------------------- #
-section "4. Installing Node.js v20.x"
+section "3. Installing Node.js v20.x"
 
 NODE_MAJOR=20
 NODE_MIN_VERSION="20.19.5"
@@ -222,7 +200,7 @@ log "npm version: $(npm --version)"
 # --------------------------------------------------------------------------- #
 # Minimum required: 6.0.13+
 # --------------------------------------------------------------------------- #
-section "5. Installing PM2 v6.x"
+section "4. Installing PM2 v6.x"
 
 PM2_MIN_VERSION="6.0.13"
 
@@ -274,7 +252,7 @@ sudo pm2 startup systemd || \
 # PATH that does not include /usr/bin. We install the package and create a
 # symlink in /usr/local/bin so sudo always finds it.
 # --------------------------------------------------------------------------- #
-section "6. Installing journalctl (systemd journal)"
+section "5. Installing journalctl (systemd journal)"
 
 if command -v journalctl &>/dev/null; then
   log "journalctl already available: $(command -v journalctl)"
@@ -315,21 +293,16 @@ fi
 # --------------------------------------------------------------------------- #
 # 7. Summary
 # --------------------------------------------------------------------------- #
-section "7. Summary"
+section "6. Summary"
 
 log "================================================================"
 log "  DEPENDENCY INSTALLATION COMPLETE"
 log ""
 log "  Installed:"
-log "    - FLTK       : $(fltk-config --version 2>/dev/null || echo 'check manually')"
 log "    - WiringPi   : $(gpio -v 2>/dev/null | head -1 || echo 'check manually')"
 log "    - Node.js    : $(node --version 2>/dev/null || echo 'check manually')"
 log "    - PM2        : $(pm2 --version 2>/dev/null | head -1 || echo 'check manually')"
 log "    - journalctl : $(journalctl --version 2>/dev/null | head -1 || echo 'check manually')"
-log ""
-log "  Useful log commands (now working via sudo):"
-log "    sudo journalctl -u vendo_gui -f          # follow GUI service log"
-log "    sudo journalctl -u vendo_gui -n 100      # last 100 lines"
 log ""
 log "  You can now run:"
 log "    chmod +x setup_and_run.sh"
