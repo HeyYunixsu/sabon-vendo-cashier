@@ -24,5 +24,6 @@ coin_slot/main
 iot_dispenser_v2/main_gui
 **/__pycache__/
 **/venv/
+**/node_modules/
 *.o
 *.pyc
