@@ -35,6 +35,7 @@ extern std::map<int, int> pin_pump;     // slot index → pump BCM pin
 extern std::map<int, int> pin_led;      // slot index → LED BCM pin
 extern std::map<int, int> pin_button;   // slot index → button BCM pin
 extern std::map<int, Product> productMap;
+extern bool SHARED_LED_BTN;             // true when LEDs share button GPIOs
 
 int TOTAL_SLOTS = 4;  // exposed so pump_control / socket_server can loop 1–4
 
