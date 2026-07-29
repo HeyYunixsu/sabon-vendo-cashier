@@ -201,11 +201,19 @@ void pump_setup(AppState &state) {
     init_hardware_config(config);
     wiringPiSetupGpio();
 
-    // Configure input buttons with pull-downs
-    pinMode(BTN1, INPUT); pullUpDnControl(BTN1, PUD_DOWN);
-    pinMode(BTN2, INPUT); pullUpDnControl(BTN2, PUD_DOWN);
-    pinMode(BTN3, INPUT); pullUpDnControl(BTN3, PUD_DOWN);
-    pinMode(BTN4, INPUT); pullUpDnControl(BTN4, PUD_DOWN);
+    // Configure buttons: if shared mode, start as OUTPUT (LEDs off until armed).
+    // pump_loop handles the INPUT/OUTPUT flip for button reads.
+    if (SHARED_LED_BTN) {
+        pinMode(BTN1, OUTPUT); digitalWrite(BTN1, LOW);
+        pinMode(BTN2, OUTPUT); digitalWrite(BTN2, LOW);
+        pinMode(BTN3, OUTPUT); digitalWrite(BTN3, LOW);
+        pinMode(BTN4, OUTPUT); digitalWrite(BTN4, LOW);
+    } else {
+        pinMode(BTN1, INPUT); pullUpDnControl(BTN1, PUD_DOWN);
+        pinMode(BTN2, INPUT); pullUpDnControl(BTN2, PUD_DOWN);
+        pinMode(BTN3, INPUT); pullUpDnControl(BTN3, PUD_DOWN);
+        pinMode(BTN4, INPUT); pullUpDnControl(BTN4, PUD_DOWN);
+    }
 
     for (int i = 1; i <= TOTAL_SLOTS; ++i) {
         pinMode(pin_pump[i], OUTPUT);
@@ -236,17 +244,23 @@ void pump_loop(AppState &state) {
     std::lock_guard<std::mutex> lock(g_pump_mutex);
     auto current_time = std::chrono::steady_clock::now();
 
-    // 1. Process Selection Buttons (shared-pin mode: flip to INPUT, read, flip back)
+    // 1. Process Selection Buttons (shared-pin mode: OUTPUT LOW briefly,
+    //    then INPUT to read button. LED stays lit through 10kΩ external
+    //    pull-down + LED path to GND.)
     for (int i = 1; i <= TOTAL_SLOTS; i++) {
         int btnPin = pin_button[i];
+        bool isCurrentlyPressed;
         if (SHARED_LED_BTN) {
+            // Momentarily drive LOW so LED doesn't blind the read,
+            // then switch to INPUT (no internal pull — external 10kΩ handles it)
+            digitalWrite(btnPin, LOW);
             pinMode(btnPin, INPUT);
-            pullUpDnControl(btnPin, PUD_DOWN);
-        }
-        bool isCurrentlyPressed = (digitalRead(btnPin) == HIGH);
-        if (SHARED_LED_BTN) {
+            isCurrentlyPressed = (digitalRead(btnPin) == HIGH);
+            // Restore OUTPUT with current LED state
             pinMode(btnPin, OUTPUT);
             digitalWrite(btnPin, state.armedQty[i] > 0 ? HIGH : LOW);
+        } else {
+            isCurrentlyPressed = (digitalRead(btnPin) == HIGH);
         }
 
         if (isCurrentlyPressed) {
