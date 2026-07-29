@@ -193,7 +193,7 @@ void pump_setup(AppState &state) {
     if (config.count("TRANSACTION_DIR")) state.transactionDir = config["TRANSACTION_DIR"];
     else                                 state.transactionDir = binDir + "/../transaction";
 
-    if (config.count("MAX_COIN_CREDIT")) state.maxCoinCredit  = std::stoi(config["MAX_COIN_CREDIT"]);
+    // maxCoinCredit removed — per-slot armedQty has no global cap
     if (config.count("PUMP_START_COOLDOWN_MS")) g_pump_start_cooldown_ms = std::stoi(config["PUMP_START_COOLDOWN_MS"]);
 
     log_info("pump", "Fully Integrated Logic Version 3.0 Live!");
