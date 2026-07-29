@@ -3,71 +3,78 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>SABON VENDO</title>
+<title>Sabon Vendo — Dashboard</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
 <header id="status-bar">
   <div class="status-left">
-    <span id="machine-status"><span class="status-dot offline"></span>OFFLINE</span>
-    <span id="machine-id">MACHINE —</span>
+    <span id="machine-status"><span class="dot dot-red"></span> Machine Offline</span>
+    <span>Machine #001</span>
   </div>
   <div class="status-center">
-    <span id="pause-indicator" class="status-bracket hidden">[PAUSED]</span>
+    <span id="pause-indicator" class="status-bracket hidden" style="color:var(--yellow);">[PAUSED]</span>
   </div>
   <div class="status-right">
     <span id="last-update">—:—:—</span>
   </div>
 </header>
 
+<div class="greeting" id="greeting">
+  <h1>Product Dashboard</h1>
+  <p>Connecting…</p>
+</div>
+
+<div class="bundle-bar" id="bundle-bar">
+  <span style="font-weight:600;">Bundle</span>
+  <div class="segments"><div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div></div>
+  <span style="color:var(--text-muted);">—/4 ready</span>
+</div>
+
 <main>
-
-<section id="product-grid">
-  <div class="micro-label">Products</div>
-  <div class="grid" id="grid-container"></div>
-</section>
-
-<aside id="right-panel">
-
-  <section id="sale-entry">
-    <div class="micro-label">New Sale</div>
-    <div id="staged-items"><span class="muted">[SELECT PRODUCT]</span></div>
-    <div class="quick-amounts" id="quick-amounts">
-      <button class="btn-amount" data-amount="5">₱5</button>
-      <button class="btn-amount" data-amount="10">₱10</button>
-      <button class="btn-amount" data-amount="15">₱15</button>
-      <button class="btn-amount" data-amount="20">₱20</button>
-    </div>
-    <div class="sale-actions">
-      <button id="btn-add-more" class="btn btn-outline">+ Add</button>
-      <button id="btn-clear-sale" class="btn btn-outline">Clear</button>
-    </div>
-    <button id="btn-arm" class="btn btn-primary btn-block btn-large" disabled>Arm</button>
-    <div id="sale-total" class="sale-total">₱0</div>
+  <section id="product-grid">
+    <div class="grid" id="grid-container"></div>
   </section>
 
-  <section id="armed-slots">
-    <div class="micro-label">Armed</div>
-    <div id="armed-list"><span class="muted">—</span></div>
-  </section>
+  <aside id="right-panel">
+    <section id="sale-entry">
+      <div class="micro-label">New Sale</div>
+      <div id="staged-items"><span class="muted">[Select a product, then tap an amount]</span></div>
+      <div class="quick-amounts" id="quick-amounts">
+        <button class="btn-amount" data-amount="5">₱5</button>
+        <button class="btn-amount" data-amount="10">₱10</button>
+        <button class="btn-amount" data-amount="15">₱15</button>
+        <button class="btn-amount" data-amount="20">₱20</button>
+      </div>
+      <div class="sale-actions">
+        <button id="btn-add-more" class="btn btn-outline">+ Add</button>
+        <button id="btn-clear-sale" class="btn btn-outline">Clear</button>
+      </div>
+      <button id="btn-arm" class="btn btn-primary btn-block btn-lg" disabled>Arm</button>
+      <div id="sale-total" class="sale-total">₱0</div>
+    </section>
 
-  <section id="queue-view">
-    <div class="micro-label">Queue</div>
-    <div id="queue-list"><span class="muted">—</span></div>
-  </section>
+    <section id="armed-slots">
+      <div class="micro-label">Armed</div>
+      <div id="armed-list"><span class="muted">—</span></div>
+    </section>
 
-  <section id="unclaimed-view">
-    <div class="micro-label">Needs Attention</div>
-    <div id="unclaimed-list"><span class="muted">—</span></div>
-  </section>
+    <section id="queue-view">
+      <div class="micro-label">Queue</div>
+      <div id="queue-list"><span class="muted">—</span></div>
+    </section>
 
-  <section id="alerts">
-    <div class="micro-label">Alerts</div>
-    <div id="alert-list"><span class="muted">—</span></div>
-  </section>
+    <section id="unclaimed-view">
+      <div class="micro-label">Needs Attention</div>
+      <div id="unclaimed-list"><span class="muted">—</span></div>
+    </section>
 
-</aside>
+    <section id="alerts">
+      <div class="micro-label">Alerts</div>
+      <div id="alert-list"><span class="muted">—</span></div>
+    </section>
+  </aside>
 </main>
 
 <script src="app.js"></script>
