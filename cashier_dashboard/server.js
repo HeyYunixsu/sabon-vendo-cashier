@@ -197,28 +197,35 @@ app.get('/api/status/stream', (req, res) => {
   });
 });
 
-// ARM endpoint — with sale ID + double-click guard
+// ARM endpoint — supports batch mode (ARM_BATCH) for simultaneous arming
 app.post('/api/arm', (req, res) => {
-  const { saleId, items } = req.body;
+  const { saleId, items, batch } = req.body;
 
   if (!saleId) {
     return res.status(400).json({ error: 'Missing saleId' });
-  }
-  if (!Array.isArray(items) || items.length === 0) {
-    return res.status(400).json({ error: 'No items provided' });
   }
 
   // Double-click guard
   if (processedSaleIds.has(saleId)) {
     console.log(`[dashboard] Duplicate sale ignored: ${saleId}`);
-    return res.json({ results: [], duplicate: true });
+    return res.json({ success: false, duplicate: true });
   }
   processedSaleIds.add(saleId);
-
-  // Cleanup old IDs (keep last 1000)
   if (processedSaleIds.size > 1000) {
     const it = processedSaleIds.values();
     for (let i = 0; i < 500; i++) processedSaleIds.delete(it.next().value);
+  }
+
+  // New batch mode: ARM_BATCH,1:3,2:1,3:5 (atomic, simultaneous)
+  if (batch) {
+    const command = `ARM_BATCH,${batch}`;
+    const sent = sendToCoinSlot(command);
+    return res.json({ success: sent, queued: !sent, saleId });
+  }
+
+  // Legacy mode: individual ARM per product
+  if (!Array.isArray(items) || items.length === 0) {
+    return res.status(400).json({ error: 'No items or batch provided' });
   }
 
   const results = [];
@@ -232,7 +239,6 @@ app.post('/api/arm', (req, res) => {
       results.push({ productId, success: false, error: `Invalid qty: ${qty}` });
       continue;
     }
-
     const command = `ARM,${productId},${qty}`;
     const sent = sendToCoinSlot(command);
     results.push({ productId, qty, success: sent, queued: !sent });

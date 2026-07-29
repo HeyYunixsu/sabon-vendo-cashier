@@ -135,6 +135,8 @@ static std::string build_status_response(AppState &state)
     resp += "," + std::to_string((int)state.pendingQueue[i].size());
   }
   resp += "," + std::to_string(state.state_pause ? 1 : 0);
+  resp += "," + std::to_string(static_cast<int>(state.phase));
+  resp += "," + std::to_string(state.bundleComplete ? 1 : 0);
   return resp;
 }
 
@@ -197,7 +199,45 @@ void manage_connected_clients(AppState &state)
 
     try
     {
-      if (isFirstWordTest(client_buffer, "ARM"))
+      if (isFirstWordTest(client_buffer, "ARM_BATCH"))
+      {
+        // Format: ARM_BATCH,<slot1>:<qty1>,<slot2>:<qty2>,...
+        // Arms all specified slots simultaneously from a single sale.
+        std::string input_str(client_buffer);
+        size_t start = input_str.find(',');
+        if (start == std::string::npos) {
+          log_error("socket", "Malformed ARM_BATCH: no slots");
+        } else {
+          std::string payload = input_str.substr(start + 1);
+          int armed = 0;
+          size_t pos = 0;
+          while (pos < payload.length()) {
+            size_t colon = payload.find(':', pos);
+            size_t comma = payload.find(',', colon);
+            if (colon == std::string::npos) break;
+            int slot = std::stoi(payload.substr(pos, colon - pos));
+            int qty  = std::stoi(payload.substr(colon + 1, comma == std::string::npos ? std::string::npos : comma - colon - 1));
+            if (slot >= 1 && slot <= 4 && qty > 0) {
+              if (state.slotBusy[slot]) {
+                state.pendingQueue[slot].push(PendingArm(slot, qty));
+              } else {
+                state.armedQty[slot] += qty;
+                armed++;
+              }
+            }
+            if (comma == std::string::npos) break;
+            pos = comma + 1;
+          }
+          if (armed > 0) {
+            state.phase = TxnPhase::ARMED;
+            state.bundleComplete = false;
+          }
+          log_info("socket", "ARM_BATCH: " + std::to_string(armed) + " slots armed");
+          broadcast_status(state);
+          saveStateToDisk(state, state.transactionDir);
+        }
+      }
+      else if (isFirstWordTest(client_buffer, "ARM"))
       {
         if (socket_count_commas(client_buffer) != 2)
         {
@@ -230,6 +270,8 @@ void manage_connected_clients(AppState &state)
           else
           {
             state.armedQty[productId] += qty;
+            state.phase = TxnPhase::ARMED;
+            state.bundleComplete = false;
             log_info("socket", "ARM accepted  product=" + std::to_string(productId) +
                      "  qty=" + std::to_string(qty) +
                      "  totalArmed=" + std::to_string(state.armedQty[productId]));

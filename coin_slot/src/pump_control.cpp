@@ -93,6 +93,7 @@ static void executeDispenseTrigger(int pumpIdx) {
 
         g_last_pump_start = current_time;
         state.slotBusy[pumpIdx] = true;
+        state.phase = TxnPhase::DISPENSING;
         pump.armedUnitsReserved++;
         // Post-press deadline: pump duration + 30 s grace for jam detection
         pump.postPressDeadline = current_time + extension + std::chrono::seconds(30);
@@ -163,6 +164,13 @@ static void handlePump(PumpState &pump, AppState &state) {
                           "  totalArmed=" + std::to_string(state.armedQty[pump.id]));
             }
             saveStateToDisk(state, state.transactionDir);
+
+            // Bundle complete: no slots armed and no slot busy
+            if (!state.anyArmed()) {
+                state.phase = TxnPhase::COMPLETE;
+                state.bundleComplete = true;
+                log_info("pump", "BUNDLE COMPLETE — all slots dispensed");
+            }
         }
     }
 }
