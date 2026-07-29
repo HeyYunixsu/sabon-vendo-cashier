@@ -3,36 +3,36 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>SABON VENDO — TERMINAL</title>
+<title>SABON VENDO</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
 <header id="status-bar">
   <div class="status-left">
-    <span id="machine-status" class="indicator offline">OFFLINE</span>
-    <span id="machine-id" class="status-label">MACHINE —</span>
+    <span id="machine-status"><span class="status-dot offline"></span>OFFLINE</span>
+    <span id="machine-id">MACHINE —</span>
   </div>
   <div class="status-center">
-    <span id="pause-indicator" class="pause-label hidden">PAUSED</span>
+    <span id="pause-indicator" class="status-bracket hidden">[PAUSED]</span>
   </div>
   <div class="status-right">
-    <span id="last-update" class="status-label">—:—:—</span>
+    <span id="last-update">—:—:—</span>
   </div>
 </header>
 
 <main>
 
 <section id="product-grid">
-  <div class="micro-label">PRODUCTS</div>
+  <div class="micro-label">Products</div>
   <div class="grid" id="grid-container"></div>
 </section>
 
 <aside id="right-panel">
 
   <section id="sale-entry">
-    <div class="micro-label">CURRENT SALE</div>
-    <div id="staged-items"><p class="muted">Select a product, then choose an amount</p></div>
+    <div class="micro-label">New Sale</div>
+    <div id="staged-items"><span class="muted">[SELECT PRODUCT]</span></div>
     <div class="quick-amounts" id="quick-amounts">
       <button class="btn-amount" data-amount="5">₱5</button>
       <button class="btn-amount" data-amount="10">₱10</button>
@@ -40,31 +40,31 @@
       <button class="btn-amount" data-amount="20">₱20</button>
     </div>
     <div class="sale-actions">
-      <button id="btn-add-more" class="btn btn-outline">+ ADD MORE</button>
-      <button id="btn-clear-sale" class="btn btn-outline">CLEAR</button>
+      <button id="btn-add-more" class="btn btn-outline">+ Add</button>
+      <button id="btn-clear-sale" class="btn btn-outline">Clear</button>
     </div>
-    <button id="btn-arm" class="btn btn-primary btn-block btn-large" disabled>ARM</button>
+    <button id="btn-arm" class="btn btn-primary btn-block btn-large" disabled>Arm</button>
     <div id="sale-total" class="sale-total">₱0</div>
   </section>
 
   <section id="armed-slots">
-    <div class="micro-label">ARMED</div>
-    <div id="armed-list"><p class="muted">—</p></div>
+    <div class="micro-label">Armed</div>
+    <div id="armed-list"><span class="muted">—</span></div>
   </section>
 
   <section id="queue-view">
-    <div class="micro-label">PENDING QUEUE</div>
-    <div id="queue-list"><p class="muted">—</p></div>
+    <div class="micro-label">Queue</div>
+    <div id="queue-list"><span class="muted">—</span></div>
   </section>
 
   <section id="unclaimed-view">
-    <div class="micro-label">NEEDS ATTENTION</div>
-    <div id="unclaimed-list"><p class="muted">—</p></div>
+    <div class="micro-label">Needs Attention</div>
+    <div id="unclaimed-list"><span class="muted">—</span></div>
   </section>
 
   <section id="alerts">
-    <div class="micro-label">ALERTS</div>
-    <div id="alert-list"><p class="muted">—</p></div>
+    <div class="micro-label">Alerts</div>
+    <div id="alert-list"><span class="muted">—</span></div>
   </section>
 
 </aside>
