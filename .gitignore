@@ -27,3 +27,4 @@ iot_dispenser_v2/main_gui
 **/node_modules/
 *.o
 *.pyc
+.superdesign

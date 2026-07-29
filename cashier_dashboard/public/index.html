@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>Sabon Vendo — Cashier Dashboard</title>
 <link rel="stylesheet" href="style.css">
 </head>
@@ -14,16 +14,18 @@
     <span id="machine-status" class="badge">● Connecting...</span>
     <span id="machine-id">Machine: —</span>
   </div>
-  <div class="status-right">
+  <div class="status-center">
     <span id="pause-indicator" class="badge badge-pause hidden">⏸ PAUSED</span>
-    <span id="last-update">Last update: —</span>
+  </div>
+  <div class="status-right">
+    <span id="last-update">—</span>
   </div>
 </header>
 
 <main>
-<!-- ====== Product Grid ====== -->
+<!-- ====== Product Grid (tap to select) ====== -->
 <section id="product-grid">
-  <h2>Products</h2>
+  <h2>Products — Tap to select</h2>
   <div class="grid" id="grid-container">
     <!-- Populated by JS -->
   </div>
@@ -32,12 +34,22 @@
 <!-- ====== Right Panel ====== -->
 <aside id="right-panel">
 
-  <!-- Sale Entry -->
+  <!-- Staged Sale -->
   <section id="sale-entry">
-    <h2>New Sale</h2>
-    <div id="sale-items"></div>
-    <button id="btn-add-product" class="btn btn-sm">+ Add Product</button>
-    <button id="btn-sell" class="btn btn-primary btn-block">Sell</button>
+    <h2>Current Sale</h2>
+    <div id="staged-items"><p class="muted">Tap a product, then tap an amount</p></div>
+    <div id="quick-amounts" class="quick-amounts">
+      <button class="btn btn-amount" data-amount="5">₱5</button>
+      <button class="btn btn-amount" data-amount="10">₱10</button>
+      <button class="btn btn-amount" data-amount="15">₱15</button>
+      <button class="btn btn-amount" data-amount="20">₱20</button>
+    </div>
+    <div class="sale-actions">
+      <button id="btn-add-more" class="btn btn-outline">+ Add More</button>
+      <button id="btn-clear-sale" class="btn btn-outline btn-danger-outline">Clear</button>
+    </div>
+    <button id="btn-arm" class="btn btn-primary btn-block btn-large" disabled>Arm Selected</button>
+    <p id="sale-total" class="sale-total muted">Total: ₱0</p>
   </section>
 
   <!-- Armed Slots -->
@@ -50,6 +62,12 @@
   <section id="queue-view">
     <h2>Pending Queue</h2>
     <div id="queue-list"><p class="muted">No pending orders</p></div>
+  </section>
+
+  <!-- Unclaimed / Needs Attention -->
+  <section id="unclaimed-view">
+    <h2>Unclaimed / Needs Attention</h2>
+    <div id="unclaimed-list"><p class="muted">None</p></div>
   </section>
 
   <!-- Alerts -->

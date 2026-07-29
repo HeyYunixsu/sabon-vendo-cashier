@@ -25,6 +25,13 @@ struct PumpState {
     bool buttonWasPressedLastFrame = false;
     std::chrono::time_point<std::chrono::steady_clock> pressStartTime{};
     bool processingTrigger = false;
+
+    // --- Jam protection (v2 plan): track reserved units in-flight ---
+    // armedQty is decremented on button press but the sale is NOT final
+    // until the dispense timer completes (sensor-confirmed via timeout).
+    // If the pump jams, reserved units are refunded to armedQty.
+    int armedUnitsReserved = 0;
+    std::chrono::time_point<std::chrono::steady_clock> postPressDeadline{};
 };
 
 static std::mutex     g_pump_mutex;
@@ -87,9 +94,15 @@ static void executeDispenseTrigger(int pumpIdx) {
 
         g_last_pump_start = current_time;
         state.slotBusy[pumpIdx] = true;
+        pump.armedUnitsReserved++;
+        // Post-press deadline: pump duration + 30 s grace for jam detection
+        pump.postPressDeadline = current_time + extension + std::chrono::seconds(30);
         log_info("pump", "Button " + std::to_string(pumpIdx) + ": ACCEPTED"
-                  "  armedQty_now=" + std::to_string(state.armedQty[pumpIdx]) + "  added=" + std::to_string(ms) + "ms");
+                  "  armedQty_now=" + std::to_string(state.armedQty[pumpIdx]) +
+                  "  reserved=" + std::to_string(pump.armedUnitsReserved) +
+                  "  added=" + std::to_string(ms) + "ms");
         digitalWrite(pump_pin, PUMP_TRIGGER_HIGH);
+        saveStateToDisk(state, state.transactionDir);
     } else {
         if (isMachinePaused)
             log_info("pump", "Button " + std::to_string(pumpIdx) + ": DENIED  reason=machine_is_paused (Credit Preserved!)");
@@ -129,9 +142,14 @@ static void handlePump(PumpState &pump, AppState &state) {
         digitalWrite(pin_pump[pump.id], PUMP_TRIGGER_LOW);
         if (pump.isPumping) {
             log_info("pump", "Pump " + std::to_string(pump.id) + ": STOPPED  dispensed=" + std::to_string(pump.amount) + " coins");
+            // Finalize: dispense confirmed via timeout → decrement reserved, log sale
+            if (pump.armedUnitsReserved > 0) {
+                pump.armedUnitsReserved--;
+            }
             processSaving(state, pump.id, pump.amount, "");
             pump.amount    = 0;
             pump.isPumping = false;
+            pump.postPressDeadline = std::chrono::steady_clock::time_point{};  // clear deadline
 
             // Release this slot: mark idle, then check pending queue
             state.slotBusy[pump.id] = false;
@@ -145,6 +163,7 @@ static void handlePump(PumpState &pump, AppState &state) {
                           "  qty=" + std::to_string(next.qty) +
                           "  totalArmed=" + std::to_string(state.armedQty[pump.id]));
             }
+            saveStateToDisk(state, state.transactionDir);
         }
     }
 }
@@ -201,8 +220,13 @@ void pump_setup(AppState &state) {
 
     pinMode(PIN_STOP, INPUT); pullUpDnControl(PIN_STOP, PUD_DOWN);
 
-    if (ensureDirectoryExists(state.transactionDir))
+    if (ensureDirectoryExists(state.transactionDir)) {
         log_info("pump", "Transaction dir ready: " + state.transactionDir);
+        // Restore armedQty from disk (crash persistence)
+        if (loadStateFromDisk(state, state.transactionDir)) {
+            log_info("pump", "Restored armed state from disk");
+        }
+    }
 }
 
 void pump_loop(AppState &state) {
@@ -279,6 +303,26 @@ void pump_loop(AppState &state) {
     // 4. Tick pump outputs
     for (int i = 1; i <= 4; i++)
         handlePump(pumps[i], state);
+
+    // 4b. Jam timeout detection — refund armedQty if post-press deadline passed
+    //     without the pump completing (sensor never confirmed)
+    for (int i = 1; i <= 4; i++) {
+        if (pumps[i].armedUnitsReserved > 0 &&
+            pumps[i].postPressDeadline.time_since_epoch().count() > 0 &&
+            current_time > pumps[i].postPressDeadline) {
+            // Pump jammed or sensor failed — refund the reserved unit
+            state.armedQty[i] += pumps[i].armedUnitsReserved;
+            log_error("pump", "Slot " + std::to_string(i) + ": JAM TIMEOUT — refunding "
+                      + std::to_string(pumps[i].armedUnitsReserved) + " unit(s) to armedQty="
+                      + std::to_string(state.armedQty[i]));
+            pumps[i].armedUnitsReserved = 0;
+            pumps[i].postPressDeadline = std::chrono::steady_clock::time_point{};
+            pumps[i].amount = 0;
+            state.slotBusy[i] = false;
+            digitalWrite(pin_pump[i], PUMP_TRIGGER_LOW);
+            saveStateToDisk(state, state.transactionDir);
+        }
+    }
 
     std::this_thread::sleep_for(std::chrono::milliseconds(50));
 }

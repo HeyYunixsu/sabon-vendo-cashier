@@ -235,6 +235,7 @@ void manage_connected_clients(AppState &state)
                      "  totalArmed=" + std::to_string(state.armedQty[productId]));
           }
           broadcast_status(state);
+          saveStateToDisk(state, state.transactionDir);
         }
       }
       else if (isFirstWordTest(client_buffer, "WTRLVL"))

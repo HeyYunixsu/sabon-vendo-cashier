@@ -116,3 +116,61 @@ void log_error(const std::string &module, const std::string &msg)
 {
   std::cerr << "[" << format_current_time() << "] [" << module << "] ERROR: " << msg << std::endl;
 }
+
+// ---------------------------------------------------------------------------
+// Crash persistence — survive Pi restarts without losing in-progress sales
+// ---------------------------------------------------------------------------
+
+#include "app_state.h"
+
+bool saveStateToDisk(const AppState &state, const std::string &dir)
+{
+  std::string filepath = dir + "/state.dat";
+  std::ofstream file(filepath, std::ios::trunc);
+  if (!file.is_open()) {
+    log_error("utils", "Could not open state file for writing: " + filepath);
+    return false;
+  }
+  // Write armedQty[1..4] one per line
+  for (int i = 1; i <= 4; i++) {
+    file << "ARMED_" << i << "=" << state.armedQty[i] << "\n";
+  }
+  // Write pending queue sizes and entries
+  for (int i = 1; i <= 4; i++) {
+    // We can't easily iterate a std::queue, so just save the size.
+    // Full queue reconstruction is handled by the dashboard re-sending on reconnect.
+    file << "QUEUE_" << i << "=" << (int)state.pendingQueue[i].size() << "\n";
+  }
+  file.close();
+  return true;
+}
+
+bool loadStateFromDisk(AppState &state, const std::string &dir)
+{
+  std::string filepath = dir + "/state.dat";
+  std::ifstream file(filepath);
+  if (!file.is_open()) return false;  // no saved state — fresh start
+
+  std::string line;
+  while (std::getline(file, line)) {
+    line = trim(line);
+    if (line.empty()) continue;
+    size_t eq = line.find('=');
+    if (eq == std::string::npos) continue;
+    std::string key = line.substr(0, eq);
+    int val = std::stoi(line.substr(eq + 1));
+
+    if (key.rfind("ARMED_", 0) == 0) {
+      int slot = std::stoi(key.substr(6));
+      if (slot >= 1 && slot <= 4) state.armedQty[slot] = val;
+    }
+    // QUEUE entries are logged but can't be fully restored without
+    // the original ARM command data; the dashboard will re-send on reconnect.
+    if (key.rfind("QUEUE_", 0) == 0) {
+      log_info("utils", "State restored: slot " + key.substr(6) + " had " + std::to_string(val) + " queued ARM(s)");
+    }
+  }
+  file.close();
+  log_info("utils", "State loaded from " + filepath);
+  return true;
+}

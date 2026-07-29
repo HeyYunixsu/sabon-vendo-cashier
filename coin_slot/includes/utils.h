@@ -19,6 +19,12 @@ std::string format_current_time(
 // Returns false only if the directory could not be created.
 bool ensureDirectoryExists(const std::string &path);
 
+// Crash persistence: save/load armedQty + pendingQueue to disk so in-progress
+// sales survive a Pi restart. Called on every state change.
+struct AppState;  // forward declaration
+bool saveStateToDisk(const AppState &state, const std::string &dir);
+bool loadStateFromDisk(AppState &state, const std::string &dir);
+
 // Returns the absolute directory that contains the running binary.
 // Used to build config/transaction paths that are independent of CWD.
 std::string get_binary_dir();
