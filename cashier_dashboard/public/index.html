@@ -111,7 +111,12 @@ body {
   border: 1px solid var(--border-default);
   border-radius: var(--radius-container);
   padding: 16px 20px;
+  border-top: 3px solid transparent;
 }
+.kpi-card:nth-child(1) { border-top-color: var(--accent-action); }
+.kpi-card:nth-child(2) { border-top-color: var(--status-positive); }
+.kpi-card:nth-child(3) { border-top-color: var(--status-caution); }
+.kpi-card:nth-child(4) { border-top-color: #8B5CF6; }
 .kpi-card .kpi-label {
   font-family: 'Poppins', sans-serif; font-size: 10px;
   font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em;
@@ -206,7 +211,13 @@ main {
   border: 1px solid var(--border-default);
   border-radius: var(--radius-container);
   padding: 16px 20px;
+  border-left: 3px solid transparent;
 }
+#right-panel section:nth-child(1) { border-left-color: var(--accent-action); }
+#right-panel section:nth-child(2) { border-left-color: var(--status-positive); }
+#right-panel section:nth-child(3) { border-left-color: var(--status-caution); }
+#right-panel section:nth-child(4) { border-left-color: #8B5CF6; }
+#right-panel section:nth-child(5) { border-left-color: var(--status-negative); }
 .section-label {
   font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 600;
   color: var(--text-content-secondary); text-transform: uppercase;
@@ -230,13 +241,20 @@ main {
 
 /* Staged items */
 .staged-row {
-  display: flex; justify-content: space-between; align-items: center;
-  padding: 9px 0; border-bottom: 1px solid var(--border-default);
+  display: grid; grid-template-columns: 1fr auto 30px; align-items: center;
+  gap: 8px; padding: 10px 6px; border-bottom: 1px solid var(--border-default);
   font-size: 13px; animation: slide-in .18s ease;
 }
 .staged-row:last-child { border-bottom: none; }
+.staged-row .staged-info { text-align: left; }
 .staged-row .staged-name { font-weight: 600; }
-.staged-row .staged-price { font-family: 'Poppins', sans-serif; font-weight: 600; font-size: 14px; color: var(--text-content-primary); }
+.staged-row .staged-price {
+  font-family: 'Poppins', sans-serif; font-weight: 700; font-size: 15px;
+  color: var(--accent-action); text-align: center;
+  background: color-mix(in srgb, var(--accent-action) 10%, transparent);
+  padding: 4px 12px; border-radius: var(--radius-pill);
+  white-space: nowrap;
+}
 .staged-row .staged-meta { font-size: 11px; color: var(--text-content-secondary); }
 .btn-remove {
   background: none; border: 1px solid var(--border-default);
@@ -249,6 +267,31 @@ main {
 @keyframes slide-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
 
 .sale-actions { display: flex; gap: 8px; margin: 10px 0; }
+
+/* Add More popup */
+.add-more-popup {
+  display: none; margin-top: 8px; padding: 10px 12px;
+  background: var(--bg-surface-tertiary); border: 1px solid var(--border-strong);
+  border-radius: var(--radius-element);
+}
+.add-more-popup.open { display: flex; align-items: center; gap: 8px; }
+.add-more-popup input {
+  flex: 1; background: var(--bg-surface-secondary);
+  border: 1px solid var(--border-default); border-radius: var(--radius-element);
+  padding: 10px 12px; color: var(--text-content-primary);
+  font-family: 'Poppins', sans-serif; font-size: 18px; font-weight: 600;
+  text-align: center; outline: none;
+}
+.add-more-popup input:focus { border-color: var(--border-strong); }
+.add-more-popup .btn-confirm {
+  padding: 10px 18px; background: var(--accent-action); color: #fff;
+  border: none; border-radius: var(--radius-pill); cursor: pointer;
+  font-family: 'Poppins', sans-serif; font-size: 13px; font-weight: 600;
+}
+.add-more-popup .btn-confirm:hover { background: var(--accent-action-hover); }
+.add-more-popup .hint {
+  font-size: 10px; color: var(--text-content-secondary); margin-top: 4px;
+}
 .sale-total {
   text-align: right; margin-top: 4px;
   font-family: 'Poppins', sans-serif;
@@ -432,6 +475,10 @@ main {
       <div class="sale-actions">
         <button id="btn-add-more" class="btn btn-outline">Add More</button>
         <button id="btn-clear-sale" class="btn btn-outline">Clear</button>
+      </div>
+      <div class="add-more-popup" id="add-more-popup">
+        <input type="number" id="custom-amount" placeholder="Qty" min="1" max="99" step="1">
+        <button class="btn-confirm" id="btn-confirm-add">Add</button>
       </div>
       <button id="btn-arm" class="btn btn-primary btn-block btn-lg" disabled>Arm</button>
       <div id="sale-total" class="sale-total">P 0</div>
@@ -654,8 +701,10 @@ main {
 
   // Sale
   function selectProduct(id) { selProduct = id; renderGrid(); document.querySelectorAll('.btn-amount').forEach(b => b.disabled = false); }
-  function stageItem(id, amt) {
-    staged.push({ id, name: PRODUCT[id], amt, qty: AMOUNT_QTY[amt]||1 });
+  function stageItem(id, amt, customQty) {
+    const qty = customQty || (AMOUNT_QTY[amt] || 1);
+    const amount = customQty ? customQty * 5 : amt;
+    staged.push({ id, name: PRODUCT[id], amt: amount, qty });
     selProduct = null; renderStaged(); renderGrid(); updateArm();
     document.querySelectorAll('.btn-amount').forEach(b => b.disabled = true);
   }
@@ -665,7 +714,11 @@ main {
     let h = '', t = 0;
     staged.forEach((it, i) => {
       t += it.amt;
-      h += '<div class="staged-row"><span><span class="staged-name">'+it.name+'</span> <span class="staged-meta">('+it.qty+'u)</span></span><span class="staged-price">P '+it.amt+'</span><button class="btn-remove" data-idx="'+i+'">x</button></div>';
+      h += '<div class="staged-row">';
+      h += '<span class="staged-info"><span class="staged-name">'+it.name+'</span> <span class="staged-meta">('+it.qty+'u)</span></span>';
+      h += '<span class="staged-price">P '+it.amt+'</span>';
+      h += '<button class="btn-remove" data-idx="'+i+'">x</button>';
+      h += '</div>';
     });
     $('staged-items').innerHTML = h; $('sale-total').textContent = 'P '+t;
     $('staged-items').querySelectorAll('.btn-remove').forEach(b => b.addEventListener('click', () => removeStaged(+b.dataset.idx)));
@@ -727,7 +780,29 @@ main {
     b.disabled = true;
     b.addEventListener('click', () => { if (selProduct !== null) stageItem(selProduct, +b.dataset.amount); });
   });
-  $('btn-add-more').addEventListener('click', () => { selProduct = null; renderGrid(); document.querySelectorAll('.btn-amount').forEach(b => b.disabled = true); });
+  $('btn-add-more').addEventListener('click', () => {
+    selProduct = null; renderGrid();
+    document.querySelectorAll('.btn-amount').forEach(b => b.disabled = true);
+    $('add-more-popup').classList.add('open');
+    $('custom-amount').value = ''; $('custom-amount').focus();
+  });
+
+  // Add More confirm
+  $('btn-confirm-add').addEventListener('click', () => {
+    const val = parseInt($('custom-amount').value);
+    if (!val || val < 1 || val > 99) return;
+    // Determine product: use first armed slot or slot 1
+    const slot = selProduct || 1;
+    stageItem(slot, 0, val);  // customQty overrides amount
+    $('add-more-popup').classList.remove('open');
+    $('custom-amount').value = '';
+  });
+
+  // Close popup on Enter
+  $('custom-amount').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') $('btn-confirm-add').click();
+    if (e.key === 'Escape') { $('add-more-popup').classList.remove('open'); $('custom-amount').value = ''; }
+  });
   $('btn-clear-sale').addEventListener('click', () => { staged = []; selProduct = null; renderStaged(); renderGrid(); updateArm(); document.querySelectorAll('.btn-amount').forEach(b => b.disabled = true); });
   $('btn-arm').addEventListener('click', executeArm);
 
