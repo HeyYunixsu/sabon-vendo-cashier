@@ -1,13 +1,9 @@
 /**
- * Sabon Vendo — Cashier Dashboard Client (v2 — Fast Tap-Based Sale Entry)
+ * Sabon Vendo — Cashier Dashboard (v3 — Minimal Industrial)
  *
- * Flow: Tap product → Tap amount (₱5/₱10/₱15/₱20) → product+amount staged
- *       → optionally add more products → Tap "Arm" to commit all at once.
+ * Flow: Tap product → Tap amount (₱5/₱10/₱15/₱20) → staged
+ *       → Add more / Clear → ARM commits all at once.
  */
-
-// ---------------------------------------------------------------------------
-// Constants
-// ---------------------------------------------------------------------------
 
 const PRODUCT_NAMES = {
   1: 'Deesh Premium',
@@ -18,7 +14,7 @@ const PRODUCT_NAMES = {
   6: 'Slot 6',
 };
 
-const AMOUNT_TO_QTY = { 5: 1, 10: 2, 15: 3, 20: 4 };  // ₱ → units
+const AMOUNT_TO_QTY = { 5: 1, 10: 2, 15: 3, 20: 4 };
 const ACTIVE_SLOTS = 4;
 const TOTAL_SLOTS  = 6;
 
@@ -37,16 +33,13 @@ let machineState = {
   connected:    false,
 };
 
-// Sale staging
-let selectedProduct = null;          // product ID selected for current staging
-let stagedItems = [];                // [{productId, productName, amount, qty}]
+let selectedProduct = null;
+let stagedItems = [];
+let unclaimedItems = [];
 let saleIdCounter = 0;
 
-// Unclaimed tracking (from server)
-let unclaimedItems = [];
-
 // ---------------------------------------------------------------------------
-// SSE connection
+// SSE
 // ---------------------------------------------------------------------------
 
 function connectSSE() {
@@ -84,7 +77,6 @@ function parseStatus(raw) {
 }
 
 function parseUnclaimed(raw) {
-  // Format: UNCLAIMED:<slot>,<qty>,<amount>,<timestamp>
   const parts = raw.substring(10).split(',');
   if (parts.length >= 3) {
     unclaimedItems.push({
@@ -98,7 +90,7 @@ function parseUnclaimed(raw) {
 }
 
 // ---------------------------------------------------------------------------
-// Render helpers
+// Render
 // ---------------------------------------------------------------------------
 
 function updateAll() {
@@ -111,20 +103,21 @@ function updateAll() {
 }
 
 function updateStatusBar() {
-  const statusEl = document.getElementById('machine-status');
-  const pauseEl  = document.getElementById('pause-indicator');
-  const updateEl = document.getElementById('last-update');
+  const statusEl  = document.getElementById('machine-status');
+  const pauseEl   = document.getElementById('pause-indicator');
+  const updateEl  = document.getElementById('last-update');
+  const machineEl = document.getElementById('machine-id');
 
   if (machineState.connected) {
-    statusEl.textContent = '● Online';
-    statusEl.className = 'badge badge-online';
+    statusEl.textContent = 'ONLINE';
+    statusEl.className = 'indicator online';
   } else {
-    statusEl.textContent = '● Offline';
-    statusEl.className = 'badge badge-offline';
+    statusEl.textContent = 'OFFLINE';
+    statusEl.className = 'indicator offline';
   }
   pauseEl.classList.toggle('hidden', !machineState.paused);
   if (machineState.lastUpdate) {
-    updateEl.textContent = machineState.lastUpdate.toLocaleTimeString();
+    updateEl.textContent = machineState.lastUpdate.toLocaleTimeString('en-US', { hour12: false });
   }
 }
 
@@ -132,11 +125,11 @@ function renderProductGrid() {
   const container = document.getElementById('grid-container');
   let html = '';
   for (let i = 1; i <= TOTAL_SLOTS; i++) {
-    const active = i <= ACTIVE_SLOTS;
-    const armed = machineState.armedQty[i] || 0;
-    const busy = machineState.busy[i];
-    const empty = machineState.wlvl[i];
-    const qDepth = machineState.queueDepth[i];
+    const active   = i <= ACTIVE_SLOTS;
+    const armed    = machineState.armedQty[i] || 0;
+    const busy     = machineState.busy[i];
+    const empty    = machineState.wlvl[i];
+    const qDepth   = machineState.queueDepth[i];
     const selected = (selectedProduct === i);
 
     let cls = 'product-card';
@@ -146,32 +139,36 @@ function renderProductGrid() {
     else if (armed > 0) cls += ' armed';
     if (selected) cls += ' selected';
 
+    // Indicator light state
+    let indState = 'idle';
+    if (!active) indState = 'notavail';
+    else if (empty) indState = 'empty';
+    else if (busy) indState = 'busy';
+    else if (armed > 0) indState = 'armed';
+
     html += `<div class="${cls}" data-slot="${i}">`;
+    html += `<div class="slot-num">SLOT ${String(i).padStart(2,'0')}</div>`;
     html += `<div class="product-name">${PRODUCT_NAMES[i]}</div>`;
     if (!active) {
-      html += `<div class="not-avail-overlay"><span class="badge badge-notavail">N/A</span></div>`;
+      html += `<div class="armed-qty zero">—</div>`;
+      html += `<div class="indicator-row"><span class="indicator notavail">N/A</span></div>`;
     } else {
       html += `<div class="armed-qty${armed === 0 ? ' zero' : ''}">${armed}</div>`;
-      html += `<div class="product-status">`;
-      html += busy ? `<span class="badge badge-busy">Dispensing</span>`
-        : (armed > 0 ? `<span class="badge badge-armed">Armed</span>`
-        : `<span class="badge badge-idle">Idle</span>`);
-      html += empty ? `<span class="badge badge-empty">Empty</span>`
-        : `<span class="badge badge-full">Full</span>`;
-      if (qDepth > 0) html += `<span class="badge badge-busy">Q:${qDepth}</span>`;
+      html += `<div class="indicator-row">`;
+      html += `<span class="indicator ${indState}">${busy ? 'DISPENSING' : (armed > 0 ? 'ARMED' : (empty ? 'EMPTY' : 'IDLE'))}</span>`;
+      if (qDepth > 0) {
+        html += `<span class="indicator busy">Q:${qDepth}</span>`;
+      }
       html += `</div>`;
     }
     html += `</div>`;
   }
   container.innerHTML = html;
 
-  // Attach click handlers
   container.querySelectorAll('.product-card').forEach(card => {
     card.addEventListener('click', () => {
       const slot = parseInt(card.dataset.slot);
-      if (slot <= ACTIVE_SLOTS && !machineState.wlvl[slot]) {
-        selectProduct(slot);
-      }
+      if (slot <= ACTIVE_SLOTS && !machineState.wlvl[slot]) selectProduct(slot);
     });
   });
 }
@@ -184,15 +181,14 @@ function renderArmedSlots() {
     if (machineState.armedQty[i] > 0 || machineState.busy[i]) {
       has = true;
       html += `<div class="armed-row">`;
-      html += `<span><strong>Slot ${i}: ${PRODUCT_NAMES[i]}</strong></span>`;
-      html += `<span>Qty: ${machineState.armedQty[i]}</span>`;
-      html += `<button class="btn btn-cancel" data-slot="${i}">Cancel</button>`;
+      html += `<span><span class="indicator ${machineState.busy[i] ? 'busy' : 'armed'}"></span> <strong>${PRODUCT_NAMES[i]}</strong></span>`;
+      html += `<span class="qty-val">${machineState.armedQty[i]}</span>`;
+      html += `<button class="btn-cancel" data-slot="${i}">CANCEL</button>`;
       html += `</div>`;
     }
   }
-  if (!has) html = '<p class="muted">No armed slots</p>';
+  if (!has) html = '<p class="muted">—</p>';
   container.innerHTML = html;
-
   container.querySelectorAll('.btn-cancel').forEach(btn => {
     btn.addEventListener('click', () => cancelSlot(parseInt(btn.dataset.slot)));
   });
@@ -206,12 +202,12 @@ function renderQueue() {
     if (machineState.queueDepth[i] > 0) {
       has = true;
       html += `<div class="queue-row">`;
-      html += `<span><strong>Slot ${i}</strong>: ${PRODUCT_NAMES[i]}</span>`;
-      html += `<span>${machineState.queueDepth[i]} pending</span>`;
+      html += `<span><strong>${PRODUCT_NAMES[i]}</strong></span>`;
+      html += `<span class="qty-val">${machineState.queueDepth[i]} PENDING</span>`;
       html += `</div>`;
     }
   }
-  if (!has) html = '<p class="muted">No pending orders</p>';
+  if (!has) html = '<p class="muted">—</p>';
   container.innerHTML = html;
 }
 
@@ -220,39 +216,35 @@ function renderAlerts() {
   let html = '';
   for (let i = 1; i <= 4; i++) {
     if (machineState.wlvl[i]) {
-      html += `<div class="alert-row danger">⚠ Slot ${i} (${PRODUCT_NAMES[i]}): EMPTY — refill needed</div>`;
+      html += `<div class="alert-row danger"><span class="indicator empty"></span> SLOT ${String(i).padStart(2,'0')}: ${PRODUCT_NAMES[i]} — EMPTY</div>`;
     }
   }
   if (!machineState.connected) {
-    html += `<div class="alert-row danger">⚠ Machine offline — cannot dispense</div>`;
+    html += `<div class="alert-row danger"><span class="indicator offline"></span> MACHINE OFFLINE</div>`;
   }
-  if (!html) html = '<p class="muted">No alerts</p>';
+  if (!html) html = '<p class="muted">—</p>';
   container.innerHTML = html;
 }
 
 function renderUnclaimed() {
   const container = document.getElementById('unclaimed-list');
   if (unclaimedItems.length === 0) {
-    container.innerHTML = '<p class="muted">None</p>';
+    container.innerHTML = '<p class="muted">—</p>';
     return;
   }
   let html = '';
   unclaimedItems.forEach((item, idx) => {
     html += `<div class="alert-row warning">`;
-    html += `<span>⚠ Slot ${item.slot}: ${item.qty} unit(s) — ₱${item.amount}</span>`;
+    html += `<span><span class="indicator busy"></span> SLOT ${String(item.slot).padStart(2,'0')}: ${item.qty}u — ₱${item.amount}</span>`;
     html += `<span>`;
-    html += `<button class="btn btn-sm" data-resolve="${idx}" data-action="retry">Retry</button> `;
-    html += `<button class="btn btn-sm" data-resolve="${idx}" data-action="dismiss">Dismiss</button>`;
-    html += `</span>`;
-    html += `</div>`;
+    html += `<button class="btn-sm" data-resolve="${idx}" data-action="retry">RETRY</button> `;
+    html += `<button class="btn-sm" data-resolve="${idx}" data-action="dismiss">DISMISS</button>`;
+    html += `</span></div>`;
   });
   container.innerHTML = html;
-
   container.querySelectorAll('[data-resolve]').forEach(btn => {
     btn.addEventListener('click', () => {
-      const idx = parseInt(btn.dataset.resolve);
-      const action = btn.dataset.action;
-      resolveUnclaimed(idx, action);
+      resolveUnclaimed(parseInt(btn.dataset.resolve), btn.dataset.action);
     });
   });
 }
@@ -263,21 +255,15 @@ function renderUnclaimed() {
 
 function selectProduct(productId) {
   if (productId < 1 || productId > ACTIVE_SLOTS) return;
-  if (machineState.wlvl[productId]) return;  // can't select empty slots
+  if (machineState.wlvl[productId]) return;
   selectedProduct = productId;
   renderProductGrid();
-  // Enable amount buttons
   document.querySelectorAll('.btn-amount').forEach(b => b.disabled = false);
 }
 
 function stageItem(productId, amount) {
   const qty = AMOUNT_TO_QTY[amount] || 1;
-  stagedItems.push({
-    productId,
-    productName: PRODUCT_NAMES[productId],
-    amount,
-    qty,
-  });
+  stagedItems.push({ productId, productName: PRODUCT_NAMES[productId], amount, qty });
   selectedProduct = null;
   renderStagedItems();
   renderProductGrid();
@@ -294,8 +280,8 @@ function removeStagedItem(index) {
 function renderStagedItems() {
   const container = document.getElementById('staged-items');
   if (stagedItems.length === 0) {
-    container.innerHTML = '<p class="muted">Tap a product, then tap an amount</p>';
-    document.getElementById('sale-total').textContent = 'Total: ₱0';
+    container.innerHTML = '<p class="muted">Select a product, then choose an amount</p>';
+    document.getElementById('sale-total').textContent = '₱0';
     return;
   }
   let html = '';
@@ -303,13 +289,13 @@ function renderStagedItems() {
   stagedItems.forEach((item, idx) => {
     total += item.amount;
     html += `<div class="staged-row">`;
-    html += `<span><strong>${item.productName}</strong> — ₱${item.amount} (${item.qty}u)</span>`;
-    html += `<button class="btn-remove" data-idx="${idx}">✕</button>`;
+    html += `<span><strong>${item.productName}</strong></span>`;
+    html += `<span class="staged-qty">₱${item.amount} (${item.qty}u)</span>`;
+    html += `<button class="btn-remove" data-idx="${idx}">×</button>`;
     html += `</div>`;
   });
   container.innerHTML = html;
-  document.getElementById('sale-total').textContent = `Total: ₱${total}`;
-
+  document.getElementById('sale-total').textContent = `₱${total}`;
   container.querySelectorAll('.btn-remove').forEach(btn => {
     btn.addEventListener('click', () => removeStagedItem(parseInt(btn.dataset.idx)));
   });
@@ -318,20 +304,16 @@ function renderStagedItems() {
 function updateArmButton() {
   const btn = document.getElementById('btn-arm');
   btn.disabled = (stagedItems.length === 0);
-  if (stagedItems.length > 0) {
-    btn.textContent = `Arm ${stagedItems.length} Product${stagedItems.length > 1 ? 's' : ''}`;
-  } else {
-    btn.textContent = 'Arm Selected';
-  }
+  btn.textContent = stagedItems.length > 0
+    ? `ARM ${stagedItems.length} SLOT${stagedItems.length > 1 ? 'S' : ''}`
+    : 'ARM';
 }
 
 async function executeArm() {
   if (stagedItems.length === 0) return;
-
   const btn = document.getElementById('btn-arm');
   btn.disabled = true;
-  btn.textContent = 'Arming...';
-
+  btn.textContent = 'ARMING…';
   const saleId = 'SALE-' + Date.now() + '-' + (++saleIdCounter);
   try {
     const resp = await fetch('/api/arm', {
@@ -340,12 +322,10 @@ async function executeArm() {
       body: JSON.stringify({ saleId, items: stagedItems.map(i => ({ productId: i.productId, qty: i.qty })) }),
     });
     const data = await resp.json();
-
     const failures = data.results.filter(r => !r.success);
     if (failures.length > 0) {
-      alert('Some items failed:\n' + failures.map(f => `Slot ${f.productId}: ${f.error}`).join('\n'));
+      alert('FAILED:\n' + failures.map(f => `SLOT ${String(f.productId).padStart(2,'0')}: ${f.error}`).join('\n'));
     } else {
-      // Success — clear staged items
       stagedItems = [];
       selectedProduct = null;
       renderStagedItems();
@@ -354,7 +334,7 @@ async function executeArm() {
       document.querySelectorAll('.btn-amount').forEach(b => b.disabled = true);
     }
   } catch (e) {
-    alert('Failed to send sale: ' + e.message);
+    alert('CONNECTION ERROR: ' + e.message);
   } finally {
     updateArmButton();
   }
@@ -367,9 +347,7 @@ async function cancelSlot(productId) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ productId }),
     });
-  } catch (e) {
-    console.error('Cancel failed:', e);
-  }
+  } catch (e) { console.error('Cancel failed:', e); }
 }
 
 async function resolveUnclaimed(idx, action) {
@@ -382,25 +360,22 @@ async function resolveUnclaimed(idx, action) {
     });
     unclaimedItems.splice(idx, 1);
     renderUnclaimed();
-  } catch (e) {
-    console.error('Resolve failed:', e);
-  }
+  } catch (e) { console.error('Resolve failed:', e); }
 }
 
 // ---------------------------------------------------------------------------
-// Event listeners
+// Init
 // ---------------------------------------------------------------------------
 
 document.querySelectorAll('.btn-amount').forEach(btn => {
+  btn.disabled = true;
   btn.addEventListener('click', () => {
     if (selectedProduct === null) return;
-    const amount = parseInt(btn.dataset.amount);
-    stageItem(selectedProduct, amount);
+    stageItem(selectedProduct, parseInt(btn.dataset.amount));
   });
 });
 
 document.getElementById('btn-add-more').addEventListener('click', () => {
-  // Deselect current product so user picks next one
   selectedProduct = null;
   renderProductGrid();
   document.querySelectorAll('.btn-amount').forEach(b => b.disabled = true);
@@ -417,10 +392,5 @@ document.getElementById('btn-clear-sale').addEventListener('click', () => {
 
 document.getElementById('btn-arm').addEventListener('click', executeArm);
 
-// ---------------------------------------------------------------------------
-// Init
-// ---------------------------------------------------------------------------
-
-document.querySelectorAll('.btn-amount').forEach(b => b.disabled = true);
 renderProductGrid();
 connectSSE();

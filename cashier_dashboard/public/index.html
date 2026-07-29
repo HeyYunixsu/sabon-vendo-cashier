@@ -3,77 +3,68 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>Sabon Vendo — Cashier Dashboard</title>
+<title>SABON VENDO — TERMINAL</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-<!-- ====== Header / Status Bar ====== -->
 <header id="status-bar">
   <div class="status-left">
-    <span id="machine-status" class="badge">● Connecting...</span>
-    <span id="machine-id">Machine: —</span>
+    <span id="machine-status" class="indicator offline">OFFLINE</span>
+    <span id="machine-id" class="status-label">MACHINE —</span>
   </div>
   <div class="status-center">
-    <span id="pause-indicator" class="badge badge-pause hidden">⏸ PAUSED</span>
+    <span id="pause-indicator" class="pause-label hidden">PAUSED</span>
   </div>
   <div class="status-right">
-    <span id="last-update">—</span>
+    <span id="last-update" class="status-label">—:—:—</span>
   </div>
 </header>
 
 <main>
-<!-- ====== Product Grid (tap to select) ====== -->
+
 <section id="product-grid">
-  <h2>Products — Tap to select</h2>
-  <div class="grid" id="grid-container">
-    <!-- Populated by JS -->
-  </div>
+  <div class="micro-label">PRODUCTS</div>
+  <div class="grid" id="grid-container"></div>
 </section>
 
-<!-- ====== Right Panel ====== -->
 <aside id="right-panel">
 
-  <!-- Staged Sale -->
   <section id="sale-entry">
-    <h2>Current Sale</h2>
-    <div id="staged-items"><p class="muted">Tap a product, then tap an amount</p></div>
-    <div id="quick-amounts" class="quick-amounts">
-      <button class="btn btn-amount" data-amount="5">₱5</button>
-      <button class="btn btn-amount" data-amount="10">₱10</button>
-      <button class="btn btn-amount" data-amount="15">₱15</button>
-      <button class="btn btn-amount" data-amount="20">₱20</button>
+    <div class="micro-label">CURRENT SALE</div>
+    <div id="staged-items"><p class="muted">Select a product, then choose an amount</p></div>
+    <div class="quick-amounts" id="quick-amounts">
+      <button class="btn-amount" data-amount="5">₱5</button>
+      <button class="btn-amount" data-amount="10">₱10</button>
+      <button class="btn-amount" data-amount="15">₱15</button>
+      <button class="btn-amount" data-amount="20">₱20</button>
     </div>
     <div class="sale-actions">
-      <button id="btn-add-more" class="btn btn-outline">+ Add More</button>
-      <button id="btn-clear-sale" class="btn btn-outline btn-danger-outline">Clear</button>
+      <button id="btn-add-more" class="btn btn-outline">+ ADD MORE</button>
+      <button id="btn-clear-sale" class="btn btn-outline">CLEAR</button>
     </div>
-    <button id="btn-arm" class="btn btn-primary btn-block btn-large" disabled>Arm Selected</button>
-    <p id="sale-total" class="sale-total muted">Total: ₱0</p>
+    <button id="btn-arm" class="btn btn-primary btn-block btn-large" disabled>ARM</button>
+    <div id="sale-total" class="sale-total">₱0</div>
   </section>
 
-  <!-- Armed Slots -->
   <section id="armed-slots">
-    <h2>Armed Slots</h2>
-    <div id="armed-list"><p class="muted">No armed slots</p></div>
+    <div class="micro-label">ARMED</div>
+    <div id="armed-list"><p class="muted">—</p></div>
   </section>
 
-  <!-- Queue -->
   <section id="queue-view">
-    <h2>Pending Queue</h2>
-    <div id="queue-list"><p class="muted">No pending orders</p></div>
+    <div class="micro-label">PENDING QUEUE</div>
+    <div id="queue-list"><p class="muted">—</p></div>
   </section>
 
-  <!-- Unclaimed / Needs Attention -->
   <section id="unclaimed-view">
-    <h2>Unclaimed / Needs Attention</h2>
-    <div id="unclaimed-list"><p class="muted">None</p></div>
+    <div class="micro-label">NEEDS ATTENTION</div>
+    <div id="unclaimed-list"><p class="muted">—</p></div>
   </section>
 
-  <!-- Alerts -->
   <section id="alerts">
-    <h2>Alerts</h2>
-    <div id="alert-list"><p class="muted">No alerts</p></div>
+    <div class="micro-label">ALERTS</div>
+    <div id="alert-list"><p class="muted">—</p></div>
   </section>
 
 </aside>
