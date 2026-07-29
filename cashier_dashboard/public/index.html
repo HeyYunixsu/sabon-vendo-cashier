@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sabon Vendo — Cashier Dashboard</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ====== Header / Status Bar ====== -->
+<header id="status-bar">
+  <div class="status-left">
+    <span id="machine-status" class="badge">● Connecting...</span>
+    <span id="machine-id">Machine: —</span>
+  </div>
+  <div class="status-right">
+    <span id="pause-indicator" class="badge badge-pause hidden">⏸ PAUSED</span>
+    <span id="last-update">Last update: —</span>
+  </div>
+</header>
+
+<main>
+<!-- ====== Product Grid ====== -->
+<section id="product-grid">
+  <h2>Products</h2>
+  <div class="grid" id="grid-container">
+    <!-- Populated by JS -->
+  </div>
+</section>
+
+<!-- ====== Right Panel ====== -->
+<aside id="right-panel">
+
+  <!-- Sale Entry -->
+  <section id="sale-entry">
+    <h2>New Sale</h2>
+    <div id="sale-items"></div>
+    <button id="btn-add-product" class="btn btn-sm">+ Add Product</button>
+    <button id="btn-sell" class="btn btn-primary btn-block">Sell</button>
+  </section>
+
+  <!-- Armed Slots -->
+  <section id="armed-slots">
+    <h2>Armed Slots</h2>
+    <div id="armed-list"><p class="muted">No armed slots</p></div>
+  </section>
+
+  <!-- Queue -->
+  <section id="queue-view">
+    <h2>Pending Queue</h2>
+    <div id="queue-list"><p class="muted">No pending orders</p></div>
+  </section>
+
+  <!-- Alerts -->
+  <section id="alerts">
+    <h2>Alerts</h2>
+    <div id="alert-list"><p class="muted">No alerts</p></div>
+  </section>
+
+</aside>
+</main>
+
+<script src="app.js"></script>
+</body>
+</html>

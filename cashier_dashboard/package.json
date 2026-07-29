@@ -1,0 +1,12 @@
+{
+  "name": "sabon-cashier-dashboard",
+  "version": "1.0.0",
+  "description": "Cashier dashboard for Sabon Vendo — controls per-product armed state",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.0"
+  }
+}
