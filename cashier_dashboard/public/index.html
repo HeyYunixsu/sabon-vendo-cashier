@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
@@ -34,6 +34,22 @@
   font-size: 14px;
   color: var(--text-primary);
   background: var(--bg-page);
+}
+
+/* Light mode overrides */
+[data-theme="light"] {
+  --bg-page:        #F3F4F6;
+  --bg-surface:     #FFFFFF;
+  --bg-raised:      #F0F1F3;
+  --blue:           #3B6DF0;
+  --blue-glow:      0 0 0 1px rgba(59,109,240,0.15);
+  --cyan:           #0D9488;
+  --text-primary:   #1A1A1A;
+  --text-muted:     #6B7280;
+  --border:         #D1D5DB;
+  --green:          #16A34A;
+  --yellow:         #D97706;
+  --red:            #DC2626;
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -653,6 +669,7 @@ main {
     <span id="pause-indicator" class="status-bracket hidden" style="color:var(--yellow);">[PAUSED]</span>
   </div>
   <div class="status-right">
+    <button id="theme-toggle" title="Toggle light/dark mode" style="background:none;border:1px solid var(--border);border-radius:var(--radius-pill);color:var(--text-muted);cursor:pointer;font-size:15px;width:36px;height:36px;display:flex;align-items:center;justify-content:center;transition:all .18s;">☀️</button>
     <span id="last-update">--:--:--</span>
   </div>
 </header>
@@ -1322,6 +1339,29 @@ main {
   });
 
   $('btn-arm').addEventListener('click', executeArm);
+
+  // ===================================================================
+  // Theme Toggle
+  // ===================================================================
+  const themeToggle = $('theme-toggle');
+  const html = document.documentElement;
+
+  // Load saved preference
+  const savedTheme = localStorage.getItem('sabon-theme');
+  if (savedTheme) html.setAttribute('data-theme', savedTheme);
+  updateToggleIcon();
+
+  themeToggle.addEventListener('click', function() {
+    const current = html.getAttribute('data-theme');
+    const next = current === 'dark' ? 'light' : 'dark';
+    html.setAttribute('data-theme', next);
+    localStorage.setItem('sabon-theme', next);
+    updateToggleIcon();
+  });
+
+  function updateToggleIcon() {
+    themeToggle.textContent = html.getAttribute('data-theme') === 'dark' ? '☀️' : '🌙';
+  }
 
   // ===================================================================
   // Init
