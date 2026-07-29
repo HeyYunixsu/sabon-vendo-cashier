@@ -3,1390 +3,746 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>Sabon Vendo — Cashier Dashboard</title>
+<title>Sabon Vendo</title>
 <style>
 /* ===================================================================
    Sabon Vendo — Cashier Dashboard
-   Design System: Black & Blue · dark/flat · Inter + IBM Plex Mono
+   Token naming: bg-surface-primary, text-content-secondary, etc.
+   Breakpoints: 1440px desktop / 768px tablet / 375px mobile
    =================================================================== */
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600;700&family=Doto:wght@700&display=swap');
 
-/* ------------------------------------------------------------------ Tokens */
 :root {
-  --bg-page:        #0B0E14;
-  --bg-surface:     #141925;
-  --bg-raised:      #1C2333;
-  --blue:           #3B6DF0;
-  --blue-glow:      0 0 0 1px rgba(59,109,240,0.22);
-  --cyan:           #5EEAD4;
-  --text-primary:   #F5F7FA;
-  --text-muted:     #8A93A6;
-  --border:         #232A3B;
-  --green:          #34D399;
-  --yellow:         #FBBF24;
-  --red:            #F87171;
-  --radius:         16px;
-  --radius-sm:      10px;
-  --radius-pill:    999px;
-
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  --bg-surface-primary:   #0B0E14;
+  --bg-surface-secondary: #141925;
+  --bg-surface-tertiary:  #1C2333;
+  --border-default:       #232A3B;
+  --border-strong:        #3B6DF0;
+  --text-content-primary: #F5F7FA;
+  --text-content-secondary: #8A93A6;
+  --text-content-inverse: #0B0E14;
+  --accent-action:        #3B6DF0;
+  --accent-action-hover:  #507DF4;
+  --status-positive:      #34D399;
+  --status-caution:       #FBBF24;
+  --status-negative:      #F87171;
+  --status-neutral:       #4B5263;
+  --radius-container:     14px;
+  --radius-element:       8px;
+  --radius-pill:          999px;
+  --space-unit: 8px;
+  font-family: 'Inter', system-ui, sans-serif;
   font-size: 14px;
-  color: var(--text-primary);
-  background: var(--bg-page);
+  color: var(--text-content-primary);
+  background: var(--bg-surface-primary);
 }
-
-/* Light mode overrides */
 [data-theme="light"] {
-  --bg-page:        #F3F4F6;
-  --bg-surface:     #FFFFFF;
-  --bg-raised:      #F0F1F3;
-  --blue:           #3B6DF0;
-  --blue-glow:      0 0 0 1px rgba(59,109,240,0.15);
-  --cyan:           #0D9488;
-  --text-primary:   #1A1A1A;
-  --text-muted:     #6B7280;
-  --border:         #D1D5DB;
-  --green:          #16A34A;
-  --yellow:         #D97706;
-  --red:            #DC2626;
+  --bg-surface-primary:   #F3F4F6;
+  --bg-surface-secondary: #FFFFFF;
+  --bg-surface-tertiary:  #F0F1F3;
+  --border-default:       #D1D5DB;
+  --border-strong:        #3B6DF0;
+  --text-content-primary: #1A1A1A;
+  --text-content-secondary: #6B7280;
+  --text-content-inverse: #FFFFFF;
+  --status-positive:      #16A34A;
+  --status-caution:       #D97706;
+  --status-negative:      #DC2626;
+  --status-neutral:       #9CA3AF;
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
-  max-width: 1280px;
-  margin: 0 auto;
-  min-height: 100vh;
-  padding: 20px;
-  display: flex;
-  flex-direction: column;
+  max-width: 1280px; margin: 0 auto; min-height: 100vh;
+  padding: 20px; display: flex; flex-direction: column;
 }
 
-/* ------------------------------------------------------------------ Scrollbar */
 ::-webkit-scrollbar { width: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb { background: var(--border-default); border-radius: 3px; }
 
-/* ------------------------------------------------------------------ Status Bar */
+/* ===================================================================
+   HEADER
+   =================================================================== */
 #status-bar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background: var(--bg-surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 14px 24px;
-  margin-bottom: 20px;
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 12px;
-  color: var(--text-muted);
-  flex-shrink: 0;
+  display: flex; justify-content: space-between; align-items: center;
+  background: var(--bg-surface-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-container);
+  padding: 12px 24px; margin-bottom: 20px; flex-shrink: 0;
+  font-family: 'IBM Plex Mono', monospace; font-size: 12px;
+  color: var(--text-content-secondary);
 }
 .status-left, .status-center, .status-right {
-  display: flex;
-  align-items: center;
-  gap: 20px;
+  display: flex; align-items: center; gap: 20px;
 }
-.status-bracket {
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 11px;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
+
+/* Status dot (8px) */
+.dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 7px; flex-shrink: 0; }
+.dot-positive { background: var(--status-positive); box-shadow: 0 0 6px rgba(52,211,153,.35); }
+.dot-negative { background: var(--status-negative); box-shadow: 0 0 6px rgba(248,113,113,.35); }
+.dot-accent  { background: var(--accent-action);  box-shadow: 0 0 8px rgba(59,109,240,.4); }
+.dot-caution { background: var(--status-caution); box-shadow: 0 0 8px rgba(251,191,36,.4); animation: pulse-dot 1.2s infinite; }
+.dot-neutral { background: var(--status-neutral); }
+@keyframes pulse-dot { 0%,100%{opacity:1} 50%{opacity:.35} }
+
 .hidden { display: none !important; }
 
-/* ------------------------------------------------------------------ Status Dots */
-.dot {
-  display: inline-block;
-  width: 8px; height: 8px;
-  border-radius: 50%;
-  margin-right: 8px;
-  flex-shrink: 0;
+#theme-toggle {
+  background: none; border: 1px solid var(--border-default);
+  border-radius: var(--radius-element); color: var(--text-content-secondary);
+  cursor: pointer; font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.06em; padding: 6px 12px; transition: all .18s;
 }
-.dot-green  { background: var(--green);  box-shadow: 0 0 6px rgba(52,211,153,.35); }
-.dot-red    { background: var(--red);    box-shadow: 0 0 6px rgba(248,113,113,.35); }
-.dot-blue   { background: var(--blue);   box-shadow: 0 0 8px rgba(59,109,240,.4); }
-.dot-yellow { background: var(--yellow); box-shadow: 0 0 8px rgba(251,191,36,.4); }
-.dot-gray   { background: #4B5263; }
+#theme-toggle:hover { border-color: var(--border-strong); color: var(--accent-action); }
 
-/* ------------------------------------------------------------------ Header */
-.greeting {
-  margin-bottom: 20px;
-  flex-shrink: 0;
+/* ===================================================================
+   KPI ROW (3-4 summary blocks)
+   =================================================================== */
+.kpi-row {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  gap: 14px; margin-bottom: 20px; flex-shrink: 0;
 }
-.greeting h1 {
-  font-family: 'Inter', sans-serif;
-  font-size: 26px;
-  font-weight: 700;
-  color: var(--text-primary);
+.kpi-card {
+  background: var(--bg-surface-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-container);
+  padding: 16px 20px;
 }
-.greeting p {
-  font-size: 14px;
-  color: var(--text-muted);
-  margin-top: 4px;
+.kpi-card .kpi-label {
+  font-family: 'IBM Plex Mono', monospace; font-size: 10px;
+  font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--text-content-secondary); margin-bottom: 6px;
+}
+.kpi-card .kpi-value {
+  font-family: 'Doto', 'IBM Plex Mono', monospace;
+  font-size: 36px; font-weight: 700; line-height: 1;
+  color: var(--text-content-primary);
+}
+.kpi-card .kpi-sub {
+  font-size: 11px; color: var(--text-content-secondary); margin-top: 4px;
 }
 
-/* ------------------------------------------------------------------ Bundle Bar */
-.bundle-bar {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 20px;
-  padding: 12px 16px;
-  background: var(--bg-surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  font-size: 12px;
-  color: var(--text-muted);
-  flex-shrink: 0;
-}
-.bundle-bar .segments {
-  display: flex;
-  gap: 3px;
-  flex: 1;
-}
-.bundle-bar .seg {
-  flex: 1;
-  height: 6px;
-  border-radius: 3px;
-  background: var(--border);
-}
-.bundle-bar .seg.filled  { background: var(--green); }
-.bundle-bar .seg.missing { background: var(--red); }
-
-/* ------------------------------------------------------------------ Main Layout */
+/* ===================================================================
+   MAIN LAYOUT
+   =================================================================== */
 main {
-  display: grid;
-  grid-template-columns: 1fr 380px;
-  gap: 20px;
-  flex: 1;
-  min-height: 0;
+  display: grid; grid-template-columns: 1fr 380px;
+  gap: 20px; flex: 1; min-height: 0;
 }
 
 /* ===================================================================
    PRODUCT GRID
    =================================================================== */
 .grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px;
 }
-
 .product-card {
-  background: var(--bg-surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 24px 18px;
-  text-align: center;
-  cursor: pointer;
-  user-select: none;
-  -webkit-tap-highlight-color: transparent;
-  transition: border-color .2s, background .2s, box-shadow .2s;
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  min-height: 170px;
+  background: var(--bg-surface-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-container);
+  padding: 22px 16px; text-align: center; cursor: pointer;
+  user-select: none; -webkit-tap-highlight-color: transparent;
+  transition: border-color .18s, background .18s, box-shadow .18s;
+  display: flex; flex-direction: column; justify-content: center;
+  align-items: center; min-height: 160px; position: relative;
 }
-.product-card:hover { background: var(--bg-raised); }
-
+.product-card:hover { background: var(--bg-surface-tertiary); }
 .product-card.selected {
-  border-color: var(--blue);
+  border-color: var(--border-strong);
   box-shadow: 0 0 0 2px rgba(59,109,240,0.35);
-  background: rgba(59,109,240,0.08);
 }
-.product-card.armed {
-  border-color: var(--blue);
-  box-shadow: var(--blue-glow);
-  background: rgba(59,109,240,0.05);
-}
-.product-card.busy {
-  border-color: var(--yellow);
-  box-shadow: 0 0 0 1px rgba(251,191,36,0.25);
-  background: rgba(251,191,36,0.04);
-}
-.product-card.empty {
-  border-color: var(--red);
-  opacity: .55;
-  pointer-events: none;
-}
-.product-card.not-available {
-  opacity: .3;
-  pointer-events: none;
-}
+.product-card.armed   { border-color: var(--border-strong); }
+.product-card.busy    { border-color: var(--status-caution); }
+.product-card.empty   { border-color: var(--status-negative); opacity: .55; pointer-events: none; }
+.product-card.inactive { opacity: .3; pointer-events: none; }
 
 .product-card .slot-num {
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 10px;
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--text-muted);
-  margin-bottom: 4px;
+  font-family: 'IBM Plex Mono', monospace; font-size: 10px;
+  font-weight: 500; text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--text-content-secondary); margin-bottom: 4px;
 }
 .product-card .product-name {
-  font-family: 'Inter', sans-serif;
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin-bottom: 8px;
+  font-family: 'Inter', sans-serif; font-size: 16px;
+  font-weight: 600; color: var(--text-content-primary); margin-bottom: 6px;
 }
 .product-card .product-icon {
-  font-size: 32px;
-  line-height: 1;
-  margin-bottom: 6px;
+  width: 36px; height: 36px; border-radius: 50%; margin-bottom: 6px;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'IBM Plex Mono', monospace; font-size: 13px;
+  font-weight: 700; color: var(--text-content-secondary);
+  border: 1px solid var(--border-default);
+}
+.product-card.armed .product-icon,
+.product-card.busy .product-icon {
+  border-color: var(--accent-action); color: var(--accent-action);
+}
+.product-card.empty .product-icon {
+  border-color: var(--status-negative); color: var(--status-negative);
 }
 .product-card .armed-qty {
   font-family: 'Doto', 'IBM Plex Mono', monospace;
-  font-size: 44px;
-  font-weight: 700;
-  color: var(--text-primary);
-  line-height: 1;
-  margin: 6px 0;
+  font-size: 44px; font-weight: 700; line-height: 1;
+  color: var(--text-content-primary); margin: 4px 0;
 }
-.product-card .armed-qty.zero     { color: #3A4050; }
-.product-card .armed-qty.armed-num { color: var(--blue); }
-.product-card .armed-qty.armed-busy { color: var(--yellow); }
+.product-card .armed-qty.is-zero   { color: #3A4050; }
+.product-card .armed-qty.is-armed  { color: var(--accent-action); }
+.product-card .armed-qty.is-busy   { color: var(--status-caution); }
 
 .product-card .status-row {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 12px;
-  margin-top: 8px;
-  font-size: 11px;
-  font-weight: 500;
-}
-.product-card .status-row .queue-badge {
-  color: var(--yellow);
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.product-card .na-overlay {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  background: rgba(75,82,99,0.2);
-  padding: 4px 14px;
-  border-radius: var(--radius-pill);
+  display: flex; justify-content: center; align-items: center;
+  gap: 12px; margin-top: 6px; font-size: 11px; font-weight: 500;
 }
 
 /* ===================================================================
    RIGHT PANEL
    =================================================================== */
-#right-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  overflow-y: auto;
-  padding-right: 2px;
-}
+#right-panel { display: flex; flex-direction: column; gap: 14px; }
 #right-panel section {
-  background: var(--bg-surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 18px 20px;
+  background: var(--bg-surface-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-container);
+  padding: 16px 20px;
+}
+.section-label {
+  font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 600;
+  color: var(--text-content-secondary); text-transform: uppercase;
+  letter-spacing: 0.05em; margin-bottom: 12px; padding-bottom: 8px;
+  border-bottom: 1px solid var(--border-default);
+  display: flex; justify-content: space-between; align-items: center;
 }
 
-/* Micro-labels */
-.micro-label {
-  font-family: 'Inter', sans-serif;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  margin-bottom: 14px;
-  padding-bottom: 10px;
-  border-bottom: 1px solid var(--border);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+/* Quick amounts */
+.quick-amounts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 10px 0; }
+.btn-amount {
+  font-family: 'IBM Plex Mono', monospace; font-size: 15px; font-weight: 600;
+  padding: 14px 6px; background: var(--bg-surface-tertiary);
+  border: 1px solid var(--border-default); border-radius: var(--radius-pill);
+  color: var(--text-content-primary); cursor: pointer;
+  transition: all .15s; touch-action: manipulation;
 }
-.micro-label .count {
-  font-weight: 400;
-  color: var(--text-muted);
-  font-size: 11px;
-  text-transform: none;
-  letter-spacing: 0;
-}
+.btn-amount:hover { border-color: var(--border-strong); color: var(--accent-action); }
+.btn-amount:active { background: var(--accent-action); color: #fff; transform: scale(.96); }
+.btn-amount:disabled { opacity: .25; pointer-events: none; }
 
-/* ------------------------------------------------------------------ Sale Entry */
-#staged-items {
-  min-height: 44px;
-}
-#staged-items .muted {
-  color: var(--text-muted);
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
+/* Staged items */
 .staged-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 10px 0;
-  border-bottom: 1px solid var(--border);
-  font-size: 13px;
-  animation: slideIn .2s ease;
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 9px 0; border-bottom: 1px solid var(--border-default);
+  font-size: 13px; animation: slide-in .18s ease;
 }
 .staged-row:last-child { border-bottom: none; }
-.staged-row .staged-info {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.staged-row .staged-name {
-  font-weight: 600;
-}
-.staged-row .staged-price {
-  font-family: 'IBM Plex Mono', monospace;
-  font-weight: 600;
-  font-size: 14px;
-  color: var(--text-primary);
-}
-.staged-row .staged-qty {
-  font-size: 11px;
-  color: var(--text-muted);
-}
-
+.staged-row .staged-name { font-weight: 600; }
+.staged-row .staged-price { font-family: 'IBM Plex Mono', monospace; font-weight: 600; font-size: 14px; color: var(--text-content-primary); }
+.staged-row .staged-meta { font-size: 11px; color: var(--text-content-secondary); }
 .btn-remove {
-  background: none;
-  border: 1px solid var(--border);
-  border-radius: 50%;
-  color: var(--text-muted);
-  cursor: pointer;
-  font-size: 14px;
-  line-height: 1;
-  width: 28px;
-  height: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all .18s;
-  flex-shrink: 0;
+  background: none; border: 1px solid var(--border-default);
+  border-radius: 50%; color: var(--text-content-secondary);
+  cursor: pointer; font-size: 14px; width: 28px; height: 28px;
+  display: flex; align-items: center; justify-content: center;
+  transition: all .15s; flex-shrink: 0;
 }
-.btn-remove:hover { border-color: var(--red); color: var(--red); background: rgba(248,113,113,0.1); }
+.btn-remove:hover { border-color: var(--status-negative); color: var(--status-negative); }
+@keyframes slide-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
 
-@keyframes slideIn {
-  from { opacity: 0; transform: translateY(-6px); }
-  to   { opacity: 1; transform: translateY(0); }
+.sale-actions { display: flex; gap: 8px; margin: 10px 0; }
+.sale-total {
+  text-align: right; margin-top: 4px;
+  font-family: 'Doto', 'IBM Plex Mono', monospace;
+  font-size: 28px; font-weight: 700; color: var(--text-content-primary);
 }
 
-/* ------------------------------------------------------------------ Quick Amounts */
-.quick-amounts {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 8px;
-  margin: 12px 0;
-}
-.btn-amount {
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 15px;
-  font-weight: 600;
-  padding: 14px 6px;
-  background: var(--bg-raised);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-pill);
-  color: var(--text-primary);
-  cursor: pointer;
-  transition: all .15s;
-  touch-action: manipulation;
-}
-.btn-amount:hover {
-  border-color: var(--blue);
-  color: var(--blue);
-  background: rgba(59,109,240,0.08);
-}
-.btn-amount:active {
-  background: var(--blue);
-  color: #fff;
-  transform: scale(0.96);
-}
-.btn-amount:disabled {
-  opacity: .25;
-  pointer-events: none;
-}
-.btn-amount.flash {
-  background: var(--blue);
-  color: #fff;
-  border-color: var(--blue);
-}
-
-/* ------------------------------------------------------------------ Sale Actions */
-.sale-actions {
-  display: flex;
-  gap: 8px;
-  margin: 12px 0;
-}
-
+/* Buttons */
 .btn {
-  padding: 12px 20px;
-  border: none;
-  border-radius: var(--radius-pill);
-  cursor: pointer;
-  font-family: 'Inter', sans-serif;
-  font-size: 13px;
-  font-weight: 600;
-  transition: all .18s;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  padding: 12px 20px; border: none; border-radius: var(--radius-pill);
+  cursor: pointer; font-family: 'Inter', sans-serif; font-size: 13px;
+  font-weight: 600; transition: all .15s;
+  display: inline-flex; align-items: center; justify-content: center;
   touch-action: manipulation;
 }
-
-.btn-primary {
-  background: var(--blue);
-  color: #fff;
-}
-.btn-primary:hover { filter: brightness(1.15); }
+.btn-primary { background: var(--accent-action); color: #fff; }
+.btn-primary:hover { background: var(--accent-action-hover); }
 .btn-primary:disabled { opacity: .25; pointer-events: none; }
-
-.btn-outline {
-  flex: 1;
-  background: transparent;
-  border: 1px solid var(--border);
-  color: var(--text-muted);
-}
-.btn-outline:hover { border-color: var(--blue); color: var(--blue); }
-
+.btn-outline { flex: 1; background: transparent; border: 1px solid var(--border-default); color: var(--text-content-secondary); }
+.btn-outline:hover { border-color: var(--border-strong); color: var(--accent-action); }
 .btn-lg { padding: 16px 24px; font-size: 15px; }
 .btn-block { display: block; width: 100%; }
-
 .btn-sm {
-  padding: 5px 12px;
-  font-size: 11px;
-  background: transparent;
-  border: 1px solid var(--border);
-  color: var(--text-muted);
-  cursor: pointer;
-  border-radius: var(--radius-pill);
-  font-family: 'Inter', sans-serif;
-  font-weight: 500;
-  transition: all .15s;
+  padding: 5px 12px; font-size: 11px; background: transparent;
+  border: 1px solid var(--border-default); color: var(--text-content-secondary);
+  cursor: pointer; border-radius: var(--radius-pill);
+  font-family: 'Inter', sans-serif; font-weight: 500; transition: all .15s;
 }
-.btn-sm:hover { border-color: var(--blue); color: var(--blue); }
-.btn-sm.retry { border-color: var(--blue); color: var(--blue); }
-.btn-sm.retry:hover { background: var(--blue); color: #fff; }
-.btn-sm.dismiss:hover { border-color: var(--red); color: var(--red); background: rgba(248,113,113,0.1); }
-
-.sale-total {
-  text-align: right;
-  margin-top: 6px;
-  font-family: 'Doto', 'IBM Plex Mono', monospace;
-  font-size: 30px;
-  font-weight: 700;
-  color: var(--text-primary);
+.btn-sm:hover { border-color: var(--border-strong); color: var(--accent-action); }
+.btn-sm.retry { border-color: var(--accent-action); color: var(--accent-action); }
+.btn-sm.retry:hover { background: var(--accent-action); color: #fff; }
+.btn-sm.dismiss:hover { border-color: var(--status-negative); color: var(--status-negative); }
+.btn-negative {
+  background: transparent; border: 1px solid var(--status-negative);
+  color: var(--status-negative); padding: 6px 14px; font-size: 11px;
+  border-radius: var(--radius-pill); cursor: pointer;
+  font-family: 'Inter', sans-serif; font-weight: 600; transition: all .15s;
+  white-space: nowrap; flex-shrink: 0;
 }
+.btn-negative:hover { background: var(--status-negative); color: #fff; }
 
-/* ------------------------------------------------------------------ List Rows */
+/* List rows */
 .list-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 10px 0;
-  border-bottom: 1px solid var(--border);
-  font-size: 13px;
-  gap: 8px;
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 9px 0; border-bottom: 1px solid var(--border-default);
+  font-size: 13px; gap: 8px;
 }
 .list-row:last-child { border-bottom: none; }
 .list-row .list-val {
-  font-family: 'IBM Plex Mono', monospace;
-  font-weight: 600;
-  font-size: 16px;
-  color: var(--text-primary);
-  white-space: nowrap;
-}
-.list-row .list-info {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.list-row .list-name {
-  font-weight: 600;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  font-family: 'IBM Plex Mono', monospace; font-weight: 600;
+  font-size: 15px; color: var(--text-content-primary); white-space: nowrap;
 }
 .muted {
-  color: var(--text-muted);
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  color: var(--text-content-secondary); font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px; text-align: center; padding: 8px 0;
 }
 
-/* ------------------------------------------------------------------ Armed Slots */
-.btn-red {
-  background: transparent;
-  border: 1px solid var(--red);
-  color: var(--red);
-  padding: 6px 14px;
-  font-size: 11px;
-  border-radius: var(--radius-pill);
-  cursor: pointer;
-  font-family: 'Inter', sans-serif;
-  font-weight: 600;
-  transition: all .15s;
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-.btn-red:hover { background: var(--red); color: #fff; }
-
-/* ------------------------------------------------------------------ Alerts */
+/* Alert card */
 .alert-card {
-  background: #1A1F2B;
-  border: 1px solid var(--red);
-  border-radius: var(--radius);
-  padding: 16px;
-  color: var(--red);
-  font-size: 13px;
-  font-weight: 500;
-  margin-bottom: 12px;
+  background: color-mix(in srgb, var(--status-negative) 8%, var(--bg-surface-secondary));
+  border: 1px solid var(--status-negative);
+  border-radius: var(--radius-container); padding: 14px 16px;
+  color: var(--status-negative); font-size: 13px; font-weight: 500;
+  margin-bottom: 10px;
 }
-.alert-card .alert-title {
-  font-weight: 700;
-  margin-bottom: 6px;
-}
-.alert-row.warning { color: var(--yellow); }
-.alert-row.danger  { color: var(--red); }
+.alert-card .alert-heading { font-weight: 700; margin-bottom: 4px; }
 
-/* Unclaimed actions */
-.unclaimed-actions {
-  display: flex;
-  gap: 4px;
-  flex-shrink: 0;
-}
-
-/* ------------------------------------------------------------------ Section scrollable content */
-.scroll-section {
-  max-height: 140px;
-  overflow-y: auto;
-}
-
-/* ------------------------------------------------------------------ Empty state */
+/* Empty state with CTA */
 .empty-state {
-  color: var(--text-muted);
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 11px;
-  text-align: center;
-  padding: 10px 0;
-}
-
-/* ------------------------------------------------------------------ Offline overlay for right panel */
-#offline-bar {
-  display: none;
-  background: rgba(248,113,113,0.1);
-  border: 1px solid var(--red);
-  border-radius: var(--radius-sm);
-  padding: 10px 14px;
-  color: var(--red);
+  text-align: center; padding: 16px 8px; color: var(--text-content-secondary);
   font-size: 12px;
-  font-weight: 500;
+}
+.empty-state .empty-action {
+  display: inline-block; margin-top: 8px; font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px; font-weight: 600; color: var(--accent-action);
+  cursor: pointer; text-transform: uppercase; letter-spacing: 0.04em;
+}
+
+/* Skeleton shimmer */
+.skeleton {
+  background: linear-gradient(90deg, var(--bg-surface-tertiary) 25%, var(--bg-surface-secondary) 50%, var(--bg-surface-tertiary) 75%);
+  background-size: 200% 100%; animation: shimmer 1.4s infinite; border-radius: 4px;
+}
+@keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+.skeleton-text { height: 14px; margin-bottom: 8px; width: 60%; }
+.skeleton-text.short { width: 40%; }
+.skeleton-kpi { height: 36px; margin-bottom: 6px; width: 55%; }
+.skeleton-card { height: 160px; border-radius: var(--radius-container); }
+
+/* Offline banner */
+#offline-banner {
+  display: none; background: color-mix(in srgb, var(--status-negative) 10%, transparent);
+  border: 1px solid var(--status-negative);
+  border-radius: var(--radius-container); padding: 12px 16px; margin-bottom: 14px;
+  color: var(--status-negative); font-size: 13px; font-weight: 500;
   text-align: center;
-  font-family: 'IBM Plex Mono', monospace;
+}
+#offline-banner .offline-action {
+  display: inline-block; margin-left: 8px; font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px; font-weight: 600; color: var(--status-negative);
+  cursor: pointer; text-decoration: underline; text-underline-offset: 3px;
 }
 
-/* ------------------------------------------------------------------ Notification toast */
+/* Toast */
 #toast {
-  position: fixed;
-  bottom: 24px;
-  left: 50%;
-  transform: translateX(-50%) translateY(80px);
-  background: var(--bg-raised);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 12px 24px;
-  font-size: 13px;
-  color: var(--text-primary);
-  opacity: 0;
-  transition: all .3s ease;
-  pointer-events: none;
-  z-index: 100;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
-  font-weight: 500;
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px);
+  background: var(--bg-surface-tertiary); border: 1px solid var(--border-default);
+  border-radius: var(--radius-element); padding: 12px 24px;
+  font-size: 13px; color: var(--text-content-primary);
+  opacity: 0; transition: all .25s ease; pointer-events: none; z-index: 100;
 }
-#toast.visible {
-  opacity: 1;
-  transform: translateX(-50%) translateY(0);
-}
-#toast.success { border-color: var(--green); color: var(--green); }
-#toast.error   { border-color: var(--red); color: var(--red); }
-#toast.info    { border-color: var(--blue); color: var(--blue); }
+#toast.visible { opacity: 1; transform: translateX(-50%) translateY(0); }
+#toast.success { border-color: var(--status-positive); color: var(--status-positive); }
+#toast.error   { border-color: var(--status-negative); color: var(--status-negative); }
 
-/* ------------------------------------------------------------------ Responsive */
-@media (max-width: 860px) {
-  main {
-    grid-template-columns: 1fr;
-  }
-  #right-panel {
-    max-height: 500px;
-  }
-  #status-bar {
-    flex-wrap: wrap;
-    gap: 8px;
-  }
-  .status-left, .status-center, .status-right {
-    gap: 12px;
-  }
+/* ===================================================================
+   RESPONSIVE
+   =================================================================== */
+@media (max-width: 1440px) {
+  main { grid-template-columns: 1fr 360px; }
 }
-@media (max-width: 520px) {
+@media (max-width: 768px) {
   body { padding: 12px; }
+  main { grid-template-columns: 1fr; }
+  .kpi-row { grid-template-columns: repeat(2, 1fr); }
   .grid { grid-template-columns: repeat(2, 1fr); }
-  .product-card { min-height: 150px; padding: 18px 14px; }
+  #right-panel { max-height: none; }
+}
+@media (max-width: 375px) {
+  .kpi-row { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .kpi-card { padding: 12px 14px; }
+  .kpi-card .kpi-value { font-size: 28px; }
+  .grid { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .product-card { min-height: 140px; padding: 16px 12px; }
   .product-card .armed-qty { font-size: 34px; }
   .quick-amounts { grid-template-columns: repeat(2, 1fr); }
+  #status-bar { flex-wrap: wrap; gap: 8px; font-size: 10px; }
 }
 </style>
 </head>
 <body>
 
-<!-- ============================================================ STATUS BAR -->
 <header id="status-bar">
   <div class="status-left">
-    <span id="machine-status">
-      <span class="dot dot-gray"></span> Connecting...
-    </span>
-    <span>Machine #001</span>
+    <span id="machine-status"><span class="dot dot-neutral"></span> Connecting</span>
+    <span>Machine 001</span>
   </div>
   <div class="status-center">
-    <span id="pause-indicator" class="status-bracket hidden" style="color:var(--yellow);">[PAUSED]</span>
+    <span id="pause-indicator" class="hidden" style="color:var(--status-caution);font-weight:600;">PAUSED</span>
   </div>
   <div class="status-right">
-    <button id="theme-toggle" title="Toggle light/dark mode" style="background:none;border:1px solid var(--border);border-radius:var(--radius-pill);color:var(--text-muted);cursor:pointer;font-size:15px;width:36px;height:36px;display:flex;align-items:center;justify-content:center;transition:all .18s;">☀️</button>
+    <button id="theme-toggle">LIGHT</button>
     <span id="last-update">--:--:--</span>
   </div>
 </header>
 
-<!-- ============================================================ GREETING -->
-<div class="greeting" id="greeting">
-  <h1>Cashier Dashboard</h1>
-  <p>Loading machine status...</p>
+<div id="offline-banner">
+  Machine unreachable. <span id="offline-retry" class="offline-action">Retry connection</span>
 </div>
 
-<!-- ============================================================ BUNDLE BAR -->
-<div class="bundle-bar" id="bundle-bar">
-  <span style="font-weight:600;">Bundle</span>
-  <div class="segments">
-    <div class="seg"></div>
-    <div class="seg"></div>
-    <div class="seg"></div>
-    <div class="seg"></div>
-  </div>
-  <span style="color:var(--text-muted);">--/4 ready</span>
+<!-- KPI Row -->
+<div class="kpi-row" id="kpi-row">
+  <div class="kpi-card"><div class="kpi-label">Total Armed</div><div class="kpi-value" id="kpi-armed">0</div><div class="kpi-sub">units across all slots</div></div>
+  <div class="kpi-card"><div class="kpi-label">Active Slots</div><div class="kpi-value" id="kpi-active" style="color:var(--status-positive);">4</div><div class="kpi-sub">of 6 operational</div></div>
+  <div class="kpi-card"><div class="kpi-label">Bundle</div><div class="kpi-value" id="kpi-bundle">0/4</div><div class="kpi-sub" id="kpi-bundle-sub">slots in stock</div></div>
+  <div class="kpi-card"><div class="kpi-label">Today</div><div class="kpi-value" id="kpi-today">0</div><div class="kpi-sub">dispenses completed</div></div>
 </div>
 
-<!-- ============================================================ MAIN -->
 <main>
+  <section><div class="grid" id="grid-container"></div></section>
 
-  <!-- ======================== PRODUCT GRID ======================== -->
-  <section>
-    <div class="grid" id="grid-container"></div>
-  </section>
-
-  <!-- ======================== RIGHT PANEL ======================== -->
   <aside id="right-panel">
-
-    <!-- Offline notice -->
-    <div id="offline-bar">&#9888; Machine offline — commands will be queued</div>
-
-    <!-- Sale Entry -->
-    <section id="sale-entry">
-      <div class="micro-label">New Sale</div>
-      <div id="staged-items">
-        <span class="muted">[Select a product, then tap an amount]</span>
-      </div>
-      <div class="quick-amounts" id="quick-amounts">
-        <button class="btn-amount" data-amount="5">&#x20B1;5</button>
-        <button class="btn-amount" data-amount="10">&#x20B1;10</button>
-        <button class="btn-amount" data-amount="15">&#x20B1;15</button>
-        <button class="btn-amount" data-amount="20">&#x20B1;20</button>
+    <section>
+      <div class="section-label">New Sale</div>
+      <div id="staged-items"><span class="muted">Select product, then amount</span></div>
+      <div class="quick-amounts">
+        <button class="btn-amount" data-amount="5">P 5</button>
+        <button class="btn-amount" data-amount="10">P 10</button>
+        <button class="btn-amount" data-amount="15">P 15</button>
+        <button class="btn-amount" data-amount="20">P 20</button>
       </div>
       <div class="sale-actions">
-        <button id="btn-add-more" class="btn btn-outline">+ Add More</button>
+        <button id="btn-add-more" class="btn btn-outline">Add More</button>
         <button id="btn-clear-sale" class="btn btn-outline">Clear</button>
       </div>
-      <button id="btn-arm" class="btn btn-primary btn-block btn-lg" disabled>Arm Slots</button>
-      <div id="sale-total" class="sale-total">&#x20B1;0</div>
+      <button id="btn-arm" class="btn btn-primary btn-block btn-lg" disabled>Arm</button>
+      <div id="sale-total" class="sale-total">P 0</div>
     </section>
 
-    <!-- Armed Slots -->
-    <section id="armed-slots">
-      <div class="micro-label">
-        Armed
-        <span class="count" id="armed-count">0</span>
-      </div>
-      <div id="armed-list" class="scroll-section">
-        <span class="muted">&mdash;</span>
-      </div>
+    <section>
+      <div class="section-label">Armed <span id="armed-count" style="font-weight:400;font-size:11px;">0</span></div>
+      <div id="armed-list"><span class="muted">--</span></div>
     </section>
 
-    <!-- Queue -->
-    <section id="queue-view">
-      <div class="micro-label">
-        Queue
-        <span class="count" id="queue-count">0</span>
-      </div>
-      <div id="queue-list" class="scroll-section">
-        <span class="muted">&mdash;</span>
-      </div>
+    <section>
+      <div class="section-label">Queue <span id="queue-count" style="font-weight:400;font-size:11px;">0</span></div>
+      <div id="queue-list"><span class="muted">--</span></div>
     </section>
 
-    <!-- Needs Attention -->
-    <section id="unclaimed-view">
-      <div class="micro-label">Needs Attention</div>
-      <div id="unclaimed-list" class="scroll-section">
-        <span class="muted">&mdash;</span>
-      </div>
+    <section>
+      <div class="section-label">Attention</div>
+      <div id="unclaimed-list"><span class="muted">--</span></div>
     </section>
 
-    <!-- Alerts -->
-    <section id="alerts">
-      <div class="micro-label">Alerts</div>
-      <div id="alert-list" class="scroll-section">
-        <span class="muted">&mdash;</span>
-      </div>
+    <section>
+      <div class="section-label">Alerts</div>
+      <div id="alert-list"><span class="muted">--</span></div>
     </section>
-
   </aside>
 </main>
 
-<!-- Toast notification -->
 <div id="toast"></div>
 
 <script>
 (function() {
   'use strict';
 
-  // ===================================================================
-  // Config
-  // ===================================================================
-  const PRODUCT_NAMES = {
-    1: 'Deesh Premium',
-    2: 'Lanz Blossom',
-    3: 'Lanz Dainty',
-    4: 'Switch',
-    5: 'Slot 5',
-    6: 'Slot 6',
+  const PRODUCT = {
+    1: 'Deesh Premium', 2: 'Lanz Blossom', 3: 'Lanz Dainty',
+    4: 'Switch', 5: 'Slot 5', 6: 'Slot 6',
   };
-  const PRODUCT_ICONS = {
-    1: '🧼', 2: '🌺', 3: '🌸',
-    4: '🔄', 5: '🔒', 6: '🔒',
+  const PRODUCT_INITIAL = { 1:'D', 2:'LB', 3:'LD', 4:'S', 5:'5', 6:'6' };
+  const AMOUNT_QTY = { 5:1, 10:2, 15:3, 20:4 };
+  const ACTIVE = 4, TOTAL = 6;
+
+  const S = {
+    armedQty: new Array(7).fill(0), remaining: new Array(5).fill(0),
+    wlvl: new Array(5).fill(false), busy: new Array(7).fill(false),
+    queueDepth: new Array(7).fill(0), paused: false,
+    lastUpdate: null, connected: false,
   };
-  const AMOUNT_TO_QTY = { 5: 1, 10: 2, 15: 3, 20: 4 };
-  const ACTIVE_SLOTS = 4;
-  const TOTAL_SLOTS  = 6;
-
-  // ===================================================================
-  // State
-  // ===================================================================
-  const machineState = {
-    armedQty:     new Array(7).fill(0),
-    remaining:    new Array(5).fill(0),
-    wlvl:         new Array(5).fill(false),
-    busy:         new Array(7).fill(false),
-    queueDepth:   new Array(7).fill(0),
-    paused:       false,
-    lastUpdate:   null,
-    connected:    false,
-  };
-
-  let selectedProduct = null;
-  const stagedItems = [];
-  const unclaimedItems = [];
-  const alerts = [];
-  let saleIdCounter = 0;
-
-  // ===================================================================
-  // DOM refs
-  // ===================================================================
+  let selProduct = null, staged = [], unclaimed = [], saleCtr = 0, dispenseCount = 0;
   const $ = (id) => document.getElementById(id);
-  const gridContainer   = $('grid-container');
-  const stagedEl        = $('staged-items');
-  const saleTotal       = $('sale-total');
-  const btnArm          = $('btn-arm');
-  const armedList       = $('armed-list');
-  const queueList       = $('queue-list');
-  const unclaimedList   = $('unclaimed-list');
-  const alertList       = $('alert-list');
-  const machineStatus   = $('machine-status');
-  const pauseIndicator  = $('pause-indicator');
-  const lastUpdate      = $('last-update');
-  const greeting        = $('greeting');
-  const bundleBar       = $('bundle-bar');
-  const offlineBar      = $('offline-bar');
-  const armedCount      = $('armed-count');
-  const queueCount      = $('queue-count');
-  const toastEl         = $('toast');
-  let toastTimer        = null;
 
-  // ===================================================================
   // Toast
-  // ===================================================================
-  function showToast(msg, type) {
-    toastEl.textContent = msg;
-    toastEl.className = 'visible' + (type ? ' ' + type : '');
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => { toastEl.className = ''; }, 2800);
+  let toastTmr;
+  function toast(msg, type) {
+    const el = $('toast'); el.textContent = msg;
+    el.className = 'visible' + (type ? ' ' + type : '');
+    clearTimeout(toastTmr); toastTmr = setTimeout(() => el.className = '', 2600);
   }
 
-  // ===================================================================
-  // SSE Connection
-  // ===================================================================
+  // SSE
   function connectSSE() {
     const es = new EventSource('/api/status/stream');
-    es.addEventListener('message', function(e) {
-      if (e.data === 'connected') {
-        machineState.connected = true;
-        updateAll();
-        return;
-      }
-      if (e.data.startsWith('UNCLAIMED:')) {
-        parseUnclaimed(e.data);
-        return;
-      }
-      parseStatus(e.data);
+    es.addEventListener('message', (e) => {
+      if (e.data === 'connected') { S.connected = true; refresh(); return; }
+      if (e.data.startsWith('UNCLAIMED:')) { addUnclaimed(e.data); return; }
+      parse(e.data);
     });
-    es.addEventListener('error', function() {
-      machineState.connected = false;
-      updateAll();
-    });
+    es.addEventListener('error', () => { S.connected = false; refresh(); });
   }
 
-  function parseStatus(raw) {
-    // STATUS,aq1,aq2,aq3,aq4,rem1,rem2,rem3,rem4,wlvl1,wlvl2,wlvl3,wlvl4,
-    //        busy1,busy2,busy3,busy4,qd1,qd2,qd3,qd4,paused
-    const parts = raw.split(',');
-    if (parts.length < 18) return;
-    let idx = 1;
-    for (let i = 1; i <= 4; i++) machineState.armedQty[i]   = parseInt(parts[idx++]) || 0;
-    for (let i = 1; i <= 4; i++) machineState.remaining[i]  = parseInt(parts[idx++]) || 0;
-    for (let i = 1; i <= 4; i++) machineState.wlvl[i]       = parts[idx++] === '1';
-    for (let i = 1; i <= 4; i++) machineState.busy[i]       = parts[idx++] === '1';
-    for (let i = 1; i <= 4; i++) machineState.queueDepth[i] = parseInt(parts[idx++]) || 0;
-    machineState.paused = parts[idx] === '1';
-    machineState.lastUpdate = new Date();
-    updateAll();
+  function parse(raw) {
+    const p = raw.split(','); if (p.length < 18) return;
+    let i = 1;
+    for (let s = 1; s <= 4; s++) S.armedQty[s]   = parseInt(p[i++]) || 0;
+    for (let s = 1; s <= 4; s++) S.remaining[s]  = parseInt(p[i++]) || 0;
+    for (let s = 1; s <= 4; s++) S.wlvl[s]       = p[i++] === '1';
+    for (let s = 1; s <= 4; s++) S.busy[s]        = p[i++] === '1';
+    for (let s = 1; s <= 4; s++) S.queueDepth[s]  = parseInt(p[i++]) || 0;
+    S.paused = p[i] === '1'; S.lastUpdate = new Date(); refresh();
   }
 
-  function parseUnclaimed(raw) {
-    // UNCLAIMED:slot,qty,amount,time
-    const parts = raw.substring(10).split(',');
-    if (parts.length >= 3) {
-      unclaimedItems.push({
-        slot: parseInt(parts[0]),
-        qty: parseInt(parts[1]),
-        amount: parseFloat(parts[2]),
-        time: parts[3] || ''
-      });
+  function addUnclaimed(raw) {
+    const p = raw.substring(10).split(',');
+    if (p.length >= 3) {
+      unclaimed.push({ slot: +p[0], qty: +p[1], amount: +p[2], time: p[3] || '' });
       renderUnclaimed();
     }
   }
 
-  // ===================================================================
-  // Bundle
-  // ===================================================================
-  function bundleReadyCount() {
-    let count = 0;
-    for (let i = 1; i <= ACTIVE_SLOTS; i++) {
-      if (!machineState.wlvl[i]) count++;
-    }
-    return count;
-  }
-
-  function renderBundleBar() {
-    const ready = bundleReadyCount();
-    const total = ACTIVE_SLOTS;
-    const allGood = ready === total;
-    let segs = '';
-    for (let i = 1; i <= total; i++) {
-      segs += '<div class="seg ' + (machineState.wlvl[i] ? 'missing' : 'filled') + '"></div>';
-    }
-    bundleBar.innerHTML =
-      '<span style="font-weight:600;">Bundle</span>' +
-      '<div class="segments">' + segs + '</div>' +
-      '<span style="color:' + (allGood ? 'var(--green)' : 'var(--yellow)') + ';">' + ready + '/' + total + ' ready</span>';
-  }
-
-  // ===================================================================
-  // Render — All
-  // ===================================================================
-  function updateAll() {
-    updateStatusBar();
-    updateGreeting();
-    renderBundleBar();
-    renderProductGrid();
-    renderArmedSlots();
+  // KPIs
+  function refresh() {
+    updateStatus();
+    updateKPIs();
+    renderGrid();
+    renderArmed();
     renderQueue();
     renderAlerts();
     renderUnclaimed();
   }
 
-  function updateStatusBar() {
-    if (machineState.connected) {
-      machineStatus.innerHTML = '<span class="dot dot-green"></span> Machine Online';
-      offlineBar.style.display = 'none';
+  function updateStatus() {
+    if (S.connected) {
+      $('machine-status').innerHTML = '<span class="dot dot-positive"></span> Online';
+      $('offline-banner').style.display = 'none';
     } else {
-      machineStatus.innerHTML = '<span class="dot dot-red"></span> Machine Offline';
-      offlineBar.style.display = 'block';
+      $('machine-status').innerHTML = '<span class="dot dot-negative"></span> Offline';
+      $('offline-banner').style.display = 'block';
     }
-    pauseIndicator.classList.toggle('hidden', !machineState.paused);
-    if (machineState.lastUpdate) {
-      lastUpdate.textContent = 'Last update: ' +
-        machineState.lastUpdate.toLocaleTimeString('en-US', { hour12: false });
-    }
+    $('pause-indicator').classList.toggle('hidden', !S.paused);
+    if (S.lastUpdate) $('last-update').textContent = S.lastUpdate.toLocaleTimeString('en-US', { hour12: false });
   }
 
-  function updateGreeting() {
-    const lowStock = [];
-    for (let i = 1; i <= ACTIVE_SLOTS; i++) {
-      if (machineState.wlvl[i]) lowStock.push(i);
-    }
-    if (lowStock.length > 0) {
-      greeting.innerHTML = '<h1>Cashier Dashboard</h1><p>' +
-        '<span style="color:var(--yellow);font-weight:600;">' + lowStock.length +
-        ' low-stock alert' + (lowStock.length > 1 ? 's' : '') + '</span> ' +
-        '&mdash; Slot' + (lowStock.length > 1 ? 's' : '') + ' ' +
-        lowStock.join(', ') + ' need' + (lowStock.length === 1 ? 's' : '') + ' refill</p>';
-    } else if (machineState.connected) {
-      greeting.innerHTML = '<h1>Cashier Dashboard</h1><p style="color:var(--green);">All slots in stock &mdash; ready for sales</p>';
-    } else {
-      greeting.innerHTML = '<h1>Cashier Dashboard</h1><p>Connecting to machine...</p>';
-    }
+  function updateKPIs() {
+    let armed = 0, inStock = 0;
+    for (let s = 1; s <= ACTIVE; s++) { armed += S.armedQty[s]; if (!S.wlvl[s]) inStock++; }
+    $('kpi-armed').textContent = armed;
+    $('kpi-active').textContent = inStock;
+    $('kpi-active').style.color = inStock === ACTIVE ? 'var(--status-positive)' : (inStock >= 2 ? 'var(--status-caution)' : 'var(--status-negative)');
+    $('kpi-bundle').textContent = inStock + '/' + ACTIVE;
+    $('kpi-bundle-sub').textContent = inStock === ACTIVE ? 'all slots in stock' : (ACTIVE - inStock) + ' need refill';
+    $('kpi-today').textContent = dispenseCount;
   }
 
-  // ===================================================================
-  // Render — Product Grid
-  // ===================================================================
-  function renderProductGrid() {
-    let html = '';
-    for (let i = 1; i <= TOTAL_SLOTS; i++) {
-      const active  = i <= ACTIVE_SLOTS;
-      const armed   = machineState.armedQty[i] || 0;
-      const busy    = machineState.busy[i];
-      const empty   = machineState.wlvl[i];
-      const sel     = (selectedProduct === i);
-
+  // Grid
+  function renderGrid() {
+    let h = '';
+    for (let s = 1; s <= TOTAL; s++) {
+      const act = s <= ACTIVE, armed = S.armedQty[s] || 0, busy = S.busy[s],
+            empty = S.wlvl[s], sel = selProduct === s;
       let cls = 'product-card';
-      if (!active)        cls += ' not-available';
-      else if (busy)      cls += ' busy';
-      else if (empty)     cls += ' empty';
-      else if (armed > 0) cls += ' armed';
-      if (sel)            cls += ' selected';
+      if (!act) cls += ' inactive'; else if (busy) cls += ' busy';
+      else if (empty) cls += ' empty'; else if (armed > 0) cls += ' armed';
+      if (sel) cls += ' selected';
 
-      let statusHTML, statusColor;
-      if (!active) {
-        statusHTML = '<span class="dot dot-gray"></span> Not Available';
-        statusColor = 'var(--text-muted)';
-      } else if (busy) {
-        statusHTML = '<span class="dot dot-yellow"></span> Dispensing';
-        statusColor = 'var(--yellow)';
-      } else if (armed) {
-        statusHTML = '<span class="dot dot-blue"></span> Armed';
-        statusColor = 'var(--blue)';
-      } else if (empty) {
-        statusHTML = '<span class="dot dot-red"></span> Empty';
-        statusColor = 'var(--red)';
-      } else {
-        statusHTML = '<span class="dot dot-gray"></span> Idle';
-        statusColor = 'var(--text-muted)';
-      }
+      let dotHtml, dotColor;
+      if (!act)      { dotHtml = '<span class="dot dot-neutral"></span> N/A';   dotColor = 'var(--text-content-secondary)'; }
+      else if (busy) { dotHtml = '<span class="dot dot-caution"></span> Busy';  dotColor = 'var(--status-caution)'; }
+      else if (armed){ dotHtml = '<span class="dot dot-accent"></span> Armed';   dotColor = 'var(--accent-action)'; }
+      else if (empty){ dotHtml = '<span class="dot dot-negative"></span> Empty'; dotColor = 'var(--status-negative)'; }
+      else           { dotHtml = '<span class="dot dot-neutral"></span> Idle';   dotColor = 'var(--text-content-secondary)'; }
 
-      const qtyClass = !active || armed === 0
-        ? 'zero'
-        : (busy ? 'armed-busy' : 'armed-num');
-      const qtyDisplay = active ? armed : '&mdash;';
+      const qCls = !act || armed === 0 ? 'is-zero' : (busy ? 'is-busy' : 'is-armed');
 
-      html += '<div class="' + cls + '" data-slot="' + i + '">';
-      html += '<div class="slot-num">Slot ' + String(i).padStart(2, '0') + '</div>';
-      html += '<div class="product-icon">' + PRODUCT_ICONS[i] + '</div>';
-      html += '<div class="product-name">' + PRODUCT_NAMES[i] + '</div>';
-      html += '<div class="armed-qty ' + qtyClass + '">' + qtyDisplay + '</div>';
-      html += '<div class="status-row" style="color:' + statusColor + '">' + statusHTML;
-      if (machineState.queueDepth[i] > 0) {
-        html += '<span class="queue-badge"><span class="dot dot-yellow"></span> Q:' + machineState.queueDepth[i] + '</span>';
-      }
-      html += '</div>';
-      if (!active) {
-        html += '<div class="na-overlay">Not Available</div>';
-      }
-      html += '</div>';
+      h += '<div class="'+cls+'" data-slot="'+s+'">';
+      h += '<div class="slot-num">SLOT '+String(s).padStart(2,'0')+'</div>';
+      h += '<div class="product-icon">'+PRODUCT_INITIAL[s]+'</div>';
+      h += '<div class="product-name">'+PRODUCT[s]+'</div>';
+      h += '<div class="armed-qty '+qCls+'">'+(act ? armed : '--')+'</div>';
+      h += '<div class="status-row" style="color:'+dotColor+'">'+dotHtml+'</div>';
+      h += '</div>';
     }
-    gridContainer.innerHTML = html;
-
-    // Click handlers
-    gridContainer.querySelectorAll('.product-card').forEach(function(card) {
-      card.addEventListener('click', function() {
-        const slot = parseInt(this.dataset.slot);
-        if (slot <= ACTIVE_SLOTS && !machineState.wlvl[slot]) {
-          selectProduct(slot);
-        }
+    $('grid-container').innerHTML = h;
+    $('grid-container').querySelectorAll('.product-card').forEach(c => {
+      c.addEventListener('click', () => {
+        const s = +c.dataset.slot;
+        if (s <= ACTIVE && !S.wlvl[s]) selectProduct(s);
       });
     });
   }
 
-  // ===================================================================
-  // Render — Armed Slots
-  // ===================================================================
-  function renderArmedSlots() {
-    let html = '';
-    let has = false;
-    let count = 0;
-    for (let i = 1; i <= ACTIVE_SLOTS; i++) {
-      if (machineState.armedQty[i] > 0 || machineState.busy[i]) {
-        has = true;
-        if (machineState.armedQty[i] > 0) count++;
-        const dot = machineState.busy[i]
-          ? '<span class="dot dot-yellow"></span>'
-          : '<span class="dot dot-blue"></span>';
-        html += '<div class="list-row">';
-        html += '<div class="list-info">' + dot + '<span class="list-name">' + PRODUCT_NAMES[i] + '</span></div>';
-        html += '<span class="list-val">' + machineState.armedQty[i] + '</span>';
-        html += '<button class="btn-red" data-slot="' + i + '">Cancel</button>';
-        html += '</div>';
+  // Right panel
+  function renderArmed() {
+    let h = '', cnt = 0;
+    for (let s = 1; s <= ACTIVE; s++) {
+      if (S.armedQty[s] > 0 || S.busy[s]) {
+        cnt += S.armedQty[s];
+        const dot = S.busy[s] ? '<span class="dot dot-caution"></span>' : '<span class="dot dot-accent"></span>';
+        h += '<div class="list-row">'+dot+' <span style="font-weight:600;">'+PRODUCT[s]+'</span>';
+        h += '<span class="list-val">'+S.armedQty[s]+'</span>';
+        h += '<button class="btn-negative" data-slot="'+s+'">Cancel</button></div>';
       }
     }
-    armedCount.textContent = count;
-    armedList.innerHTML = has ? html : '<span class="muted">&mdash;</span>';
-
-    armedList.querySelectorAll('.btn-red').forEach(function(btn) {
-      btn.addEventListener('click', function() {
-        cancelSlot(parseInt(this.dataset.slot));
-      });
+    $('armed-count').textContent = cnt;
+    $('armed-list').innerHTML = h || '<span class="muted">--</span>';
+    $('armed-list').querySelectorAll('.btn-negative').forEach(b => {
+      b.addEventListener('click', () => cancelSlot(+b.dataset.slot));
     });
   }
 
-  // ===================================================================
-  // Render — Queue
-  // ===================================================================
   function renderQueue() {
-    let html = '';
-    let has = false;
-    let count = 0;
-    for (let i = 1; i <= ACTIVE_SLOTS; i++) {
-      if (machineState.queueDepth[i] > 0) {
-        has = true;
-        count += machineState.queueDepth[i];
-        html += '<div class="list-row">';
-        html += '<div class="list-info"><span class="list-name">' + PRODUCT_NAMES[i] + '</span></div>';
-        html += '<span class="list-val">' + machineState.queueDepth[i] + ' pending</span>';
-        html += '</div>';
+    let h = '', cnt = 0;
+    for (let s = 1; s <= ACTIVE; s++) {
+      if (S.queueDepth[s] > 0) {
+        cnt += S.queueDepth[s];
+        h += '<div class="list-row"><span style="font-weight:600;">'+PRODUCT[s]+'</span><span class="list-val">'+S.queueDepth[s]+' pending</span></div>';
       }
     }
-    queueCount.textContent = count;
-    queueList.innerHTML = has ? html : '<span class="muted">&mdash;</span>';
+    $('queue-count').textContent = cnt;
+    $('queue-list').innerHTML = h || '<span class="muted">--</span>';
   }
 
-  // ===================================================================
-  // Render — Alerts
-  // ===================================================================
   function renderAlerts() {
-    let html = '';
-    const issues = [];
-
-    for (let i = 1; i <= ACTIVE_SLOTS; i++) {
-      if (machineState.wlvl[i]) {
-        issues.push({
-          type: 'empty',
-          text: 'Slot ' + String(i).padStart(2, '0') + ': ' + PRODUCT_NAMES[i] + ' is empty'
-        });
-      }
+    let issues = '';
+    for (let s = 1; s <= ACTIVE; s++) {
+      if (S.wlvl[s]) issues += '<div class="list-row" style="color:var(--status-negative);"><span><span class="dot dot-negative"></span> SLOT '+String(s).padStart(2,'0')+': '+PRODUCT[s]+'</span><span>[EMPTY]</span></div>';
     }
-    if (!machineState.connected) {
-      issues.push({ type: 'offline', text: 'Machine is offline' });
+    if (!S.connected) issues += '<div class="list-row" style="color:var(--status-negative);"><span><span class="dot dot-negative"></span> Machine offline</span><span>[OFFLINE]</span></div>';
+    if (issues) {
+      $('alert-list').innerHTML = '<div class="alert-card"><div class="alert-heading">'+issues.split('class="list-row"').length+' issue(s) detected</div>'+issues+'</div>';
+    } else {
+      $('alert-list').innerHTML = '<span class="muted">--</span>';
     }
-
-    if (issues.length > 0) {
-      const innerRows = issues.map(function(issue) {
-        const dot = issue.type === 'offline'
-          ? '<span class="dot dot-red"></span>'
-          : '<span class="dot dot-red"></span>';
-        return '<div class="list-row danger">' +
-          '<span>' + dot + ' ' + issue.text + '</span>' +
-          '<span class="status-bracket error">[ACTIVE]</span>' +
-          '</div>';
-      }).join('');
-      html = '<div class="alert-card">' +
-        '<div class="alert-title">&#9888; ' + issues.length + ' Issue' + (issues.length > 1 ? 's' : '') + ' Detected</div>' +
-        innerRows +
-        '</div>';
-    }
-
-    alertList.innerHTML = html || '<span class="muted">&mdash;</span>';
   }
 
-  // ===================================================================
-  // Render — Unclaimed
-  // ===================================================================
   function renderUnclaimed() {
-    if (unclaimedItems.length === 0) {
-      unclaimedList.innerHTML = '<span class="muted">&mdash;</span>';
-      return;
-    }
-    let html = '';
-    unclaimedItems.forEach(function(item, idx) {
-      html += '<div class="list-row" style="color:var(--yellow);">';
-      html += '<div class="list-info">' +
-        '<span class="dot dot-yellow"></span>' +
-        '<span>Slot ' + String(item.slot).padStart(2, '0') + ': ' + item.qty + 'u &mdash; &#x20B1;' + item.amount + '</span>' +
-        '</div>';
-      html += '<span class="unclaimed-actions">';
-      html += '<button class="btn-sm retry" data-resolve="' + idx + '" data-action="retry">Retry</button>';
-      html += '<button class="btn-sm dismiss" data-resolve="' + idx + '" data-action="dismiss">Dismiss</button>';
-      html += '</span></div>';
+    if (!unclaimed.length) { $('unclaimed-list').innerHTML = '<span class="muted">--</span>'; return; }
+    let h = '';
+    unclaimed.forEach((it, idx) => {
+      h += '<div class="list-row" style="color:var(--status-caution);">';
+      h += '<span><span class="dot dot-caution"></span> SLOT '+String(it.slot).padStart(2,'0')+': '+it.qty+'u -- P'+it.amount+'</span>';
+      h += '<span style="display:flex;gap:4px;">';
+      h += '<button class="btn-sm retry" data-idx="'+idx+'" data-act="retry">Retry</button>';
+      h += '<button class="btn-sm dismiss" data-idx="'+idx+'" data-act="dismiss">Dismiss</button>';
+      h += '</span></div>';
     });
-    unclaimedList.innerHTML = html;
-
-    unclaimedList.querySelectorAll('[data-resolve]').forEach(function(btn) {
-      btn.addEventListener('click', function() {
-        resolveUnclaimed(parseInt(this.dataset.resolve), this.dataset.action);
-      });
+    $('unclaimed-list').innerHTML = h;
+    $('unclaimed-list').querySelectorAll('[data-idx]').forEach(b => {
+      b.addEventListener('click', () => resolveUnclaimed(+b.dataset.idx, b.dataset.act));
     });
   }
 
-  // ===================================================================
-  // Sale Entry
-  // ===================================================================
-  function selectProduct(productId) {
-    if (productId < 1 || productId > ACTIVE_SLOTS) return;
-    if (machineState.wlvl[productId]) return;
-    selectedProduct = productId;
-    renderProductGrid();
-    document.querySelectorAll('.btn-amount').forEach(function(b) { b.disabled = false; });
+  // Sale
+  function selectProduct(id) { selProduct = id; renderGrid(); document.querySelectorAll('.btn-amount').forEach(b => b.disabled = false); }
+  function stageItem(id, amt) {
+    staged.push({ id, name: PRODUCT[id], amt, qty: AMOUNT_QTY[amt]||1 });
+    selProduct = null; renderStaged(); renderGrid(); updateArm();
+    document.querySelectorAll('.btn-amount').forEach(b => b.disabled = true);
   }
-
-  function stageItem(productId, amount) {
-    const qty = AMOUNT_TO_QTY[amount] || 1;
-    stagedItems.push({
-      productId: productId,
-      productName: PRODUCT_NAMES[productId],
-      icon: PRODUCT_ICONS[productId],
-      amount: amount,
-      qty: qty
+  function removeStaged(i) { staged.splice(i,1); renderStaged(); updateArm(); }
+  function renderStaged() {
+    if (!staged.length) { $('staged-items').innerHTML = '<span class="muted">Select product, then amount</span>'; $('sale-total').textContent = 'P 0'; return; }
+    let h = '', t = 0;
+    staged.forEach((it, i) => {
+      t += it.amt;
+      h += '<div class="staged-row"><span><span class="staged-name">'+it.name+'</span> <span class="staged-meta">('+it.qty+'u)</span></span><span class="staged-price">P '+it.amt+'</span><button class="btn-remove" data-idx="'+i+'">x</button></div>';
     });
-    selectedProduct = null;
-    renderStagedItems();
-    renderProductGrid();
-    updateArmButton();
-    document.querySelectorAll('.btn-amount').forEach(function(b) { b.disabled = true; });
+    $('staged-items').innerHTML = h; $('sale-total').textContent = 'P '+t;
+    $('staged-items').querySelectorAll('.btn-remove').forEach(b => b.addEventListener('click', () => removeStaged(+b.dataset.idx)));
+  }
+  function updateArm() {
+    $('btn-arm').disabled = !staged.length;
+    $('btn-arm').textContent = staged.length ? 'Arm '+staged.length+' Slot'+(staged.length>1?'s':'') : 'Arm';
   }
 
-  function removeStagedItem(index) {
-    stagedItems.splice(index, 1);
-    renderStagedItems();
-    updateArmButton();
-  }
-
-  function renderStagedItems() {
-    if (stagedItems.length === 0) {
-      stagedEl.innerHTML = '<span class="muted">[Select a product, then tap an amount]</span>';
-      saleTotal.innerHTML = '&#x20B1;0';
-      return;
-    }
-    let html = '';
-    let total = 0;
-    stagedItems.forEach(function(item, idx) {
-      total += item.amount;
-      html += '<div class="staged-row">';
-      html += '<div class="staged-info">' +
-        '<span>' + item.icon + '</span>' +
-        '<span class="staged-name">' + item.productName + '</span>' +
-        '<span class="staged-qty">(' + item.qty + 'u)</span>' +
-        '</div>';
-      html += '<span class="staged-price">&#x20B1;' + item.amount + '</span>';
-      html += '<button class="btn-remove" data-idx="' + idx + '">&times;</button>';
-      html += '</div>';
-    });
-    stagedEl.innerHTML = html;
-    saleTotal.innerHTML = '&#x20B1;' + total;
-    stagedEl.querySelectorAll('.btn-remove').forEach(function(btn) {
-      btn.addEventListener('click', function() {
-        removeStagedItem(parseInt(this.dataset.idx));
-      });
-    });
-  }
-
-  function updateArmButton() {
-    btnArm.disabled = (stagedItems.length === 0);
-    btnArm.textContent = stagedItems.length > 0
-      ? 'Arm ' + stagedItems.length + ' Slot' + (stagedItems.length > 1 ? 's' : '')
-      : 'Arm Slots';
-  }
-
-  // ===================================================================
-  // API calls
-  // ===================================================================
+  // API
   async function executeArm() {
-    if (stagedItems.length === 0) return;
-    btnArm.disabled = true;
-    btnArm.textContent = 'Arming...';
-    const saleId = 'SALE-' + Date.now() + '-' + (++saleIdCounter);
+    if (!staged.length) return;
+    $('btn-arm').disabled = true; $('btn-arm').textContent = 'Working...';
+    const sid = 'SALE-'+Date.now()+'-'+(++saleCtr);
     try {
-      const resp = await fetch('/api/arm', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          saleId: saleId,
-          items: stagedItems.map(function(i) {
-            return { productId: i.productId, qty: i.qty };
-          })
-        })
-      });
-      const data = await resp.json();
-      const failures = data.results.filter(function(r) { return !r.success; });
-      if (failures.length > 0) {
-        showToast('Failed: ' + failures.map(function(f) {
-          return 'Slot ' + String(f.productId).padStart(2, '0');
-        }).join(', '), 'error');
+      const r = await fetch('/api/arm', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ saleId:sid, items:staged.map(i=>({productId:i.id,qty:i.qty})) }) });
+      const d = await r.json();
+      const bad = d.results.filter(r => !r.success);
+      if (bad.length) {
+        toast('Failed: '+bad.map(f=>'Slot '+String(f.productId).padStart(2,'0')).join(', '), 'error');
       } else {
-        const names = stagedItems.map(function(i) { return i.productName; });
-        showToast('Armed: ' + names.join(', '), 'success');
-        stagedItems.length = 0;
-        selectedProduct = null;
-        renderStagedItems();
-        renderProductGrid();
-        updateArmButton();
-        document.querySelectorAll('.btn-amount').forEach(function(b) { b.disabled = true; });
+        dispenseCount += staged.length;
+        toast('Armed: '+staged.map(i=>i.name).join(', '), 'success');
+        staged = []; selProduct = null; renderStaged(); renderGrid(); updateArm();
+        document.querySelectorAll('.btn-amount').forEach(b => b.disabled = true);
       }
-    } catch (e) {
-      showToast('Error: ' + e.message, 'error');
-    } finally {
-      updateArmButton();
-    }
+    } catch(e) { toast('Error: '+e.message, 'error'); }
+    finally { updateArm(); }
   }
-
-  async function cancelSlot(productId) {
-    try {
-      await fetch('/api/cancel', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ productId: productId })
-      });
-      showToast('Cancel requested for ' + PRODUCT_NAMES[productId], 'info');
-    } catch (e) {
-      console.error('Cancel failed:', e);
-    }
+  async function cancelSlot(id) {
+    try { await fetch('/api/cancel', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({productId:id}) }); }
+    catch(e) { /* silent */ }
   }
-
   async function resolveUnclaimed(idx, action) {
-    const item = unclaimedItems[idx];
+    const it = unclaimed[idx];
     try {
-      await fetch('/api/unclaimed/resolve', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          slot: item.slot,
-          qty: item.qty,
-          amount: item.amount,
-          action: action
-        })
-      });
-      unclaimedItems.splice(idx, 1);
-      renderUnclaimed();
-      if (action === 'retry') {
-        showToast('Retrying slot ' + item.slot, 'info');
-      }
-    } catch (e) {
-      console.error('Resolve failed:', e);
-    }
+      await fetch('/api/unclaimed/resolve', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({slot:it.slot,qty:it.qty,amount:it.amount,action}) });
+      unclaimed.splice(idx,1); renderUnclaimed();
+    } catch(e) { /* silent */ }
   }
 
-  // ===================================================================
-  // Event Bindings
-  // ===================================================================
-  document.querySelectorAll('.btn-amount').forEach(function(btn) {
-    btn.disabled = true;
-    btn.addEventListener('click', function() {
-      if (selectedProduct !== null) {
-        stageItem(selectedProduct, parseInt(this.dataset.amount));
-        // Flash feedback
-        this.classList.add('flash');
-        var self = this;
-        setTimeout(function() { self.classList.remove('flash'); }, 150);
-      }
-    });
+  // Theme
+  const html = document.documentElement;
+  const saved = localStorage.getItem('sabon-theme');
+  if (saved) html.setAttribute('data-theme', saved);
+  $('theme-toggle').textContent = html.getAttribute('data-theme') === 'dark' ? 'LIGHT' : 'DARK';
+  $('theme-toggle').addEventListener('click', () => {
+    const nxt = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    html.setAttribute('data-theme', nxt);
+    localStorage.setItem('sabon-theme', nxt);
+    $('theme-toggle').textContent = nxt === 'dark' ? 'LIGHT' : 'DARK';
   });
 
-  $('btn-add-more').addEventListener('click', function() {
-    selectedProduct = null;
-    renderProductGrid();
-    document.querySelectorAll('.btn-amount').forEach(function(b) { b.disabled = true; });
-  });
+  // Offline retry
+  $('offline-retry').addEventListener('click', () => { connectSSE(); });
 
-  $('btn-clear-sale').addEventListener('click', function() {
-    stagedItems.length = 0;
-    selectedProduct = null;
-    renderStagedItems();
-    renderProductGrid();
-    updateArmButton();
-    document.querySelectorAll('.btn-amount').forEach(function(b) { b.disabled = true; });
+  // Sale events
+  document.querySelectorAll('.btn-amount').forEach(b => {
+    b.disabled = true;
+    b.addEventListener('click', () => { if (selProduct !== null) stageItem(selProduct, +b.dataset.amount); });
   });
-
+  $('btn-add-more').addEventListener('click', () => { selProduct = null; renderGrid(); document.querySelectorAll('.btn-amount').forEach(b => b.disabled = true); });
+  $('btn-clear-sale').addEventListener('click', () => { staged = []; selProduct = null; renderStaged(); renderGrid(); updateArm(); document.querySelectorAll('.btn-amount').forEach(b => b.disabled = true); });
   $('btn-arm').addEventListener('click', executeArm);
 
-  // ===================================================================
-  // Theme Toggle
-  // ===================================================================
-  const themeToggle = $('theme-toggle');
-  const html = document.documentElement;
-
-  // Load saved preference
-  const savedTheme = localStorage.getItem('sabon-theme');
-  if (savedTheme) html.setAttribute('data-theme', savedTheme);
-  updateToggleIcon();
-
-  themeToggle.addEventListener('click', function() {
-    const current = html.getAttribute('data-theme');
-    const next = current === 'dark' ? 'light' : 'dark';
-    html.setAttribute('data-theme', next);
-    localStorage.setItem('sabon-theme', next);
-    updateToggleIcon();
-  });
-
-  function updateToggleIcon() {
-    themeToggle.textContent = html.getAttribute('data-theme') === 'dark' ? '☀️' : '🌙';
-  }
-
-  // ===================================================================
   // Init
-  // ===================================================================
-  renderProductGrid();
-
-  // Try connecting to SSE (works when served via server.js)
+  renderGrid();
   connectSSE();
 
-  // Fallback: if SSE doesn't connect within 3 seconds, show demo data
-  setTimeout(function() {
-    if (!machineState.connected) {
-      // Populate demo state for visual reference
-      machineState.armedQty[1] = 2;
-      machineState.armedQty[2] = 1;
-      machineState.busy[3] = true;
-      machineState.wlvl[4] = true;
-      machineState.queueDepth[2] = 1;
-      machineState.lastUpdate = new Date();
-      updateAll();
-      $('greeting').innerHTML = '<h1>Cashier Dashboard</h1>' +
-        '<p style="color:var(--text-muted);font-style:italic;">Demo mode &mdash; connect via server.js for live data</p>';
+  // Skeleton timeout: if no connection after 4s, show demo
+  setTimeout(() => {
+    if (!S.connected) {
+      S.armedQty[1] = 2; S.armedQty[2] = 1; S.busy[3] = true;
+      S.wlvl[4] = true; S.queueDepth[2] = 1;
+      S.lastUpdate = new Date(); refresh();
     }
-  }, 3000);
-
+  }, 4000);
 })();
 </script>
 </body>
