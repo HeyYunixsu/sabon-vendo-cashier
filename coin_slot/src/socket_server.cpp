@@ -116,22 +116,22 @@ bool start_listening_for_connections()
 
 static std::string build_status_response(AppState &state)
 {
-  // STATUS format:
-  //   armedQty1-4, remaining_time1-4, wlvl1-4, busy1-4, queueDepth1-4, paused
+  // STATUS format (31 fields):
+  //   armedQty1-6, remaining1-6, wlvl1-6, busy1-6, queueDepth1-6, paused
   std::string resp = "STATUS";
-  for (int i = 1; i <= 4; i++) {
+  for (int i = 1; i <= TOTAL_SLOTS; i++) {
     resp += "," + std::to_string(state.armedQty[i]);
   }
-  for (int i = 1; i <= 4; i++) {
+  for (int i = 1; i <= TOTAL_SLOTS; i++) {
     resp += "," + std::to_string(state.remaining_time[i]);
   }
-  for (int i = 1; i <= 4; i++) {
+  for (int i = 1; i <= TOTAL_SLOTS; i++) {
     resp += "," + std::to_string(state.WLVL_PRESSED[i] ? 1 : 0);
   }
-  for (int i = 1; i <= 4; i++) {
+  for (int i = 1; i <= TOTAL_SLOTS; i++) {
     resp += "," + std::to_string(state.slotBusy[i] ? 1 : 0);
   }
-  for (int i = 1; i <= 4; i++) {
+  for (int i = 1; i <= TOTAL_SLOTS; i++) {
     resp += "," + std::to_string((int)state.pendingQueue[i].size());
   }
   resp += "," + std::to_string(state.state_pause ? 1 : 0);
@@ -211,7 +211,7 @@ void manage_connected_clients(AppState &state)
           int productId = std::stoi(input_str.substr(p1 + 1, p2 - (p1 + 1)));
           int qty = std::stoi(input_str.substr(p2 + 1));
 
-          if (productId < 1 || productId > 4)
+          if (productId < 1 || productId > TOTAL_SLOTS)
           {
             log_error("socket", std::string("ARM rejected — invalid product ID: ") + std::to_string(productId));
           }

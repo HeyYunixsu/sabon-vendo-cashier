@@ -35,7 +35,7 @@ struct PumpState {
 };
 
 static std::mutex     g_pump_mutex;
-static PumpState      pumps[5];          // index 1-4
+static PumpState      pumps[7];          // index 1-6
 static AppState      *g_state_ptr = nullptr;
 static int            g_pump_start_cooldown_ms = 200;
 static std::chrono::time_point<std::chrono::steady_clock> g_last_pump_start = std::chrono::steady_clock::now() - std::chrono::seconds(1);
@@ -43,8 +43,7 @@ static std::chrono::time_point<std::chrono::steady_clock> g_last_pump_start = st
 static bool           STOP_PRESSED      = false;
 static bool           STOP_BTN_PREVIOUS = false;
 
-// Map pump index to physical button pins safely
-static const int BUTTON_PINS[5] = {0, BTN1, BTN2, BTN3, BTN4};
+// Button pin lookup now uses pin_button map from hardware_config
 
 // ------------------------------------------------------------------------------
 // Dispense Trigger Logic
@@ -64,7 +63,7 @@ static void executeDispenseTrigger(int pumpIdx) {
     AppState  &state    = *g_state_ptr;
 
     int activePumps = 0;
-    for (int i = 1; i <= 4; i++) {
+    for (int i = 1; i <= TOTAL_SLOTS; i++) {
         if (pumps[i].timer > current_time) activePumps++;
     }
 
@@ -173,7 +172,7 @@ static void handlePump(PumpState &pump, AppState &state) {
 // ------------------------------------------------------------------------------
 void pump_setup(AppState &state) {
     g_state_ptr = &state;
-    for (int i = 1; i <= 4; i++) {
+    for (int i = 1; i <= TOTAL_SLOTS; i++) {
         pumps[i].id    = i;
         pumps[i].id    = i;
         pumps[i].timer = std::chrono::steady_clock::now();
@@ -208,12 +207,12 @@ void pump_setup(AppState &state) {
     pinMode(BTN3, INPUT); pullUpDnControl(BTN3, PUD_DOWN);
     pinMode(BTN4, INPUT); pullUpDnControl(BTN4, PUD_DOWN);
 
-    for (int i = 1; i <= 4; ++i) {
+    for (int i = 1; i <= TOTAL_SLOTS; ++i) {
         pinMode(pin_pump[i], OUTPUT);
         digitalWrite(pin_pump[i], PUMP_TRIGGER_LOW);
     }
 
-    for (int i = 1; i <= 4; ++i) {
+    for (int i = 1; i <= TOTAL_SLOTS; ++i) {
         pinMode(pin_led[i], OUTPUT);
         digitalWrite(pin_led[i], LOW);
     }
@@ -234,8 +233,8 @@ void pump_loop(AppState &state) {
     auto current_time = std::chrono::steady_clock::now();
 
     // 1. Process Selection Buttons (Hybrid Surge + Hold Logic)
-    for (int i = 1; i <= 4; i++) {
-        bool isCurrentlyPressed = (digitalRead(BUTTON_PINS[i]) == HIGH);
+    for (int i = 1; i <= TOTAL_SLOTS; i++) {
+        bool isCurrentlyPressed = (digitalRead(pin_button[i]) == HIGH);
 
         if (isCurrentlyPressed) {
             if (!pumps[i].buttonWasPressedLastFrame) {
@@ -266,13 +265,13 @@ void pump_loop(AppState &state) {
     }
 
     // 2. Update remaining times safely
-    for (int i = 1; i <= 4; i++) {
+    for (int i = 1; i <= TOTAL_SLOTS; i++) {
         auto diff = std::chrono::duration_cast<std::chrono::milliseconds>(pumps[i].timer - current_time).count();
         state.remaining_time[i] = std::max(0LL, (long long)diff);
     }
 
     // 2b. Update LED outputs — HIGH while armed, LOW when 0
-    for (int i = 1; i <= 4; i++) {
+    for (int i = 1; i <= TOTAL_SLOTS; i++) {
         digitalWrite(pin_led[i], state.armedQty[i] > 0 ? HIGH : LOW);
     }
 
@@ -284,29 +283,29 @@ void pump_loop(AppState &state) {
     if (isPressPause) pauseButtonClicked();
 
     if (state.state_pause && isPressPause) {
-        for (int i = 1; i <= 4; i++) {
+        for (int i = 1; i <= TOTAL_SLOTS; i++) {
             pumps[i].remainingTimeWhenPaused = state.remaining_time[i];
             pumps[i].isPaused = true;
         }
     }
 
     if (state.state_pause) {
-        for (int i = 1; i <= 4; i++)
+        for (int i = 1; i <= TOTAL_SLOTS; i++)
             pumps[i].timer = current_time + std::chrono::milliseconds(pumps[i].remainingTimeWhenPaused);
     } else if (isPressPause) {
-        for (int i = 1; i <= 4; i++) {
+        for (int i = 1; i <= TOTAL_SLOTS; i++) {
             pumps[i].isPaused = false;
             pumps[i].remainingTimeWhenPaused = 0;
         }
     }
 
     // 4. Tick pump outputs
-    for (int i = 1; i <= 4; i++)
+    for (int i = 1; i <= TOTAL_SLOTS; i++)
         handlePump(pumps[i], state);
 
     // 4b. Jam timeout detection — refund armedQty if post-press deadline passed
     //     without the pump completing (sensor never confirmed)
-    for (int i = 1; i <= 4; i++) {
+    for (int i = 1; i <= TOTAL_SLOTS; i++) {
         if (pumps[i].armedUnitsReserved > 0 &&
             pumps[i].postPressDeadline.time_since_epoch().count() > 0 &&
             current_time > pumps[i].postPressDeadline) {
@@ -327,7 +326,7 @@ void pump_loop(AppState &state) {
     std::this_thread::sleep_for(std::chrono::milliseconds(50));
 }
 void pump_shutdown() {
-    for (int i = 1; i <= 4; i++) {
+    for (int i = 1; i <= TOTAL_SLOTS; i++) {
         digitalWrite(pin_pump[i], PUMP_TRIGGER_LOW);
         digitalWrite(pin_led[i], LOW);
     }
