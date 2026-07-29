@@ -1,0 +1,4 @@
+pyserial
+websockets==15.0.1
+python-dotenv
+RPi.GPIO

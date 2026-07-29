@@ -1,0 +1,23 @@
+[Unit]
+Description=Sabon Express Vendo GUI
+After=graphical.target
+Wants=graphical.target
+
+[Service]
+User=dgsi
+# Wait up to 60 s for the X server socket to appear before launching the GUI.
+# graphical.target is reached before the display manager finishes starting X,
+# so without this wait the process starts, cannot open DISPLAY :0, and exits.
+ExecStartPre=/bin/bash -c 'c=0; until [ -S /tmp/.X11-unix/X0 ]; do sleep 1; c=$((c+1)); [ $c -ge 60 ] && exit 1; done; c=0; until DISPLAY=:0 XAUTHORITY=/home/dgsi/.Xauthority xrandr 2>/dev/null | grep -qF "*"; do sleep 1; c=$((c+1)); [ $c -ge 30 ] && break; done'
+ExecStart=/home/dgsi/Desktop/sabon_express_dispenser/iot_dispenser_v2/main_gui
+WorkingDirectory=/home/dgsi/Desktop/sabon_express_dispenser/iot_dispenser_v2
+StandardOutput=journal
+StandardError=journal
+Restart=always
+RestartSec=5
+
+Environment="DISPLAY=:0"
+Environment="XAUTHORITY=/home/dgsi/.Xauthority"
+
+[Install]
+WantedBy=graphical.target

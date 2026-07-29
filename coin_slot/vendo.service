@@ -1,0 +1,16 @@
+[Unit]
+Description=Vendo Coin Slot Dispenser
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/home/dgsi/Desktop/dispenser/coin_slot/main
+WorkingDirectory=/home/dgsi/Desktop/dispenser/coin_slot
+StandardOutput=journal
+StandardError=journal
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=10
+
+[Install]
+WantedBy=multi-user.target

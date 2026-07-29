@@ -1,0 +1,5 @@
+[Desktop Entry]
+Type=Application
+Exec=/home/dgsi/Desktop/Weather_Dashboard/env/bin/python /home/dgsi/Desktop/Weather_Dashboard/main.py
+Name=dashboard
+Comment=Startup weather_dashboard on load

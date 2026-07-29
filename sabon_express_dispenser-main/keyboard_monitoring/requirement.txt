@@ -1,0 +1,5 @@
+keyboard==0.13.5
+pynput
+RPi.GPIO
+requests
+python-dotenv

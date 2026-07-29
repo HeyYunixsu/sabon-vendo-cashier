@@ -1,0 +1,11 @@
+[Unit]
+Description=QR SCanner Service
+After=multi-user.target
+
+[Service]
+Type=idle
+ExecStartPre=/bin/sleep 5
+ExecStart=/home/dgsi/Desktop/dispenser/keyboard_monitoring/env2/bin/python3 /home/dgsi/Desktop/dispenser/keyboard_monitoring/qr_code_monitoring.py
+
+[Install]
+WantedBy=multi-user.target

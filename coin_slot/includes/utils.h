@@ -1,0 +1,30 @@
+#ifndef UTILS_H
+#define UTILS_H
+
+#include <string>
+#include <map>
+#include <chrono>
+#include <filesystem>
+
+namespace fs = std::filesystem;
+
+std::string trim(const std::string &s);
+
+std::map<std::string, std::string> loadEnv(const std::string &filepath = ".env");
+
+std::string format_current_time(
+    std::chrono::system_clock::time_point time_point = std::chrono::system_clock::now());
+
+// Returns true if the directory is ready to use (already existed OR just created).
+// Returns false only if the directory could not be created.
+bool ensureDirectoryExists(const std::string &path);
+
+// Returns the absolute directory that contains the running binary.
+// Used to build config/transaction paths that are independent of CWD.
+std::string get_binary_dir();
+
+// Structured logging — writes "[YYYY-MM-DD HH:MM:SS] [module] msg" to stdout/stderr.
+void log_info(const std::string &module, const std::string &msg);
+void log_error(const std::string &module, const std::string &msg);
+
+#endif // UTILS_H
