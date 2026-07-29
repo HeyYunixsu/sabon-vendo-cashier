@@ -37,7 +37,7 @@ extern std::map<int, int> pin_button;   // slot index → button BCM pin
 extern std::map<int, Product> productMap;
 extern bool SHARED_LED_BTN;             // true when LEDs share button GPIOs
 
-int TOTAL_SLOTS = 4;  // exposed so pump_control / socket_server can loop 1–4
+const int TOTAL_SLOTS = 4;  // loop bound for pump_control / socket_server
 
 // Applies hardware overrides from a loaded config.env map.
 void init_hardware_config(const std::map<std::string, std::string> &config);
