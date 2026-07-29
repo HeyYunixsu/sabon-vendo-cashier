@@ -1,7 +1,38 @@
+// =============================================================================
+// pump_control.cpp — Non-blocking per-product dispense state machine
+//
+// Transaction flow (millis()-driven, no blocking):
+//
+//   IDLE ──ARM_BATCH──> ARMED ──button press──> DISPENSING
+//     ^                   │  ▲                      │
+//     │                   │  └── more credit left ───┘
+//     │                   │
+//     │                   └── all credits consumed ──> COMPLETE
+//     │                                                    │
+//     └────────────────────────────────────────────────────┘
+//
+// Per-product state (shared GPIO pin = button input + LED output):
+//   armedQty > 0  →  LED ON  (OUTPUT HIGH), button live
+//   armedQty = 0  →  LED OFF (OUTPUT LOW),  button ignored
+//
+// Each button press dispenses ONE ₱5 increment:
+//   - Decrements armedQty[slot] by 1
+//   - Runs pump for base_seconds[slot] (calibrated per product)
+//   - ₱15 credit = 3 presses, each running 1× base_seconds
+//
+// Shared GPIO multiplexing (SHARED_LED_BTN):
+//   Pin flips INPUT (read button, ~2µs) → OUTPUT (drive LED)
+//   External 10kΩ pull-down + LED→330Ω→GND holds pin LOW during INPUT phase.
+//   Button press connects 3.3V, overpowering the pull-down.
+//
+// Jam protection:
+//   armedUnitsReserved tracks in-flight dispenses. If postPressDeadline
+//   expires without pump completing, credit is refunded to armedQty.
+// =============================================================================
+
 #include "pump_control.h"
 #include "hardware_config.h"
 #include "transaction.h"
-// voucher_manager removed — per-slot armed state used instead
 #include "utils.h"
 #include <wiringPi.h>
 #include <chrono>
@@ -252,20 +283,28 @@ void pump_loop(AppState &state) {
     std::lock_guard<std::mutex> lock(g_pump_mutex);
     auto current_time = std::chrono::steady_clock::now();
 
-    // 1. Process Selection Buttons (shared-pin mode: OUTPUT LOW briefly,
-    //    then INPUT to read button. LED stays lit through 10kΩ external
-    //    pull-down + LED path to GND.)
+    // 1. Per-product button scan with shared-GPIO multiplexing.
+    //
+    //    State machine per product (non-blocking, micros-scale):
+    //      armedQty > 0 → LED = ON  (pin is OUTPUT, HIGH)
+    //      armedQty = 0 → LED = OFF (pin is OUTPUT, LOW)
+    //
+    //    Shared-pin read sequence (SHARED_LED_BTN):
+    //      1. pinMode → INPUT  (external 10kΩ pull-down + LED→330Ω→GND pulls LOW)
+    //      2. digitalRead      (button press = 3.3V overpowers pull-down → HIGH)
+    //      3. pinMode → OUTPUT (restore LED drive)
+    //      4. digitalWrite     (HIGH if armed, LOW if not)
+    //      Total INPUT window: ~2µs. LED dimming invisible to human eye.
+    //
+    //    Debounce via hold-detection: 200ms continuous press required for
+    //    idle pumps. Already-running pumps accept instantly (re-press = extra credit).
     for (int i = 1; i <= TOTAL_SLOTS; i++) {
         int btnPin = pin_button[i];
         bool isCurrentlyPressed;
         if (SHARED_LED_BTN) {
-            // Momentarily drive LOW so LED doesn't blind the read,
-            // then switch to INPUT (no internal pull — external 10kΩ handles it)
-            digitalWrite(btnPin, LOW);
-            pinMode(btnPin, INPUT);
+            pinMode(btnPin, INPUT);   // float → external 10kΩ pulls to GND
             isCurrentlyPressed = (digitalRead(btnPin) == HIGH);
-            // Restore OUTPUT with current LED state
-            pinMode(btnPin, OUTPUT);
+            pinMode(btnPin, OUTPUT);  // restore LED drive
             digitalWrite(btnPin, state.armedQty[i] > 0 ? HIGH : LOW);
         } else {
             isCurrentlyPressed = (digitalRead(btnPin) == HIGH);
