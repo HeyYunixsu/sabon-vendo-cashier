@@ -17,6 +17,9 @@ extern int PIN_STOP;
 extern int PUMP_TRIGGER_HIGH;  // Active-low relay: LOW (0) turns pump ON
 extern int PUMP_TRIGGER_LOW;   // HIGH (1) turns pump OFF
 
+// LED output pins (BCM numbering) — one per product slot, lit while armed
+extern int LED1, LED2, LED3, LED4;
+
 // ------------------------------------------------------------------------------
 // Product Configuration
 // ------------------------------------------------------------------------------
@@ -32,6 +35,7 @@ struct Product {
 // ------------------------------------------------------------------------------
 
 extern std::map<int, int> pin_pump;
+extern std::map<int, int> pin_led;
 extern std::map<int, Product> productMap;
 
 // Applies hardware overrides from a loaded config.env map to pin variables,

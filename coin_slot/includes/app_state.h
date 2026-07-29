@@ -2,21 +2,30 @@
 #define APP_STATE_H
 
 #include <string>
-#include <vector>
-#include "voucher_manager.h"  // for unusedVoucher
+#include <queue>
+
+struct PendingArm {
+    int productId;
+    int qty;
+    PendingArm(int id = 0, int q = 0) : productId(id), qty(q) {}
+};
 
 struct AppState {
-    volatile int coinCredit = 0;
+    // Per-slot armed quantity (indices 1-6; 1-4 active, 5-6 reserved for future)
+    volatile int armedQty[7] = {0};
+
+    // Per-slot busy flag — true while a slot is mid-dispense
+    bool slotBusy[7] = {false};
+
+    // Per-slot pending queue — ARM requests waiting while slot is busy
+    std::queue<PendingArm> pendingQueue[7];
+
     std::string machineId = "1";
     std::string vendorId;
 
     // Configurable at runtime from config.env
     int serverPort = 8080;
     std::string transactionDir = "../transaction";
-    int maxCoinCredit = 1000;  // cap on coinCredit; overridable from config.env
-
-    // Voucher queue (moved here from global in Phase 9)
-    std::vector<unusedVoucher> voucherQueue;
 
     long long remaining_time[5] = {0};  // index 1-4, milliseconds, always >= 0
     bool WLVL_PRESSED[5] = {false};     // index 1-4

@@ -6,7 +6,6 @@
 
 // Phase 1 suites
 void run_utils_tests();
-void run_voucher_tests();
 void run_socket_cmd_tests();
 void run_mock_tests();
 void run_hardware_tests();
@@ -31,7 +30,6 @@ int main()
     std::cout << "====================\n";
 
     run_utils_tests();
-    run_voucher_tests();
     run_socket_cmd_tests();
     run_mock_tests();
     run_hardware_tests();

@@ -24,7 +24,7 @@ endif
 # -----------------------------------------------------------------------
 
 OBJS = main.o src/pump_control.o src/transaction.o \
-       src/utils.o src/hardware_config.o src/voucher_manager.o \
+       src/utils.o src/hardware_config.o \
        src/socket_server.o $(MOCK_OBJS)
 
 all: $(EXE)
@@ -59,7 +59,7 @@ clean:
 TEST_CXXFLAGS = -std=c++17 -Wall -Wextra -Wno-unused-parameter -g -Iincludes -Imock
 
 TEST_OBJS = tests/run_tests.o \
-            tests/test_utils.o tests/test_voucher.o \
+            tests/test_utils.o \
             tests/test_socket_cmd.o tests/test_mock.o tests/test_hardware.o \
             tests/test_phase2.o tests/test_phase3.o \
             tests/test_phase4.o tests/test_phase5.o \
@@ -70,7 +70,7 @@ TEST_OBJS = tests/run_tests.o \
 # Source modules compiled with mock support into tests/obj/
 # (separate from src/*.o used by the main binary)
 TEST_MODULE_OBJS = tests/obj/pump_control.o tests/obj/utils.o \
-                   tests/obj/hardware_config.o tests/obj/voucher_manager.o \
+                   tests/obj/hardware_config.o \
                    tests/obj/socket_server.o tests/obj/transaction.o \
                    mock/wiringPi.o
 

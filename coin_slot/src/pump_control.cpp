@@ -1,7 +1,7 @@
 #include "pump_control.h"
 #include "hardware_config.h"
 #include "transaction.h"
-#include "voucher_manager.h"
+// voucher_manager removed — per-slot armed state used instead
 #include "utils.h"
 #include <wiringPi.h>
 #include <chrono>
@@ -69,13 +69,13 @@ static void executeDispenseTrigger(int pumpIdx) {
     bool isMachinePaused = state.state_pause;
 
     log_info("pump", "Button " + std::to_string(pumpIdx) + ": TRIGGERED"
-              "  credit=" + std::to_string(state.coinCredit) +
-              "  required=" + std::to_string(product.coins) +
+              "  armedQty=" + std::to_string(state.armedQty[pumpIdx]) +
+              "  required=1" +
               "  paused=" + std::to_string(isMachinePaused));
 
-    // PROTECTION ENFORCED: Added !isMachinePaused to completely freeze credit consumption while paused
-    if ((state.coinCredit >= product.coins) && (!atleast2PumpOn || pumpAlreadyOn) && !isSlotEmpty && !isMachinePaused) {
-        state.coinCredit -= product.coins;
+    // Per-slot armed-qty check: each button press only spends from its own slot
+    if ((state.armedQty[pumpIdx] > 0) && (!atleast2PumpOn || pumpAlreadyOn) && !isSlotEmpty && !isMachinePaused) {
+        state.armedQty[pumpIdx]--;
         pump.amount += product.coins;
         int ms = (int)(product.durationSeconds * 1000);
         std::chrono::milliseconds extension(ms);
@@ -86,8 +86,9 @@ static void executeDispenseTrigger(int pumpIdx) {
             pump.timer += extension;
 
         g_last_pump_start = current_time;
+        state.slotBusy[pumpIdx] = true;
         log_info("pump", "Button " + std::to_string(pumpIdx) + ": ACCEPTED"
-                  "  credit_now=" + std::to_string(state.coinCredit) + "  added=" + std::to_string(ms) + "ms");
+                  "  armedQty_now=" + std::to_string(state.armedQty[pumpIdx]) + "  added=" + std::to_string(ms) + "ms");
         digitalWrite(pump_pin, PUMP_TRIGGER_HIGH);
     } else {
         if (isMachinePaused)
@@ -98,7 +99,7 @@ static void executeDispenseTrigger(int pumpIdx) {
             log_info("pump", "Button " + std::to_string(pumpIdx) + ": DENIED  reason=max_pumps_active");
         else
             log_info("pump", "Button " + std::to_string(pumpIdx) + ": DENIED  reason=insufficient_credit"
-                      "  credit=" + std::to_string(state.coinCredit) + "  required=" + std::to_string(product.coins));
+                      "  armedQty=" + std::to_string(state.armedQty[pumpIdx]) + "  required=1");
     }
 }
 
@@ -128,20 +129,22 @@ static void handlePump(PumpState &pump, AppState &state) {
         digitalWrite(pin_pump[pump.id], PUMP_TRIGGER_LOW);
         if (pump.isPumping) {
             log_info("pump", "Pump " + std::to_string(pump.id) + ": STOPPED  dispensed=" + std::to_string(pump.amount) + " coins");
-            double totalRemaining = pump.amount;
-            int postfix = 1;
-
-            while (totalRemaining > 0 && getTotalVoucherAmount(state.voucherQueue) > 0) {
-                unusedVoucher v = dequeueVoucher(state.voucherQueue);
-                totalRemaining -= v.amount;
-                processSaving(state, pump.id, v.amount, v.voucherId, postfix++);
-            }
-
-            if (totalRemaining > 0)
-                processSaving(state, pump.id, totalRemaining, "");
-
+            processSaving(state, pump.id, pump.amount, "");
             pump.amount    = 0;
             pump.isPumping = false;
+
+            // Release this slot: mark idle, then check pending queue
+            state.slotBusy[pump.id] = false;
+
+            // If there are pending ARM requests for this slot, arm the next one
+            if (!state.pendingQueue[pump.id].empty()) {
+                PendingArm next = state.pendingQueue[pump.id].front();
+                state.pendingQueue[pump.id].pop();
+                state.armedQty[pump.id] += next.qty;
+                log_info("pump", "Slot " + std::to_string(pump.id) + ": dequeued pending ARM"
+                          "  qty=" + std::to_string(next.qty) +
+                          "  totalArmed=" + std::to_string(state.armedQty[pump.id]));
+            }
         }
     }
 }
@@ -189,6 +192,11 @@ void pump_setup(AppState &state) {
     for (int i = 1; i <= 4; ++i) {
         pinMode(pin_pump[i], OUTPUT);
         digitalWrite(pin_pump[i], PUMP_TRIGGER_LOW);
+    }
+
+    for (int i = 1; i <= 4; ++i) {
+        pinMode(pin_led[i], OUTPUT);
+        digitalWrite(pin_led[i], LOW);
     }
 
     pinMode(PIN_STOP, INPUT); pullUpDnControl(PIN_STOP, PUD_DOWN);
@@ -239,6 +247,11 @@ void pump_loop(AppState &state) {
         state.remaining_time[i] = std::max(0LL, (long long)diff);
     }
 
+    // 2b. Update LED outputs — HIGH while armed, LOW when 0
+    for (int i = 1; i <= 4; i++) {
+        digitalWrite(pin_led[i], state.armedQty[i] > 0 ? HIGH : LOW);
+    }
+
     // 3. Process Pause/Stop Operations
     STOP_BTN_PREVIOUS = STOP_PRESSED;
     STOP_PRESSED      = digitalRead(PIN_STOP) == HIGH;
@@ -270,6 +283,8 @@ void pump_loop(AppState &state) {
     std::this_thread::sleep_for(std::chrono::milliseconds(50));
 }
 void pump_shutdown() {
-    for (int i = 1; i <= 4; i++)
+    for (int i = 1; i <= 4; i++) {
         digitalWrite(pin_pump[i], PUMP_TRIGGER_LOW);
+        digitalWrite(pin_led[i], LOW);
+    }
 }

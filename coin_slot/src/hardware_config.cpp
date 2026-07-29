@@ -10,11 +10,16 @@
 int BTN1 = 14, BTN2 = 24, BTN3 = 25, BTN4 = 10;
 int PUMP1 = 15, PUMP2 = 16, PUMP3 = 6,  PUMP4 = 17;
 int PIN_STOP = 27;
+int LED1 = 5, LED2 = 6, LED3 = 12, LED4 = 13;
 int PUMP_TRIGGER_HIGH = 0;  // LOW  — active-low relay: 0 turns pump ON
 int PUMP_TRIGGER_LOW  = 1;  // HIGH — off
 
 std::map<int, int> pin_pump {
     {1, PUMP1}, {2, PUMP2}, {3, PUMP3}, {4, PUMP4}
+};
+
+std::map<int, int> pin_led {
+    {1, LED1}, {2, LED2}, {3, LED3}, {4, LED4}
 };
 
 std::map<int, Product> productMap {
@@ -50,10 +55,15 @@ void init_hardware_config(const std::map<std::string, std::string> &config)
     load_int("PUMP3",             PUMP3);
     load_int("PUMP4",             PUMP4);
     load_int("PIN_STOP",          PIN_STOP);
+    load_int("LED1",              LED1);
+    load_int("LED2",              LED2);
+    load_int("LED3",              LED3);
+    load_int("LED4",              LED4);
     load_int("PUMP_TRIGGER_HIGH", PUMP_TRIGGER_HIGH);
     load_int("PUMP_TRIGGER_LOW",  PUMP_TRIGGER_LOW);
 
     pin_pump = {{1, PUMP1}, {2, PUMP2}, {3, PUMP3}, {4, PUMP4}};
+    pin_led  = {{1, LED1}, {2, LED2}, {3, LED3}, {4, LED4}};
 
     static const struct { int coins; double seconds; } defaults[5] = {
         {},

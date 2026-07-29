@@ -1,5 +1,5 @@
 #include "socket_server.h"
-#include "voucher_manager.h"
+// voucher_manager removed — per-slot armed state used instead
 #include "utils.h"
 #include <iostream>
 #include <cstring>
@@ -116,16 +116,26 @@ bool start_listening_for_connections()
 
 static std::string build_status_response(AppState &state)
 {
-  return "STATUS:" + std::to_string(state.coinCredit) +
-         "," + std::to_string(state.remaining_time[1]) +
-         "," + std::to_string(state.remaining_time[2]) +
-         "," + std::to_string(state.remaining_time[3]) +
-         "," + std::to_string(state.remaining_time[4]) +
-         "," + std::to_string(state.WLVL_PRESSED[1]) +
-         "," + std::to_string(state.WLVL_PRESSED[2]) +
-         "," + std::to_string(state.WLVL_PRESSED[3]) +
-         "," + std::to_string(state.WLVL_PRESSED[4]) +
-         "," + std::to_string(state.state_pause);
+  // STATUS format:
+  //   armedQty1-4, remaining_time1-4, wlvl1-4, busy1-4, queueDepth1-4, paused
+  std::string resp = "STATUS";
+  for (int i = 1; i <= 4; i++) {
+    resp += "," + std::to_string(state.armedQty[i]);
+  }
+  for (int i = 1; i <= 4; i++) {
+    resp += "," + std::to_string(state.remaining_time[i]);
+  }
+  for (int i = 1; i <= 4; i++) {
+    resp += "," + std::to_string(state.WLVL_PRESSED[i] ? 1 : 0);
+  }
+  for (int i = 1; i <= 4; i++) {
+    resp += "," + std::to_string(state.slotBusy[i] ? 1 : 0);
+  }
+  for (int i = 1; i <= 4; i++) {
+    resp += "," + std::to_string((int)state.pendingQueue[i].size());
+  }
+  resp += "," + std::to_string(state.state_pause ? 1 : 0);
+  return resp;
 }
 
 void accept_new_client_connections(AppState &state)
@@ -187,24 +197,44 @@ void manage_connected_clients(AppState &state)
 
     try
     {
-      if (isFirstWordTest(client_buffer, "VOUCHER"))
+      if (isFirstWordTest(client_buffer, "ARM"))
       {
         if (socket_count_commas(client_buffer) != 2)
         {
-          log_error("socket", std::string("Malformed VOUCHER (expected 2 commas): ") + client_buffer);
+          log_error("socket", std::string("Malformed ARM (expected 2 commas): ") + client_buffer);
         }
         else
         {
           std::string input_str(client_buffer);
           size_t p1 = input_str.find(',');
           size_t p2 = input_str.find(',', p1 + 1);
-          std::string voucherId = input_str.substr(p1 + 1, p2 - (p1 + 1));
-          int coins = std::stoi(input_str.substr(p2 + 1));
+          int productId = std::stoi(input_str.substr(p1 + 1, p2 - (p1 + 1)));
+          int qty = std::stoi(input_str.substr(p2 + 1));
 
-          int newCredit = (int)state.coinCredit + coins;
-          state.coinCredit = std::min(newCredit, state.maxCoinCredit);
-          enqueueVoucher(state.voucherQueue, unusedVoucher(voucherId, coins));
-          broadcast_status(state);  // push updated credit immediately
+          if (productId < 1 || productId > 4)
+          {
+            log_error("socket", std::string("ARM rejected — invalid product ID: ") + std::to_string(productId));
+          }
+          else if (qty <= 0)
+          {
+            log_error("socket", std::string("ARM rejected — invalid qty: ") + std::to_string(qty));
+          }
+          else if (state.slotBusy[productId])
+          {
+            // Slot is busy — queue the request
+            state.pendingQueue[productId].push(PendingArm(productId, qty));
+            log_info("socket", "ARM queued for busy slot " + std::to_string(productId) +
+                     "  qty=" + std::to_string(qty) +
+                     "  queueDepth=" + std::to_string((int)state.pendingQueue[productId].size()));
+          }
+          else
+          {
+            state.armedQty[productId] += qty;
+            log_info("socket", "ARM accepted  product=" + std::to_string(productId) +
+                     "  qty=" + std::to_string(qty) +
+                     "  totalArmed=" + std::to_string(state.armedQty[productId]));
+          }
+          broadcast_status(state);
         }
       }
       else if (isFirstWordTest(client_buffer, "WTRLVL"))
@@ -230,23 +260,6 @@ void manage_connected_clients(AppState &state)
               "  slot3=" + (state.WLVL_PRESSED[3] ? "EMPTY" : "ok") +
               "  slot4=" + (state.WLVL_PRESSED[4] ? "EMPTY" : "ok"));
           broadcast_status(state);  // push updated water level flags immediately
-        }
-      }
-      else if (isFirstWordTest(client_buffer, "COIN"))
-      {
-        if (socket_count_commas(client_buffer) != 1)
-        {
-          log_error("socket", std::string("Malformed COIN (expected 1 comma): ") + client_buffer);
-        }
-        else
-        {
-          std::string input_str(client_buffer);
-          size_t p1 = input_str.find(',');
-          int coins = std::stoi(input_str.substr(p1 + 1));
-
-          int newCredit = (int)state.coinCredit + coins;
-          state.coinCredit = std::min(newCredit, state.maxCoinCredit);
-          broadcast_status(state);  // push updated credit immediately
         }
       }
       else

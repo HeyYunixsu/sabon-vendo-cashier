@@ -1,157 +1,150 @@
 #include "test_framework.h"
 #include "app_state.h"
-#include "voucher_manager.h"
-#include <sstream>
-#include <iostream>
+#include <queue>
 
-// Phase 9 — Remove Last Global Coupling + Last Debug Cout
+// Phase 9 — Per-slot armed state and pending queues (was: voucherQueue/maxCoinCredit)
 //
 // Changes tested here:
-//   1. listOfVoucher is gone as a global — queue lives in AppState.voucherQueue
-//   2. AppState.voucherQueue starts empty and holds unusedVoucher correctly
-//   3. enqueueVoucher / dequeueVoucher operate on a local vector — no global side effects
-//   4. enqueueVoucher produces NO stdout output
-//   5. dequeueVoucher produces NO stdout output
-//   6. AppState.maxCoinCredit exists and defaults to 1000
-//   7. Two independent AppState instances have independent queues
+//   1. AppState.armedQty[1..4] starts at 0 for every slot
+//   2. AppState.pendingQueue[1..4] starts empty for every slot
+//   3. AppState.slotBusy[1..4] defaults to false
+//   4. PendingArm struct construction and field access
+//   5. Multiple AppState instances have independent armed state
+//   6. Per-slot pending queues are independent of each other
 
-// ---------------------------------- voucherQueue in AppState ---
+// ---------------------------------- armedQty in AppState ---
 
-void test_appstate_voucherQueue_starts_empty()
+void test_appstate_armedQty_defaults_zero()
 {
     AppState s;
-    CHECK(s.voucherQueue.empty());
+    for (int i = 1; i <= 4; i++)
+        CHECK_EQ(s.armedQty[i], 0);
 }
 
-void test_appstate_voucherQueue_enqueue_increases_size()
+void test_appstate_armedQty_can_be_set()
 {
     AppState s;
-    enqueueVoucher(s.voucherQueue, unusedVoucher("V001", 10));
-    CHECK_EQ((int)s.voucherQueue.size(), 1);
+    s.armedQty[1] = 3;
+    CHECK_EQ(s.armedQty[1], 3);
+    CHECK_EQ(s.armedQty[2], 0);  // other slots unaffected
 }
 
-void test_appstate_voucherQueue_dequeue_returns_correct_voucher()
+void test_appstate_armedQty_decrement()
 {
     AppState s;
-    enqueueVoucher(s.voucherQueue, unusedVoucher("V-ABC", 25));
-    unusedVoucher v = dequeueVoucher(s.voucherQueue);
-    CHECK_EQ(v.voucherId, std::string("V-ABC"));
-    CHECK_EQ(v.amount, 25);
+    s.armedQty[1] = 5;
+    s.armedQty[1]--;
+    CHECK_EQ(s.armedQty[1], 4);
 }
 
-void test_appstate_voucherQueue_fifo_order()
+// ---------------------------------- pendingQueue in AppState ---
+
+void test_appstate_pendingQueue_starts_empty()
 {
     AppState s;
-    enqueueVoucher(s.voucherQueue, unusedVoucher("FIRST", 5));
-    enqueueVoucher(s.voucherQueue, unusedVoucher("SECOND", 10));
-    unusedVoucher first = dequeueVoucher(s.voucherQueue);
-    CHECK_EQ(first.voucherId, std::string("FIRST"));
-    unusedVoucher second = dequeueVoucher(s.voucherQueue);
-    CHECK_EQ(second.voucherId, std::string("SECOND"));
+    for (int i = 1; i <= 4; i++)
+        CHECK(s.pendingQueue[i].empty());
 }
 
-void test_appstate_voucherQueue_empty_after_draining()
+void test_appstate_pendingQueue_push_increases_size()
 {
     AppState s;
-    enqueueVoucher(s.voucherQueue, unusedVoucher("V1", 5));
-    dequeueVoucher(s.voucherQueue);
-    CHECK(s.voucherQueue.empty());
+    s.pendingQueue[1].push(PendingArm(1, 10));
+    CHECK_EQ((int)s.pendingQueue[1].size(), 1);
 }
 
-// ---------------------------------- getTotalVoucherAmount via AppState ---
-
-void test_getTotalVoucherAmount_via_appstate_queue()
+void test_appstate_pendingQueue_fifo_order()
 {
     AppState s;
-    enqueueVoucher(s.voucherQueue, unusedVoucher("A", 10));
-    enqueueVoucher(s.voucherQueue, unusedVoucher("B", 15));
-    CHECK_EQ(getTotalVoucherAmount(s.voucherQueue), 25);
+    s.pendingQueue[1].push(PendingArm(1, 5));
+    s.pendingQueue[1].push(PendingArm(1, 10));
+    PendingArm first = s.pendingQueue[1].front();
+    CHECK_EQ(first.qty, 5);
+    s.pendingQueue[1].pop();
+    PendingArm second = s.pendingQueue[1].front();
+    CHECK_EQ(second.qty, 10);
 }
 
-void test_getTotalVoucherAmount_empty_queue_is_zero()
+void test_appstate_pendingQueue_empty_after_draining()
 {
     AppState s;
-    CHECK_EQ(getTotalVoucherAmount(s.voucherQueue), 0);
+    s.pendingQueue[1].push(PendingArm(1, 5));
+    s.pendingQueue[1].pop();
+    CHECK(s.pendingQueue[1].empty());
 }
 
-// ---------------------------------- Queue independence between AppState instances ---
+// ---------------------------------- PendingArm struct ---
 
-void test_two_appstate_queues_are_independent()
+void test_pendingArm_default_construction()
+{
+    PendingArm p;
+    CHECK_EQ(p.productId, 0);
+    CHECK_EQ(p.qty, 0);
+}
+
+void test_pendingArm_value_construction()
+{
+    PendingArm p(3, 7);
+    CHECK_EQ(p.productId, 3);
+    CHECK_EQ(p.qty, 7);
+}
+
+// ---------------------------------- slotBusy in AppState ---
+
+void test_appstate_slotBusy_defaults_false()
+{
+    AppState s;
+    for (int i = 1; i <= 4; i++)
+        CHECK(!s.slotBusy[i]);
+}
+
+void test_appstate_slotBusy_can_be_set()
+{
+    AppState s;
+    s.slotBusy[1] = true;
+    CHECK(s.slotBusy[1]);
+    CHECK(!s.slotBusy[2]);  // other slots unaffected
+}
+
+// ---------------------------------- Independence between instances ---
+
+void test_two_appstate_armedQty_independent()
 {
     AppState s1, s2;
-    enqueueVoucher(s1.voucherQueue, unusedVoucher("ONLY_IN_S1", 99));
-    CHECK_EQ((int)s1.voucherQueue.size(), 1);
-    CHECK(s2.voucherQueue.empty());  // s2 must not be affected
+    s1.armedQty[1] = 99;
+    CHECK_EQ(s1.armedQty[1], 99);
+    CHECK_EQ(s2.armedQty[1], 0);  // s2 must not be affected
 }
 
-// ---------------------------------- No stdout from enqueue/dequeue ---
-
-void test_enqueueVoucher_produces_no_stdout()
+void test_per_slot_queues_independent()
 {
     AppState s;
-    std::streambuf *orig = std::cout.rdbuf();
-    std::ostringstream captured;
-    std::cout.rdbuf(captured.rdbuf());
-
-    enqueueVoucher(s.voucherQueue, unusedVoucher("SILENT", 5));
-
-    std::cout.rdbuf(orig);
-    CHECK(captured.str().empty());
-}
-
-void test_dequeueVoucher_produces_no_stdout()
-{
-    AppState s;
-    enqueueVoucher(s.voucherQueue, unusedVoucher("SILENT", 5));
-
-    std::streambuf *orig = std::cout.rdbuf();
-    std::ostringstream captured;
-    std::cout.rdbuf(captured.rdbuf());
-
-    dequeueVoucher(s.voucherQueue);
-
-    std::cout.rdbuf(orig);
-    CHECK(captured.str().empty());
-}
-
-// ---------------------------------- AppState.maxCoinCredit ---
-
-void test_appstate_maxCoinCredit_default_is_1000()
-{
-    AppState s;
-    CHECK_EQ(s.maxCoinCredit, 1000);
-}
-
-void test_appstate_maxCoinCredit_can_be_changed()
-{
-    AppState s;
-    s.maxCoinCredit = 500;
-    CHECK_EQ(s.maxCoinCredit, 500);
-}
-
-void test_two_appstate_maxCoinCredit_independent()
-{
-    AppState s1, s2;
-    s1.maxCoinCredit = 200;
-    CHECK_EQ(s2.maxCoinCredit, 1000);  // s2 must still be at default
+    s.pendingQueue[1].push(PendingArm(1, 3));
+    s.pendingQueue[2].push(PendingArm(2, 5));
+    CHECK_EQ((int)s.pendingQueue[1].size(), 1);
+    CHECK_EQ((int)s.pendingQueue[2].size(), 1);
+    // Pop from slot 1 — slot 2 unaffected
+    s.pendingQueue[1].pop();
+    CHECK(s.pendingQueue[1].empty());
+    CHECK_EQ((int)s.pendingQueue[2].size(), 1);
 }
 
 // ---------------------------------------------------------- entry point ---
 
 void run_phase9_tests()
 {
-    SUITE("phase9 (voucherQueue in AppState + maxCoinCredit + no debug cout)");
-    RUN_TEST(test_appstate_voucherQueue_starts_empty);
-    RUN_TEST(test_appstate_voucherQueue_enqueue_increases_size);
-    RUN_TEST(test_appstate_voucherQueue_dequeue_returns_correct_voucher);
-    RUN_TEST(test_appstate_voucherQueue_fifo_order);
-    RUN_TEST(test_appstate_voucherQueue_empty_after_draining);
-    RUN_TEST(test_getTotalVoucherAmount_via_appstate_queue);
-    RUN_TEST(test_getTotalVoucherAmount_empty_queue_is_zero);
-    RUN_TEST(test_two_appstate_queues_are_independent);
-    RUN_TEST(test_enqueueVoucher_produces_no_stdout);
-    RUN_TEST(test_dequeueVoucher_produces_no_stdout);
-    RUN_TEST(test_appstate_maxCoinCredit_default_is_1000);
-    RUN_TEST(test_appstate_maxCoinCredit_can_be_changed);
-    RUN_TEST(test_two_appstate_maxCoinCredit_independent);
+    SUITE("phase9 (per-slot armed state + pending queues)");
+    RUN_TEST(test_appstate_armedQty_defaults_zero);
+    RUN_TEST(test_appstate_armedQty_can_be_set);
+    RUN_TEST(test_appstate_armedQty_decrement);
+    RUN_TEST(test_appstate_pendingQueue_starts_empty);
+    RUN_TEST(test_appstate_pendingQueue_push_increases_size);
+    RUN_TEST(test_appstate_pendingQueue_fifo_order);
+    RUN_TEST(test_appstate_pendingQueue_empty_after_draining);
+    RUN_TEST(test_pendingArm_default_construction);
+    RUN_TEST(test_pendingArm_value_construction);
+    RUN_TEST(test_appstate_slotBusy_defaults_false);
+    RUN_TEST(test_appstate_slotBusy_can_be_set);
+    RUN_TEST(test_two_appstate_armedQty_independent);
+    RUN_TEST(test_per_slot_queues_independent);
 }

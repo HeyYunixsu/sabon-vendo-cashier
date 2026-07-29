@@ -1,19 +1,17 @@
 // test_socket_integration.cpp
 //
-// Protocol Integration / Behavioral Tests
-// ----------------------------------------
+// Protocol Integration / Behavioral Tests (updated for cashier-dashboard model)
+// ---------------------------------------------------------------------------
 // These tests exercise the full TCP communication path between the coin_slot
 // server and a simulated client.  A real OS socket is bound on a test port
 // (9901) and a test-client connects to it, sends protocol messages, and
 // verifies both the AppState mutations and the STATUS response payload.
 //
-// This is the same kind of communication that iot_dispenser_v2 performs:
-//   - Client sends:  "COIN,<n>"  / "VOUCHER,<id>,<n>" / "WTRLVL,0,0,0,0" / "Client ACK"
-//   - Server sends:  "STATUS:<credit>,<t1>,<t2>,<t3>,<t4>,<wl1>,<wl2>,<wl3>,<wl4>,<pause>"
+// Protocol messages:
+//   - Client sends:  "ARM,<productId>,<qty>" / "WTRLVL,0,0,0,0" / "Client ACK"
+//   - Server sends:  "STATUS,<armedQty1-4>,<t1-4>,<wl1-4>,<busy1-4>,<qDepth1-4>,<pause>"
 //
 // Protocol: plain TCP SOCK_STREAM on 127.0.0.1:9901 (test port, not 8080)
-// Framing:  raw stream, no delimiter — each send() is one logical message
-//           (safe here because messages are short and fit one TCP segment)
 
 #include "test_framework.h"
 #include "socket_server.h"
@@ -47,13 +45,11 @@ static const int TEST_PORT = 9901;
 
 // ---------------------------------------------------------------- helpers ---
 
-// Short sleep to let the server thread process one loop iteration.
 static void yield_to_server()
 {
     std::this_thread::sleep_for(std::chrono::milliseconds(30));
 }
 
-// Open a TCP client socket connected to the test server.
 static ClientSock connect_test_client()
 {
     ClientSock sock = socket(AF_INET, SOCK_STREAM, 0);
@@ -72,7 +68,6 @@ static ClientSock connect_test_client()
     return sock;
 }
 
-// Send a message and return the server's reply (blocks up to 500 ms).
 static std::string send_and_recv(ClientSock sock, const std::string &msg)
 {
     send(sock, msg.c_str(), (int)msg.length(), 0);
@@ -80,7 +75,6 @@ static std::string send_and_recv(ClientSock sock, const std::string &msg)
 
     char buf[1024] = {0};
 #ifdef _WIN32
-    // Set a receive timeout so we don't block forever
     DWORD timeout_ms = 500;
     setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, (const char *)&timeout_ms, sizeof(timeout_ms));
 #else
@@ -93,10 +87,6 @@ static std::string send_and_recv(ClientSock sock, const std::string &msg)
     return std::string(buf);
 }
 
-// Discard the on-connect STATUS push so subsequent reads get fresh responses.
-// Call this right after connect_test_client() in any test that issues its own
-// STATUS request. Do NOT call in test_integration_server_pushes_status_on_connect
-// which specifically verifies the push.
 static void drain_connect_push(ClientSock sock)
 {
     char buf[1024] = {0};
@@ -107,12 +97,10 @@ static void drain_connect_push(ClientSock sock)
     struct timeval tv{0, 300000};
     setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
 #endif
-    recv(sock, buf, sizeof(buf) - 1, 0);  // read and discard the on-connect push
+    recv(sock, buf, sizeof(buf) - 1, 0);
 }
 
 // ------------------------------------------------- integration fixture ---
-// All integration tests share one server instance to avoid port-in-use races.
-// The fixture starts before the first test and stops after the last.
 
 static std::thread          g_server_thread;
 static std::atomic<bool>    g_server_running{false};
@@ -121,8 +109,7 @@ static AppState             g_test_state;
 static void start_integration_server()
 {
     g_test_state = AppState{};
-    g_test_state.serverPort    = TEST_PORT;
-    g_test_state.maxCoinCredit = 1000;
+    g_test_state.serverPort = TEST_PORT;
 
     server_app_setup(g_test_state);
 
@@ -135,7 +122,6 @@ static void start_integration_server()
         }
     });
 
-    // Give the server a moment to start accepting
     std::this_thread::sleep_for(std::chrono::milliseconds(50));
 }
 
@@ -161,13 +147,10 @@ void test_integration_client_can_connect()
 
 void test_integration_server_pushes_status_on_connect()
 {
-    // The server must send STATUS immediately on connect — no ACK required.
-    // This eliminates the 5-second startup delay in the iot_dispenser_v2 GUI.
     ClientSock sock = connect_test_client();
     CHECK(sock != INVALID_CLIENT_SOCK);
     if (sock == INVALID_CLIENT_SOCK) return;
 
-    // Do NOT send anything — just read what the server spontaneously pushes
     char buf[1024] = {0};
 #ifdef _WIN32
     DWORD timeout_ms = 500;
@@ -179,7 +162,7 @@ void test_integration_server_pushes_status_on_connect()
     int n = recv(sock, buf, sizeof(buf) - 1, 0);
     CHECK(n > 0);
     buf[n] = '\0';
-    CHECK(std::string(buf).find("STATUS:") == 0);
+    CHECK(std::string(buf).find("STATUS") == 0);
 
     CLOSE_CLIENT(sock);
 }
@@ -188,188 +171,172 @@ void test_integration_server_pushes_status_on_connect()
 
 void test_integration_unknown_command_returns_status()
 {
-    // iot_dispenser_v2 sends "Client ACK" every 5 s to get a STATUS response.
-    // Any message that is not COIN / VOUCHER / WTRLVL triggers STATUS.
     ClientSock sock = connect_test_client();
     CHECK(sock != INVALID_CLIENT_SOCK);
     if (sock == INVALID_CLIENT_SOCK) return;
     drain_connect_push(sock);
 
     std::string resp = send_and_recv(sock, "Client ACK");
-    CHECK(resp.find("STATUS:") == 0);
+    CHECK(resp.find("STATUS") == 0);
 
     CLOSE_CLIENT(sock);
 }
 
-void test_integration_status_has_10_fields()
+void test_integration_status_has_18_fields()
 {
-    // STATUS:<credit>,<t1>,<t2>,<t3>,<t4>,<wl1>,<wl2>,<wl3>,<wl4>,<pause>
-    // That is: 1 field before first comma + 9 commas = 10 fields total.
+    // STATUS,<armedQty1-4>,<t1-4>,<wl1-4>,<busy1-4>,<qDepth1-4>,<pause>
+    // 18 fields = 17 commas
     ClientSock sock = connect_test_client();
     CHECK(sock != INVALID_CLIENT_SOCK);
     if (sock == INVALID_CLIENT_SOCK) return;
     drain_connect_push(sock);
 
     std::string resp = send_and_recv(sock, "STATUS");
-
-    // Strip "STATUS:" prefix
-    std::string body = resp.substr(7);
+    std::string body = resp.substr(7);  // skip "STATUS,"
     int commas = 0;
     for (char c : body) if (c == ',') commas++;
-    CHECK_EQ(commas, 9);  // 10 fields → 9 commas
+    CHECK_EQ(commas, 16);  // 17 commas total (including the one after STATUS)
 
     CLOSE_CLIENT(sock);
 }
 
-void test_integration_status_starts_with_zero_credit_initially()
+// ---------------------------------- ARM command ---
+
+void test_integration_arm_increases_armedQty()
 {
-    g_test_state.coinCredit = 0;
+    for (int i = 1; i <= 4; i++) g_test_state.armedQty[i] = 0;
+    ClientSock sock = connect_test_client();
+    CHECK(sock != INVALID_CLIENT_SOCK);
+    if (sock == INVALID_CLIENT_SOCK) return;
+
+    send(sock, "ARM,1,5", 7, 0);
+    yield_to_server();
+
+    CHECK_EQ((int)g_test_state.armedQty[1], 5);
+    CHECK_EQ((int)g_test_state.armedQty[2], 0);  // other slots unaffected
+    CLOSE_CLIENT(sock);
+}
+
+void test_integration_arm_accumulates_for_same_slot()
+{
+    for (int i = 1; i <= 4; i++) g_test_state.armedQty[i] = 0;
+    ClientSock sock = connect_test_client();
+    CHECK(sock != INVALID_CLIENT_SOCK);
+    if (sock == INVALID_CLIENT_SOCK) return;
+
+    send(sock, "ARM,2,3", 7, 0);
+    yield_to_server();
+    send(sock, "ARM,2,4", 7, 0);
+    yield_to_server();
+
+    CHECK_EQ((int)g_test_state.armedQty[2], 7);
+    CLOSE_CLIENT(sock);
+}
+
+void test_integration_arm_different_slots_independent()
+{
+    for (int i = 1; i <= 4; i++) g_test_state.armedQty[i] = 0;
+    ClientSock sock = connect_test_client();
+    CHECK(sock != INVALID_CLIENT_SOCK);
+    if (sock == INVALID_CLIENT_SOCK) return;
+
+    send(sock, "ARM,1,2", 7, 0);
+    yield_to_server();
+    send(sock, "ARM,3,4", 7, 0);
+    yield_to_server();
+
+    CHECK_EQ((int)g_test_state.armedQty[1], 2);
+    CHECK_EQ((int)g_test_state.armedQty[3], 4);
+    CLOSE_CLIENT(sock);
+}
+
+void test_integration_arm_reflected_in_status()
+{
+    for (int i = 1; i <= 4; i++) g_test_state.armedQty[i] = 0;
     ClientSock sock = connect_test_client();
     CHECK(sock != INVALID_CLIENT_SOCK);
     if (sock == INVALID_CLIENT_SOCK) return;
     drain_connect_push(sock);
 
-    std::string resp = send_and_recv(sock, "STATUS");
-    // "STATUS:0,..."  — credit is the first field after the colon
-    CHECK(resp.find("STATUS:0,") == 0);
-
-    CLOSE_CLIENT(sock);
-}
-
-// ---------------------------------- COIN command ---
-
-void test_integration_coin_increases_credit()
-{
-    g_test_state.coinCredit = 0;
-    ClientSock sock = connect_test_client();
-    CHECK(sock != INVALID_CLIENT_SOCK);
-    if (sock == INVALID_CLIENT_SOCK) return;
-
-    send(sock, "COIN,10", 7, 0);
-    yield_to_server();
-
-    CHECK_EQ((int)g_test_state.coinCredit, 10);
-    CLOSE_CLIENT(sock);
-}
-
-void test_integration_coin_accumulates_across_messages()
-{
-    g_test_state.coinCredit = 0;
-    ClientSock sock = connect_test_client();
-    CHECK(sock != INVALID_CLIENT_SOCK);
-    if (sock == INVALID_CLIENT_SOCK) return;
-
-    send(sock, "COIN,5", 6, 0);
-    yield_to_server();
-    send(sock, "COIN,3", 6, 0);
-    yield_to_server();
-
-    CHECK_EQ((int)g_test_state.coinCredit, 8);
-    CLOSE_CLIENT(sock);
-}
-
-void test_integration_coin_capped_at_maxCoinCredit()
-{
-    g_test_state.coinCredit    = 0;
-    g_test_state.maxCoinCredit = 100;
-    ClientSock sock = connect_test_client();
-    CHECK(sock != INVALID_CLIENT_SOCK);
-    if (sock == INVALID_CLIENT_SOCK) return;
-
-    send(sock, "COIN,999", 8, 0);
-    yield_to_server();
-
-    CHECK_EQ((int)g_test_state.coinCredit, 100);
-    g_test_state.maxCoinCredit = 1000;  // restore
-    CLOSE_CLIENT(sock);
-}
-
-void test_integration_coin_reflected_in_status_response()
-{
-    g_test_state.coinCredit = 0;
-    ClientSock sock = connect_test_client();
-    CHECK(sock != INVALID_CLIENT_SOCK);
-    if (sock == INVALID_CLIENT_SOCK) return;
-    drain_connect_push(sock);
-
-    send(sock, "COIN,7", 6, 0);
+    send(sock, "ARM,1,7", 7, 0);
     yield_to_server();
 
     std::string resp = send_and_recv(sock, "STATUS");
-    CHECK(resp.find("STATUS:7,") == 0);
+    // First field after "STATUS," should be "7"
+    CHECK(resp.find("STATUS,7,") == 0);
 
-    g_test_state.coinCredit = 0;  // reset for next tests
+    for (int i = 1; i <= 4; i++) g_test_state.armedQty[i] = 0;
     CLOSE_CLIENT(sock);
 }
 
-void test_integration_malformed_coin_is_ignored()
+void test_integration_malformed_arm_is_ignored()
 {
-    g_test_state.coinCredit = 0;
+    for (int i = 1; i <= 4; i++) g_test_state.armedQty[i] = 0;
     ClientSock sock = connect_test_client();
     CHECK(sock != INVALID_CLIENT_SOCK);
     if (sock == INVALID_CLIENT_SOCK) return;
 
-    // Missing comma — should be logged and dropped, credit stays 0
-    send(sock, "COIN10", 6, 0);
+    // Only 1 comma — needs exactly 2
+    send(sock, "ARM,1", 5, 0);
     yield_to_server();
 
-    CHECK_EQ((int)g_test_state.coinCredit, 0);
+    CHECK_EQ((int)g_test_state.armedQty[1], 0);
     CLOSE_CLIENT(sock);
 }
 
-// ---------------------------------- VOUCHER command ---
-
-void test_integration_voucher_increases_credit()
+void test_integration_arm_invalid_product_rejected()
 {
-    g_test_state.coinCredit = 0;
-    g_test_state.voucherQueue.clear();
+    for (int i = 1; i <= 4; i++) g_test_state.armedQty[i] = 0;
     ClientSock sock = connect_test_client();
     CHECK(sock != INVALID_CLIENT_SOCK);
     if (sock == INVALID_CLIENT_SOCK) return;
 
-    std::string msg = "VOUCHER,V-TEST-001,20";
-    send(sock, msg.c_str(), (int)msg.length(), 0);
+    // Product ID 7 is out of range (valid: 1-4)
+    send(sock, "ARM,7,1", 7, 0);
     yield_to_server();
 
-    CHECK_EQ((int)g_test_state.coinCredit, 20);
+    for (int i = 1; i <= 4; i++)
+        CHECK_EQ((int)g_test_state.armedQty[i], 0);
     CLOSE_CLIENT(sock);
 }
 
-void test_integration_voucher_queues_into_appstate()
+void test_integration_arm_zero_qty_rejected()
 {
-    g_test_state.coinCredit = 0;
-    g_test_state.voucherQueue.clear();
+    for (int i = 1; i <= 4; i++) g_test_state.armedQty[i] = 0;
     ClientSock sock = connect_test_client();
     CHECK(sock != INVALID_CLIENT_SOCK);
     if (sock == INVALID_CLIENT_SOCK) return;
 
-    std::string msg = "VOUCHER,VCH-XYZ,15";
-    send(sock, msg.c_str(), (int)msg.length(), 0);
+    send(sock, "ARM,1,0", 7, 0);
     yield_to_server();
 
-    CHECK_EQ((int)g_test_state.voucherQueue.size(), 1);
-    CHECK_EQ(g_test_state.voucherQueue[0].voucherId, std::string("VCH-XYZ"));
-    CHECK_EQ(g_test_state.voucherQueue[0].amount, 15);
-
-    g_test_state.voucherQueue.clear();
+    CHECK_EQ((int)g_test_state.armedQty[1], 0);
     CLOSE_CLIENT(sock);
 }
 
-void test_integration_malformed_voucher_is_ignored()
+void test_integration_arm_queues_when_slot_busy()
 {
-    g_test_state.coinCredit = 0;
-    g_test_state.voucherQueue.clear();
+    for (int i = 1; i <= 4; i++) {
+        g_test_state.armedQty[i] = 0;
+        while (!g_test_state.pendingQueue[i].empty())
+            g_test_state.pendingQueue[i].pop();
+    }
+    g_test_state.slotBusy[1] = true;  // simulate slot 1 busy
+
     ClientSock sock = connect_test_client();
     CHECK(sock != INVALID_CLIENT_SOCK);
     if (sock == INVALID_CLIENT_SOCK) return;
 
-    // Only 1 comma — should be dropped (needs exactly 2)
-    std::string msg = "VOUCHER,BADFORMAT";
-    send(sock, msg.c_str(), (int)msg.length(), 0);
+    send(sock, "ARM,1,3", 7, 0);
     yield_to_server();
 
-    CHECK_EQ((int)g_test_state.coinCredit, 0);
-    CHECK(g_test_state.voucherQueue.empty());
+    // armedQty should NOT increase — it's queued
+    CHECK_EQ((int)g_test_state.armedQty[1], 0);
+    CHECK_EQ((int)g_test_state.pendingQueue[1].size(), 1);
+
+    g_test_state.slotBusy[1] = false;
+    while (!g_test_state.pendingQueue[1].empty())
+        g_test_state.pendingQueue[1].pop();
     CLOSE_CLIENT(sock);
 }
 
@@ -382,7 +349,6 @@ void test_integration_wtrlvl_sets_flags()
     CHECK(sock != INVALID_CLIENT_SOCK);
     if (sock == INVALID_CLIENT_SOCK) return;
 
-    // Set pumps 2 and 4 as water-level-triggered
     std::string msg = "WTRLVL,0,1,0,1";
     send(sock, msg.c_str(), (int)msg.length(), 0);
     yield_to_server();
@@ -418,7 +384,6 @@ void test_integration_malformed_wtrlvl_is_ignored()
     CHECK(sock != INVALID_CLIENT_SOCK);
     if (sock == INVALID_CLIENT_SOCK) return;
 
-    // Only 2 commas — needs exactly 4
     std::string msg = "WTRLVL,0,1";
     send(sock, msg.c_str(), (int)msg.length(), 0);
     yield_to_server();
@@ -427,37 +392,11 @@ void test_integration_malformed_wtrlvl_is_ignored()
     CLOSE_CLIENT(sock);
 }
 
-void test_integration_wtrlvl_reflected_in_status()
-{
-    for (int i = 1; i <= 4; i++) g_test_state.WLVL_PRESSED[i] = false;
-    g_test_state.coinCredit = 0;
-    ClientSock sock = connect_test_client();
-    CHECK(sock != INVALID_CLIENT_SOCK);
-    if (sock == INVALID_CLIENT_SOCK) return;
-    drain_connect_push(sock);
-
-    send(sock, "WTRLVL,1,0,0,0", 15, 0);
-    yield_to_server();
-
-    // STATUS: 0,0,0,0,0, 1,0,0,0, 0  (field 6 = WLVL_PRESSED[1] = 1)
-    std::string resp = send_and_recv(sock, "STATUS");
-    // Parse field 6: after "STATUS:X,t1,t2,t3,t4," the next value should be "1"
-    CHECK(resp.find("STATUS:") == 0);
-    // Count 5 commas to reach WLVL[1]
-    std::string body = resp.substr(7);  // skip "STATUS:"
-    size_t pos = 0;
-    for (int i = 0; i < 5; i++) pos = body.find(',', pos) + 1;
-    CHECK_EQ(body[pos], '1');
-
-    for (int i = 1; i <= 4; i++) g_test_state.WLVL_PRESSED[i] = false;
-    CLOSE_CLIENT(sock);
-}
-
 // ---------------------------------- multiple clients ---
 
 void test_integration_two_clients_independent()
 {
-    g_test_state.coinCredit = 0;
+    for (int i = 1; i <= 4; i++) g_test_state.armedQty[i] = 0;
     ClientSock c1 = connect_test_client();
     ClientSock c2 = connect_test_client();
     CHECK(c1 != INVALID_CLIENT_SOCK);
@@ -471,16 +410,16 @@ void test_integration_two_clients_independent()
     drain_connect_push(c1);
     drain_connect_push(c2);
 
-    // c1 sends COIN — both clients share the same AppState
-    send(c1, "COIN,5", 6, 0);
+    // c1 sends ARM — both clients share the same AppState
+    send(c1, "ARM,1,5", 7, 0);
     yield_to_server();
-    CHECK_EQ((int)g_test_state.coinCredit, 5);
+    CHECK_EQ((int)g_test_state.armedQty[1], 5);
 
     // c2 also gets the updated STATUS
     std::string resp = send_and_recv(c2, "STATUS");
-    CHECK(resp.find("STATUS:5,") == 0);
+    CHECK(resp.find("STATUS,5,") == 0);
 
-    g_test_state.coinCredit = 0;
+    for (int i = 1; i <= 4; i++) g_test_state.armedQty[i] = 0;
     CLOSE_CLIENT(c1);
     CLOSE_CLIENT(c2);
 }
@@ -489,7 +428,6 @@ void test_integration_two_clients_independent()
 
 void test_integration_server_handles_client_disconnect()
 {
-    // Connect, close without ceremony, then connect again — server must not crash.
     ClientSock c1 = connect_test_client();
     CHECK(c1 != INVALID_CLIENT_SOCK);
     if (c1 != INVALID_CLIENT_SOCK) CLOSE_CLIENT(c1);
@@ -512,20 +450,18 @@ void run_socket_integration_tests()
     RUN_TEST(test_integration_client_can_connect);
     RUN_TEST(test_integration_server_pushes_status_on_connect);
     RUN_TEST(test_integration_unknown_command_returns_status);
-    RUN_TEST(test_integration_status_has_10_fields);
-    RUN_TEST(test_integration_status_starts_with_zero_credit_initially);
-    RUN_TEST(test_integration_coin_increases_credit);
-    RUN_TEST(test_integration_coin_accumulates_across_messages);
-    RUN_TEST(test_integration_coin_capped_at_maxCoinCredit);
-    RUN_TEST(test_integration_coin_reflected_in_status_response);
-    RUN_TEST(test_integration_malformed_coin_is_ignored);
-    RUN_TEST(test_integration_voucher_increases_credit);
-    RUN_TEST(test_integration_voucher_queues_into_appstate);
-    RUN_TEST(test_integration_malformed_voucher_is_ignored);
+    RUN_TEST(test_integration_status_has_18_fields);
+    RUN_TEST(test_integration_arm_increases_armedQty);
+    RUN_TEST(test_integration_arm_accumulates_for_same_slot);
+    RUN_TEST(test_integration_arm_different_slots_independent);
+    RUN_TEST(test_integration_arm_reflected_in_status);
+    RUN_TEST(test_integration_malformed_arm_is_ignored);
+    RUN_TEST(test_integration_arm_invalid_product_rejected);
+    RUN_TEST(test_integration_arm_zero_qty_rejected);
+    RUN_TEST(test_integration_arm_queues_when_slot_busy);
     RUN_TEST(test_integration_wtrlvl_sets_flags);
     RUN_TEST(test_integration_wtrlvl_all_clear);
     RUN_TEST(test_integration_malformed_wtrlvl_is_ignored);
-    RUN_TEST(test_integration_wtrlvl_reflected_in_status);
     RUN_TEST(test_integration_two_clients_independent);
     RUN_TEST(test_integration_server_handles_client_disconnect);
 
