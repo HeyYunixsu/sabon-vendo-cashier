@@ -201,7 +201,7 @@ void pump_setup(AppState &state) {
     init_hardware_config(config);
     wiringPiSetupGpio();
 
-    // Configure input buttons safely using internal pull-downs to swallow data-line float
+    // Configure input buttons with pull-downs
     pinMode(BTN1, INPUT); pullUpDnControl(BTN1, PUD_DOWN);
     pinMode(BTN2, INPUT); pullUpDnControl(BTN2, PUD_DOWN);
     pinMode(BTN3, INPUT); pullUpDnControl(BTN3, PUD_DOWN);
@@ -212,9 +212,13 @@ void pump_setup(AppState &state) {
         digitalWrite(pin_pump[i], PUMP_TRIGGER_LOW);
     }
 
-    for (int i = 1; i <= TOTAL_SLOTS; ++i) {
-        pinMode(pin_led[i], OUTPUT);
-        digitalWrite(pin_led[i], LOW);
+    // LED pins: if shared with buttons, they stay as INPUT (initial state).
+    // pump_loop handles the pin mode flip during button read.
+    if (!SHARED_LED_BTN) {
+        for (int i = 1; i <= TOTAL_SLOTS; ++i) {
+            pinMode(pin_led[i], OUTPUT);
+            digitalWrite(pin_led[i], LOW);
+        }
     }
 
     pinMode(PIN_STOP, INPUT); pullUpDnControl(PIN_STOP, PUD_DOWN);
@@ -232,9 +236,18 @@ void pump_loop(AppState &state) {
     std::lock_guard<std::mutex> lock(g_pump_mutex);
     auto current_time = std::chrono::steady_clock::now();
 
-    // 1. Process Selection Buttons (Hybrid Surge + Hold Logic)
+    // 1. Process Selection Buttons (shared-pin mode: flip to INPUT, read, flip back)
     for (int i = 1; i <= TOTAL_SLOTS; i++) {
-        bool isCurrentlyPressed = (digitalRead(pin_button[i]) == HIGH);
+        int btnPin = pin_button[i];
+        if (SHARED_LED_BTN) {
+            pinMode(btnPin, INPUT);
+            pullUpDnControl(btnPin, PUD_DOWN);
+        }
+        bool isCurrentlyPressed = (digitalRead(btnPin) == HIGH);
+        if (SHARED_LED_BTN) {
+            pinMode(btnPin, OUTPUT);
+            digitalWrite(btnPin, state.armedQty[i] > 0 ? HIGH : LOW);
+        }
 
         if (isCurrentlyPressed) {
             if (!pumps[i].buttonWasPressedLastFrame) {
@@ -270,9 +283,11 @@ void pump_loop(AppState &state) {
         state.remaining_time[i] = std::max(0LL, (long long)diff);
     }
 
-    // 2b. Update LED outputs — HIGH while armed, LOW when 0
-    for (int i = 1; i <= TOTAL_SLOTS; i++) {
-        digitalWrite(pin_led[i], state.armedQty[i] > 0 ? HIGH : LOW);
+    // 2b. Update LED outputs (skip shared pins — already set during button read)
+    if (!SHARED_LED_BTN) {
+        for (int i = 1; i <= TOTAL_SLOTS; i++) {
+            digitalWrite(pin_led[i], state.armedQty[i] > 0 ? HIGH : LOW);
+        }
     }
 
     // 3. Process Pause/Stop Operations
@@ -328,6 +343,12 @@ void pump_loop(AppState &state) {
 void pump_shutdown() {
     for (int i = 1; i <= TOTAL_SLOTS; i++) {
         digitalWrite(pin_pump[i], PUMP_TRIGGER_LOW);
-        digitalWrite(pin_led[i], LOW);
+        if (!SHARED_LED_BTN) {
+            pinMode(pin_led[i], OUTPUT);
+            digitalWrite(pin_led[i], LOW);
+        } else {
+            pinMode(pin_button[i], OUTPUT);
+            digitalWrite(pin_button[i], LOW);
+        }
     }
 }

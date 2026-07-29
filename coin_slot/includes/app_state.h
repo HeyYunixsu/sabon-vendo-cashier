@@ -27,8 +27,8 @@ struct AppState {
     int serverPort = 8080;
     std::string transactionDir = "../transaction";
 
-    long long remaining_time[7] = {0};  // index 1-6, milliseconds, always >= 0
-    bool WLVL_PRESSED[7] = {false};     // index 1-6
+    long long remaining_time[5] = {0};  // index 1-4, milliseconds, always >= 0
+    bool WLVL_PRESSED[5] = {false};     // index 1-4
     bool state_pause = false;
 };
 

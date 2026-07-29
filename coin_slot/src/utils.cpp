@@ -131,12 +131,12 @@ bool saveStateToDisk(const AppState &state, const std::string &dir)
     log_error("utils", "Could not open state file for writing: " + filepath);
     return false;
   }
-  // Write armedQty[1..6] one per line
-  for (int i = 1; i <= 6; i++) {
+  // Write armedQty[1..4] one per line
+  for (int i = 1; i <= 4; i++) {
     file << "ARMED_" << i << "=" << state.armedQty[i] << "\n";
   }
   // Write pending queue sizes
-  for (int i = 1; i <= 6; i++) {
+  for (int i = 1; i <= 4; i++) {
     // We can't easily iterate a std::queue, so just save the size.
     // Full queue reconstruction is handled by the dashboard re-sending on reconnect.
     file << "QUEUE_" << i << "=" << (int)state.pendingQueue[i].size() << "\n";
@@ -162,7 +162,7 @@ bool loadStateFromDisk(AppState &state, const std::string &dir)
 
     if (key.rfind("ARMED_", 0) == 0) {
       int slot = std::stoi(key.substr(6));
-      if (slot >= 1 && slot <= 6) state.armedQty[slot] = val;
+      if (slot >= 1 && slot <= 4) state.armedQty[slot] = val;
     }
     // QUEUE entries are logged but can't be fully restored without
     // the original ARM command data; the dashboard will re-send on reconnect.
