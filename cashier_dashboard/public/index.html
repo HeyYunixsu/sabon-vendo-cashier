@@ -473,7 +473,7 @@ main {
         <button class="btn-amount" data-amount="20">P 20</button>
       </div>
       <div class="sale-actions">
-        <button id="btn-add-more" class="btn btn-outline">Add More</button>
+        <button id="btn-add-more" class="btn btn-outline" disabled>Add Amount</button>
         <button id="btn-clear-sale" class="btn btn-outline">Clear</button>
       </div>
       <div class="add-more-popup" id="add-more-popup">
@@ -700,12 +700,13 @@ main {
   }
 
   // Sale
-  function selectProduct(id) { selProduct = id; renderGrid(); document.querySelectorAll('.btn-amount').forEach(b => b.disabled = false); }
+  function selectProduct(id) { selProduct = id; renderGrid(); document.querySelectorAll('.btn-amount').forEach(b => b.disabled = false); $('btn-add-more').disabled = false; }
   function stageItem(id, amt, customAmt) {
     const amount = customAmt || amt;
     const qty = Math.round(amount / 5);
     staged.push({ id, name: PRODUCT[id], amt: amount, qty });
-    selProduct = null; renderStaged(); renderGrid(); updateArm();
+    selProduct = null; $('btn-add-more').disabled = true;
+    renderStaged(); renderGrid(); updateArm();
     document.querySelectorAll('.btn-amount').forEach(b => b.disabled = true);
   }
   function removeStaged(i) { staged.splice(i,1); renderStaged(); updateArm(); }
@@ -742,7 +743,8 @@ main {
       } else {
         dispenseCount += staged.length;
         toast('Armed: '+staged.map(i=>i.name).join(', '), 'success');
-        staged = []; selProduct = null; renderStaged(); renderGrid(); updateArm();
+        staged = []; selProduct = null; $('btn-add-more').disabled = true;
+        renderStaged(); renderGrid(); updateArm();
         document.querySelectorAll('.btn-amount').forEach(b => b.disabled = true);
       }
     } catch(e) { toast('Error: '+e.message, 'error'); }
@@ -781,8 +783,6 @@ main {
     b.addEventListener('click', () => { if (selProduct !== null) stageItem(selProduct, +b.dataset.amount); });
   });
   $('btn-add-more').addEventListener('click', () => {
-    selProduct = null; renderGrid();
-    document.querySelectorAll('.btn-amount').forEach(b => b.disabled = true);
     $('add-more-popup').classList.add('open');
     $('custom-amount').value = ''; $('custom-amount').focus();
   });
@@ -795,6 +795,7 @@ main {
     stageItem(slot, 0, val);
     $('add-more-popup').classList.remove('open');
     $('custom-amount').value = '';
+    $('btn-add-more').disabled = true;
   });
 
   // Close popup on Enter
@@ -802,7 +803,7 @@ main {
     if (e.key === 'Enter') $('btn-confirm-add').click();
     if (e.key === 'Escape') { $('add-more-popup').classList.remove('open'); $('custom-amount').value = ''; }
   });
-  $('btn-clear-sale').addEventListener('click', () => { staged = []; selProduct = null; renderStaged(); renderGrid(); updateArm(); document.querySelectorAll('.btn-amount').forEach(b => b.disabled = true); });
+  $('btn-clear-sale').addEventListener('click', () => { staged = []; selProduct = null; $('btn-add-more').disabled = true; renderStaged(); renderGrid(); updateArm(); document.querySelectorAll('.btn-amount').forEach(b => b.disabled = true); });
   $('btn-arm').addEventListener('click', executeArm);
 
   // Init
