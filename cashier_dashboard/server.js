@@ -279,8 +279,30 @@ function trackUnclaimed(slot, qty, amount) {
 // Start
 // ---------------------------------------------------------------------------
 
+// QR code endpoint — encodes current LAN URL so cashier can scan with phone
+const os = require('os');
+function getLanUrl() {
+  const ifaces = os.networkInterfaces();
+  for (const name of Object.keys(ifaces)) {
+    for (const iface of ifaces[name]) {
+      if (iface.family === 'IPv4' && !iface.internal) {
+        return `http://${iface.address}:${HTTP_PORT}`;
+      }
+    }
+  }
+  return `http://localhost:${HTTP_PORT}`;
+}
+
+app.get('/qr', (req, res) => {
+  const url = getLanUrl();
+  const qrApi = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(url)}`;
+  res.redirect(qrApi);
+});
+
 app.listen(HTTP_PORT, () => {
-  console.log(`[dashboard] Cashier Dashboard v2 running on http://localhost:${HTTP_PORT}`);
+  const lanUrl = getLanUrl();
+  console.log(`[dashboard] Cashier Dashboard running on ${lanUrl}`);
+  console.log(`[dashboard] QR code: ${lanUrl}/qr`);
   console.log(`[dashboard] Config: coin_slot at ${SOCKET_IP}:${SOCKET_PORT}`);
   connectToCoinSlot();
 });
