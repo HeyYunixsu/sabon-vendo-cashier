@@ -1,7 +1,5 @@
 /**
- * Sabon Vendo — Cashier Dashboard (Nothing Design System)
- *
- * Monochrome. Typographic. OLED-optimized. No shadows.
+ * Sabon Vendo — Cashier Dashboard (Light / Electric Blue)
  *
  * Flow: Tap product → Tap amount (₱5/₱10/₱15/₱20) → staged
  *       → Add more / Clear → ARM commits all at once.
@@ -92,8 +90,17 @@ function parseUnclaimed(raw) {
 }
 
 // ---------------------------------------------------------------------------
-// Render — Status Bar
+// Render
 // ---------------------------------------------------------------------------
+
+function updateAll() {
+  updateStatusBar();
+  renderProductGrid();
+  renderArmedSlots();
+  renderQueue();
+  renderAlerts();
+  renderUnclaimed();
+}
 
 function updateStatusBar() {
   const statusEl  = document.getElementById('machine-status');
@@ -110,10 +117,6 @@ function updateStatusBar() {
     updateEl.textContent = machineState.lastUpdate.toLocaleTimeString('en-US', { hour12: false });
   }
 }
-
-// ---------------------------------------------------------------------------
-// Render — Product Grid
-// ---------------------------------------------------------------------------
 
 function renderProductGrid() {
   const container = document.getElementById('grid-container');
@@ -134,29 +137,30 @@ function renderProductGrid() {
     else if (armed > 0) cls += ' armed';
     if (selected) cls += ' selected';
 
-    // Status text (monospace bracket-style)
     let statusText, statusColor;
-    if (!active)      { statusText = 'N/A';       statusColor = 'var(--text-disabled)'; }
-    else if (busy)    { statusText = 'Dispensing'; statusColor = 'var(--warning)'; }
-    else if (armed)   { statusText = 'Armed';     statusColor = 'var(--text-display)'; }
-    else if (empty)   { statusText = 'Empty';     statusColor = 'var(--accent)'; }
-    else              { statusText = 'Idle';       statusColor = 'var(--text-disabled)'; }
+    if (!active)      { statusText = 'N/A';           statusColor = 'var(--text-disabled)'; }
+    else if (busy)    { statusText = 'DISPENSING';     statusColor = 'var(--warning)'; }
+    else if (armed)   { statusText = 'ARMED';          statusColor = 'var(--accent)'; }
+    else if (empty)   { statusText = 'EMPTY';          statusColor = 'var(--error)'; }
+    else              { statusText = 'IDLE';            statusColor = 'var(--idle)'; }
+
+    let qtyClass = 'armed-qty';
+    if (!active) qtyClass += ' zero';
+    else if (armed === 0) qtyClass += ' zero';
 
     html += `<div class="${cls}" data-slot="${i}">`;
-    html += `<div class="slot-label">Slot ${String(i).padStart(2,'0')}</div>`;
+    html += `<div class="slot-label">SLOT ${String(i).padStart(2,'0')}</div>`;
     html += `<div class="product-name">${PRODUCT_NAMES[i]}</div>`;
-    html += `<div class="armed-qty${armed === 0 && active ? ' zero' : ''}">${active ? armed : '—'}</div>`;
+    html += `<div class="${qtyClass}">${active ? armed : '—'}</div>`;
     html += `<div class="status-row">`;
     html += `<span style="color:${statusColor}">[${statusText}]</span>`;
     if (qDepth > 0) {
       html += `<span style="color:var(--warning)">[Q:${qDepth}]</span>`;
     }
-    html += `</div>`;
-    html += `</div>`;
+    html += `</div></div>`;
   }
 
   container.innerHTML = html;
-
   container.querySelectorAll('.product-card').forEach(card => {
     card.addEventListener('click', () => {
       const slot = parseInt(card.dataset.slot);
@@ -165,46 +169,34 @@ function renderProductGrid() {
   });
 }
 
-// ---------------------------------------------------------------------------
-// Render — Armed Slots
-// ---------------------------------------------------------------------------
-
 function renderArmedSlots() {
   const container = document.getElementById('armed-list');
   let html = '';
   let has = false;
-
   for (let i = 1; i <= 4; i++) {
     if (machineState.armedQty[i] > 0 || machineState.busy[i]) {
       has = true;
-      const statusDot = machineState.busy[i]
+      const dot = machineState.busy[i]
         ? '<span class="status-dot busy"></span>'
         : '<span class="status-dot armed"></span>';
       html += `<div class="armed-row">`;
-      html += `<span>${statusDot} <strong>${PRODUCT_NAMES[i]}</strong></span>`;
+      html += `<span>${dot} <strong>${PRODUCT_NAMES[i]}</strong></span>`;
       html += `<span class="qty-val">${machineState.armedQty[i]}</span>`;
       html += `<button class="btn-destructive" data-slot="${i}">Cancel</button>`;
       html += `</div>`;
     }
   }
-
   if (!has) html = '<span class="muted">—</span>';
   container.innerHTML = html;
-
   container.querySelectorAll('.btn-destructive').forEach(btn => {
     btn.addEventListener('click', () => cancelSlot(parseInt(btn.dataset.slot)));
   });
 }
 
-// ---------------------------------------------------------------------------
-// Render — Queue
-// ---------------------------------------------------------------------------
-
 function renderQueue() {
   const container = document.getElementById('queue-list');
   let html = '';
   let has = false;
-
   for (let i = 1; i <= 4; i++) {
     if (machineState.queueDepth[i] > 0) {
       has = true;
@@ -214,19 +206,13 @@ function renderQueue() {
       html += `</div>`;
     }
   }
-
   if (!has) html = '<span class="muted">—</span>';
   container.innerHTML = html;
 }
 
-// ---------------------------------------------------------------------------
-// Render — Alerts
-// ---------------------------------------------------------------------------
-
 function renderAlerts() {
   const container = document.getElementById('alert-list');
   let html = '';
-
   for (let i = 1; i <= 4; i++) {
     if (machineState.wlvl[i]) {
       html += `<div class="alert-row danger">`;
@@ -235,42 +221,32 @@ function renderAlerts() {
       html += `</div>`;
     }
   }
-
   if (!machineState.connected) {
     html += `<div class="alert-row danger">`;
     html += `<span><span class="status-dot offline"></span> Machine offline</span>`;
     html += `<span class="status-bracket error">[DISCONNECTED]</span>`;
     html += `</div>`;
   }
-
   if (!html) html = '<span class="muted">—</span>';
   container.innerHTML = html;
 }
 
-// ---------------------------------------------------------------------------
-// Render — Unclaimed
-// ---------------------------------------------------------------------------
-
 function renderUnclaimed() {
   const container = document.getElementById('unclaimed-list');
-
   if (unclaimedItems.length === 0) {
     container.innerHTML = '<span class="muted">—</span>';
     return;
   }
-
   let html = '';
   unclaimedItems.forEach((item, idx) => {
     html += `<div class="alert-row warning">`;
     html += `<span>SLOT ${String(item.slot).padStart(2,'0')}: ${item.qty}u — ₱${item.amount}</span>`;
     html += `<span class="unclaimed-actions">`;
-    html += `<button class="btn-bracket" data-resolve="${idx}" data-action="retry">Retry</button>`;
-    html += `<button class="btn-bracket" data-resolve="${idx}" data-action="dismiss">Dismiss</button>`;
+    html += `<button class="btn-sm retry" data-resolve="${idx}" data-action="retry">Retry</button>`;
+    html += `<button class="btn-sm dismiss" data-resolve="${idx}" data-action="dismiss">Dismiss</button>`;
     html += `</span></div>`;
   });
-
   container.innerHTML = html;
-
   container.querySelectorAll('[data-resolve]').forEach(btn => {
     btn.addEventListener('click', () => {
       resolveUnclaimed(parseInt(btn.dataset.resolve), btn.dataset.action);
@@ -279,7 +255,7 @@ function renderUnclaimed() {
 }
 
 // ---------------------------------------------------------------------------
-// Tap-based Sale Entry
+// Sale Entry
 // ---------------------------------------------------------------------------
 
 function selectProduct(productId) {
@@ -308,13 +284,11 @@ function removeStagedItem(index) {
 
 function renderStagedItems() {
   const container = document.getElementById('staged-items');
-
   if (stagedItems.length === 0) {
     container.innerHTML = '<span class="muted">[SELECT PRODUCT]</span>';
     document.getElementById('sale-total').textContent = '₱0';
     return;
   }
-
   let html = '';
   let total = 0;
   stagedItems.forEach((item, idx) => {
@@ -325,10 +299,8 @@ function renderStagedItems() {
     html += `<button class="btn-remove" data-idx="${idx}">×</button>`;
     html += `</div>`;
   });
-
   container.innerHTML = html;
   document.getElementById('sale-total').textContent = `₱${total}`;
-
   container.querySelectorAll('.btn-remove').forEach(btn => {
     btn.addEventListener('click', () => removeStagedItem(parseInt(btn.dataset.idx)));
   });
@@ -344,11 +316,9 @@ function updateArmButton() {
 
 async function executeArm() {
   if (stagedItems.length === 0) return;
-
   const btn = document.getElementById('btn-arm');
   btn.disabled = true;
-  btn.textContent = '[ARMING…]';
-
+  btn.textContent = 'Arming…';
   const saleId = 'SALE-' + Date.now() + '-' + (++saleIdCounter);
   try {
     const resp = await fetch('/api/arm', {
@@ -358,7 +328,6 @@ async function executeArm() {
     });
     const data = await resp.json();
     const failures = data.results.filter(r => !r.success);
-
     if (failures.length > 0) {
       alert('[ERROR] ' + failures.map(f => `Slot ${String(f.productId).padStart(2,'0')}: ${f.error}`).join('\n'));
     } else {
@@ -378,11 +347,7 @@ async function executeArm() {
 
 async function cancelSlot(productId) {
   try {
-    await fetch('/api/cancel', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ productId }),
-    });
+    await fetch('/api/cancel', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ productId }) });
   } catch (e) { console.error('Cancel failed:', e); }
 }
 
@@ -390,8 +355,7 @@ async function resolveUnclaimed(idx, action) {
   const item = unclaimedItems[idx];
   try {
     await fetch('/api/unclaimed/resolve', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ slot: item.slot, qty: item.qty, amount: item.amount, action }),
     });
     unclaimedItems.splice(idx, 1);

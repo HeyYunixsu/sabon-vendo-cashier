@@ -1,28 +1,38 @@
 /* ===================================================================
-   Sabon Vendo — Nothing Design System
-   Monochrome. Typographic. OLED-optimized. No shadows.
+   Sabon Vendo — Dashboard (Dribbble Ref)
+   Light mode. Electric blue accent. Steel gray structure.
    =================================================================== */
 
 @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&family=Doto:wght@400;700&display=swap');
 
 /* ------------------------------------------------------------------ Tokens */
 :root {
-  /* Dark mode (default — OLED-optimized) */
-  --black:            #000000;
-  --surface:          #111111;
-  --surface-raised:   #1A1A1A;
-  --border:           #222222;
-  --border-visible:   #333333;
-  --text-disabled:    #666666;
-  --text-secondary:   #999999;
-  --text-primary:     #E8E8E8;
-  --text-display:     #FFFFFF;
+  /* Backgrounds */
+  --bg-page:          #F6F6F6;
+  --bg-surface:       #FFFFFF;
+  --bg-raised:        #F0F1F3;
 
-  /* Accent & Status */
-  --accent:           #D71921;
-  --accent-subtle:    rgba(215,25,33,0.15);
-  --success:          #4A9E5C;
-  --warning:          #D4A843;
+  /* Borders */
+  --border-subtle:    #E4E6E9;
+  --border-visible:   #C5CAD0;
+
+  /* Text */
+  --text-disabled:    #A0A5AA;
+  --text-secondary:   #6B7280;
+  --text-primary:     #2E2E2E;
+  --text-display:     #171717;
+  --text-inverse:     #FFFFFF;
+
+  /* Accent — electric blue */
+  --accent:           #1D5AE6;
+  --accent-light:     #E8EEFD;
+  --accent-hover:     #1550D0;
+
+  /* Status */
+  --success:          #16A34A;
+  --warning:          #D97706;
+  --error:            #DC2626;
+  --idle:             #9CA3AF;
 
   /* Typography */
   --font-display: 'Doto', 'Space Mono', monospace;
@@ -30,7 +40,6 @@
   --font-mono:    'Space Mono', 'JetBrains Mono', 'SF Mono', monospace;
 
   /* Type scale */
-  --display-xl:   72px;
   --display-lg:   48px;
   --display-md:   36px;
   --heading:      24px;
@@ -40,40 +49,23 @@
   --caption:      12px;
   --label:        11px;
 
-  /* Spacing (8px base) */
+  /* Spacing */
   --space-xs:   4px;
   --space-sm:   8px;
   --space-md:   16px;
   --space-lg:   24px;
   --space-xl:   32px;
-  --space-2xl:  48px;
 
   /* Motion */
   --duration:   200ms;
   --easing:     cubic-bezier(0.25, 0.1, 0.25, 1);
 
-  /* Borders */
+  /* Radius */
   --radius-card:    16px;
-  --radius-technical: 4px;
+  --radius-sm:      8px;
   --radius-pill:    999px;
 }
 
-/* Light mode */
-@media (prefers-color-scheme: light) {
-  :root {
-    --black:            #F5F5F5;
-    --surface:          #FFFFFF;
-    --surface-raised:   #F0F0F0;
-    --border:           #E8E8E8;
-    --border-visible:   #CCCCCC;
-    --text-disabled:    #999999;
-    --text-secondary:   #666666;
-    --text-primary:     #1A1A1A;
-    --text-display:     #000000;
-  }
-}
-
-/* ------------------------------------------------------------------ Reset */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
@@ -81,19 +73,18 @@ body {
   font-size: var(--body-sm);
   font-weight: 400;
   color: var(--text-primary);
-  background: var(--black);
+  background: var(--bg-page);
   -webkit-font-smoothing: antialiased;
   min-height: 100vh;
 }
 
-/* ------------------------------------------------------------------ Dot-grid background (Nothing motif) */
+/* ------------------------------------------------------------------ Dot-grid (subtle, light) */
 body::before {
   content: '';
-  position: fixed;
-  inset: 0;
-  background-image: radial-gradient(circle, var(--border) 0.5px, transparent 0.5px);
-  background-size: 14px 14px;
-  opacity: 0.4;
+  position: fixed; inset: 0;
+  background-image: radial-gradient(circle, #D0D5DA 0.5px, transparent 0.5px);
+  background-size: 16px 16px;
+  opacity: 0.35;
   pointer-events: none;
   z-index: 0;
 }
@@ -104,35 +95,33 @@ body::before {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border-visible);
-  padding: var(--space-sm) var(--space-lg);
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border-subtle);
+  padding: 10px var(--space-lg);
   font-family: var(--font-mono);
   font-size: var(--caption);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
   color: var(--text-secondary);
-  position: sticky;
-  top: 0;
-  z-index: 50;
+  position: sticky; top: 0; z-index: 50;
 }
 .status-left, .status-center, .status-right {
   display: flex; align-items: center; gap: var(--space-lg);
 }
 
-/* Status indicators — inline bracket text, nothing floating */
+/* Status dots */
 .status-dot {
-  display: inline-block;
-  width: 6px; height: 6px;
-  border-radius: 50%;
-  margin-right: 6px;
+  display: inline-block; width: 7px; height: 7px;
+  border-radius: 50%; margin-right: 6px;
 }
 .status-dot.online  { background: var(--success); }
-.status-dot.offline { background: var(--accent); }
-.status-dot.armed   { background: var(--text-display); }
-.status-dot.busy    { background: var(--warning); }
-.status-dot.idle    { background: var(--text-disabled); }
-.status-dot.empty   { background: var(--accent); }
+.status-dot.offline { background: var(--error); }
+.status-dot.armed   { background: var(--accent); }
+.status-dot.busy    { background: var(--warning); animation: dot-pulse 1.2s infinite; }
+.status-dot.idle    { background: var(--idle); }
+.status-dot.empty   { background: var(--error); }
+@keyframes dot-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: .4; }
+}
 
 /* ------------------------------------------------------------------ Layout */
 
@@ -143,17 +132,16 @@ main {
   padding: var(--space-lg);
   max-width: 1280px;
   margin: 0 auto;
-  position: relative;
-  z-index: 1;
+  position: relative; z-index: 1;
 }
 
-/* ------------------------------------------------------------------ Micro-labels (ALL CAPS, monospace, tracked-out) */
+/* ------------------------------------------------------------------ Micro-labels */
 
 .micro-label {
   font-family: var(--font-mono);
   font-size: var(--label);
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.07em;
   color: var(--text-secondary);
   margin-bottom: var(--space-sm);
 }
@@ -164,61 +152,60 @@ main {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 1px;
-  background: var(--border-visible);
+  background: var(--border-subtle);
   border-radius: var(--radius-card);
   overflow: hidden;
+  border: 1px solid var(--border-subtle);
 }
 .product-card {
-  background: var(--surface);
+  background: var(--bg-surface);
   padding: var(--space-lg) var(--space-md);
   text-align: center;
   cursor: pointer;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
-  transition: background var(--duration) var(--easing);
+  transition: background var(--duration) var(--easing), box-shadow var(--duration) var(--easing);
   position: relative;
-  border: none;
 }
-.product-card:hover { background: var(--surface-raised); }
+.product-card:hover { background: #FAFBFC; }
 
 .product-card.selected {
-  background: var(--surface-raised);
-  box-shadow: inset 0 0 0 1px var(--text-display);
+  background: var(--accent-light);
+  box-shadow: inset 0 0 0 2px var(--accent);
 }
 .product-card.armed {
-  border-left: 2px solid var(--text-display);
+  border-left: 3px solid var(--accent);
 }
 .product-card.busy {
-  border-left: 2px solid var(--warning);
+  border-left: 3px solid var(--warning);
+  background: #FFFCF5;
 }
 .product-card.empty {
-  opacity: .35; pointer-events: none;
-  border-left: 2px solid var(--accent);
+  opacity: .4; pointer-events: none;
+  border-left: 3px solid var(--error);
 }
 .product-card.not-available {
-  opacity: .2; pointer-events: none;
+  opacity: .25; pointer-events: none;
+  background: #F0F1F3;
 }
 
-/* Slot label */
 .product-card .slot-label {
   font-family: var(--font-mono);
   font-size: var(--label);
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
   color: var(--text-disabled);
   margin-bottom: var(--space-xs);
 }
 
-/* Product name */
 .product-card .product-name {
   font-family: var(--font-body);
   font-size: var(--subheading);
-  font-weight: 500;
-  color: var(--text-primary);
+  font-weight: 600;
+  color: var(--text-display);
   margin-bottom: var(--space-sm);
 }
 
-/* Hero qty — Doto display */
 .product-card .armed-qty {
   font-family: var(--font-display);
   font-size: var(--display-lg);
@@ -229,94 +216,68 @@ main {
 }
 .product-card .armed-qty.zero { color: var(--text-disabled); }
 
-/* Status row below hero number */
 .product-card .status-row {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: var(--space-md);
-  margin-top: var(--space-sm);
+  display: flex; justify-content: center; align-items: center;
+  gap: var(--space-md); margin-top: var(--space-sm);
   font-family: var(--font-mono);
   font-size: var(--label);
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.05em;
 }
-
-/* ------------------------------------------------------------------ Segmented Progress (slot queue depth) */
-
-.segmented-bar {
-  display: flex;
-  gap: 2px;
-  width: 100%;
-  margin-top: var(--space-sm);
-}
-.segmented-bar .seg {
-  flex: 1;
-  height: 6px;
-  background: var(--border);
-}
-.segmented-bar .seg.filled { background: var(--text-display); }
-.segmented-bar .seg.warn   { background: var(--warning); }
 
 /* ------------------------------------------------------------------ Right Panel */
 
 #right-panel {
   display: flex; flex-direction: column; gap: 1px;
-  background: var(--border-visible);
+  background: var(--border-subtle);
   border-radius: var(--radius-card);
   overflow: hidden;
+  border: 1px solid var(--border-subtle);
 }
 #right-panel section {
-  background: var(--surface);
+  background: var(--bg-surface);
   padding: var(--space-md) var(--space-lg);
 }
 #right-panel section .micro-label {
   margin-bottom: var(--space-md);
 }
 
-/* ------------------------------------------------------------------ Quick Amount Buttons (pill, monospace) */
+/* ------------------------------------------------------------------ Quick Amount Buttons */
 
 .quick-amounts {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: var(--space-sm);
-  margin: var(--space-md) 0;
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-sm); margin: var(--space-md) 0;
 }
 .btn-amount {
   font-family: var(--font-mono);
   font-size: var(--body-sm);
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  padding: 14px 8px;
-  min-height: 44px;
-  background: transparent;
+  padding: 14px 8px; min-height: 44px;
+  background: var(--bg-surface);
   border: 1px solid var(--border-visible);
   border-radius: var(--radius-pill);
   color: var(--text-primary);
   cursor: pointer;
   transition: all var(--duration) var(--easing);
 }
-.btn-amount:hover, .btn-amount:focus {
-  border-color: var(--text-display);
-  background: var(--surface-raised);
+.btn-amount:hover {
+  border-color: var(--accent);
+  background: var(--accent-light);
+  color: var(--accent);
 }
 .btn-amount:active {
-  background: var(--text-display);
-  color: var(--black);
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--text-inverse);
 }
-.btn-amount:disabled {
-  opacity: .25; pointer-events: none;
-}
+.btn-amount:disabled { opacity: .3; pointer-events: none; }
 
 /* ------------------------------------------------------------------ Staged Items */
 
 .staged-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+  display: flex; justify-content: space-between; align-items: center;
   padding: var(--space-sm) 0;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--border-subtle);
   font-size: var(--body-sm);
 }
 .staged-row:last-child { border-bottom: none; }
@@ -337,7 +298,7 @@ main {
   display: flex; align-items: center; justify-content: center;
   transition: all var(--duration) var(--easing);
 }
-.btn-remove:hover { border-color: var(--accent); color: var(--accent); }
+.btn-remove:hover { border-color: var(--error); color: var(--error); background: #FEF2F2; }
 
 /* ------------------------------------------------------------------ Buttons */
 
@@ -348,7 +309,7 @@ main {
 .btn {
   font-family: var(--font-mono);
   font-size: 13px;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
   padding: 12px 24px;
   min-height: 44px;
@@ -358,75 +319,56 @@ main {
   align-items: center;
   justify-content: center;
   transition: all var(--duration) var(--easing);
+  font-weight: 600;
 }
 
-/* Primary — filled pill */
 .btn-primary {
-  background: var(--text-display);
-  color: var(--black);
+  background: var(--accent);
+  color: var(--text-inverse);
   border-radius: var(--radius-pill);
 }
-.btn-primary:hover { opacity: .85; }
-.btn-primary:disabled { opacity: .2; pointer-events: none; }
+.btn-primary:hover { background: var(--accent-hover); }
+.btn-primary:disabled { opacity: .3; pointer-events: none; }
 
-/* Outline */
 .btn-outline {
   flex: 1;
-  background: transparent;
+  background: var(--bg-surface);
   border: 1px solid var(--border-visible);
   color: var(--text-primary);
   border-radius: var(--radius-pill);
 }
-.btn-outline:hover { border-color: var(--text-display); }
+.btn-outline:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
 
-/* Destructive */
 .btn-destructive {
-  background: transparent;
-  border: 1px solid var(--accent);
-  color: var(--accent);
+  background: var(--bg-surface);
+  border: 1px solid var(--error);
+  color: var(--error);
   border-radius: var(--radius-pill);
   padding: 6px 14px;
   font-size: var(--caption);
   min-height: 32px;
 }
-.btn-destructive:hover { background: var(--accent); color: var(--black); }
+.btn-destructive:hover { background: var(--error); color: #fff; }
 
-/* Large */
-.btn-large { padding: 16px 32px; font-size: 14px; letter-spacing: 0.08em; }
+.btn-large { padding: 16px 32px; font-size: 14px; letter-spacing: 0.06em; }
 .btn-block  { display: block; width: 100%; margin-top: var(--space-sm); }
 
-/* Small */
 .btn-sm {
   padding: 4px 12px;
   font-size: var(--caption);
-  background: transparent;
+  background: var(--bg-surface);
   border: 1px solid var(--border-visible);
   border-radius: var(--radius-pill);
   color: var(--text-secondary);
   cursor: pointer;
   font-family: var(--font-mono);
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.05em;
   transition: all var(--duration) var(--easing);
 }
-.btn-sm:hover { border-color: var(--text-display); color: var(--text-primary); }
-
-/* Bracket-style cancel */
-.btn-bracket {
-  font-family: var(--font-mono);
-  font-size: var(--caption);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  background: transparent;
-  border: 1px solid var(--border-visible);
-  border-radius: var(--radius-pill);
-  color: var(--text-secondary);
-  cursor: pointer;
-  padding: 5px 14px;
-  transition: all var(--duration) var(--easing);
-  min-height: 32px;
-}
-.btn-bracket:hover { border-color: var(--accent); color: var(--accent); }
+.btn-sm:hover { border-color: var(--accent); color: var(--accent); }
+.btn-sm.retry:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
+.btn-sm.dismiss:hover { border-color: var(--error); color: var(--error); }
 
 /* ------------------------------------------------------------------ Sale total */
 
@@ -442,11 +384,9 @@ main {
 /* ------------------------------------------------------------------ Lists */
 
 .armed-row, .queue-row, .alert-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+  display: flex; justify-content: space-between; align-items: center;
   padding: var(--space-sm) 0;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--border-subtle);
   font-size: var(--body-sm);
 }
 .armed-row:last-child, .queue-row:last-child, .alert-row:last-child {
@@ -471,7 +411,6 @@ main {
   letter-spacing: 0.04em;
 }
 
-/* Status bracket text (inline, not floating) */
 .status-bracket {
   font-family: var(--font-mono);
   font-size: var(--caption);
@@ -479,16 +418,12 @@ main {
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
-.status-bracket.error { color: var(--accent); }
+.status-bracket.error { color: var(--error); }
 
 .alert-row.warning { color: var(--warning); }
-.alert-row.danger  { color: var(--accent); }
+.alert-row.danger  { color: var(--error); }
 
-/* ------------------------------------------------------------------ Unclaimed actions */
-
-.unclaimed-actions {
-  display: flex; gap: var(--space-xs);
-}
+.unclaimed-actions { display: flex; gap: var(--space-xs); }
 
 /* ------------------------------------------------------------------ Scrollbar */
 
