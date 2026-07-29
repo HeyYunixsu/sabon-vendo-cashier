@@ -46,7 +46,7 @@ const CONFIG_PATH = path.resolve(__dirname, '..', 'CONFIG', 'config.env');
 const config = loadEnv(CONFIG_PATH);
 const SOCKET_IP   = config.SOCKET_IP   || '127.0.0.1';
 const SOCKET_PORT = parseInt(config.SOCKET_PORT || '8080', 10);
-const HTTP_PORT   = parseInt(config.DASHBOARD_PORT || '3000', 10);
+const HTTP_PORT   = parseInt(config.DASHBOARD_PORT || '80', 10);
 
 // ---------------------------------------------------------------------------
 // State
