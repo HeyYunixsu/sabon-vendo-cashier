@@ -454,7 +454,7 @@ main {
 <!-- KPI Row -->
 <div class="kpi-row" id="kpi-row">
   <div class="kpi-card"><div class="kpi-label">Total Armed</div><div class="kpi-value" id="kpi-armed">0</div><div class="kpi-sub">units across all slots</div></div>
-  <div class="kpi-card"><div class="kpi-label">Active Slots</div><div class="kpi-value" id="kpi-active" style="color:var(--status-positive);">4</div><div class="kpi-sub">of 6 operational</div></div>
+  <div class="kpi-card"><div class="kpi-label">Active Slots</div><div class="kpi-value" id="kpi-active" style="color:var(--status-positive);">6</div><div class="kpi-sub">of 6 operational</div></div>
   <div class="kpi-card"><div class="kpi-label">Bundle</div><div class="kpi-value" id="kpi-bundle">0/4</div><div class="kpi-sub" id="kpi-bundle-sub">slots in stock</div></div>
   <div class="kpi-card"><div class="kpi-label">Today</div><div class="kpi-value" id="kpi-today">0</div><div class="kpi-sub">dispenses completed</div></div>
 </div>
@@ -477,7 +477,7 @@ main {
         <button id="btn-clear-sale" class="btn btn-outline">Clear</button>
       </div>
       <div class="add-more-popup" id="add-more-popup">
-        <input type="number" id="custom-amount" placeholder="Qty" min="1" max="99" step="1">
+        <input type="number" id="custom-amount" placeholder="Amount" min="5" max="500" step="5" required>
         <button class="btn-confirm" id="btn-confirm-add">Add</button>
       </div>
       <button id="btn-arm" class="btn btn-primary btn-block btn-lg" disabled>Arm</button>
@@ -518,7 +518,7 @@ main {
   };
   const PRODUCT_INITIAL = { 1:'D', 2:'LB', 3:'LD', 4:'S', 5:'5', 6:'6' };
   const AMOUNT_QTY = { 5:1, 10:2, 15:3, 20:4 };
-  const ACTIVE = 4, TOTAL = 6;
+  const ACTIVE = 6, TOTAL = 6;
 
   const S = {
     armedQty: new Array(7).fill(0), remaining: new Array(5).fill(0),
@@ -701,9 +701,9 @@ main {
 
   // Sale
   function selectProduct(id) { selProduct = id; renderGrid(); document.querySelectorAll('.btn-amount').forEach(b => b.disabled = false); }
-  function stageItem(id, amt, customQty) {
-    const qty = customQty || (AMOUNT_QTY[amt] || 1);
-    const amount = customQty ? customQty * 5 : amt;
+  function stageItem(id, amt, customAmt) {
+    const amount = customAmt || amt;
+    const qty = Math.round(amount / 5);
     staged.push({ id, name: PRODUCT[id], amt: amount, qty });
     selProduct = null; renderStaged(); renderGrid(); updateArm();
     document.querySelectorAll('.btn-amount').forEach(b => b.disabled = true);
@@ -715,7 +715,7 @@ main {
     staged.forEach((it, i) => {
       t += it.amt;
       h += '<div class="staged-row">';
-      h += '<span class="staged-info"><span class="staged-name">'+it.name+'</span> <span class="staged-meta">('+it.qty+'u)</span></span>';
+      h += '<span class="staged-info"><span class="staged-name">'+it.name+'</span></span>';
       h += '<span class="staged-price">P '+it.amt+'</span>';
       h += '<button class="btn-remove" data-idx="'+i+'">x</button>';
       h += '</div>';
@@ -790,10 +790,9 @@ main {
   // Add More confirm
   $('btn-confirm-add').addEventListener('click', () => {
     const val = parseInt($('custom-amount').value);
-    if (!val || val < 1 || val > 99) return;
-    // Determine product: use first armed slot or slot 1
+    if (!val || val < 5 || val > 500 || val % 5 !== 0) return;
     const slot = selProduct || 1;
-    stageItem(slot, 0, val);  // customQty overrides amount
+    stageItem(slot, 0, val);
     $('add-more-popup').classList.remove('open');
     $('custom-amount').value = '';
   });
