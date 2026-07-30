@@ -151,7 +151,7 @@ main {
   border-radius: var(--radius-container);
   padding: 22px 16px; text-align: center; cursor: pointer;
   user-select: none; -webkit-tap-highlight-color: transparent;
-  transition: border-color .18s, background .18s, box-shadow .18s;
+  transition: border-color .18s, box-shadow .18s;
   display: flex; flex-direction: column; justify-content: center;
   align-items: center; min-height: 160px; position: relative;
 }
@@ -233,7 +233,7 @@ main {
   padding: 14px 6px; background: var(--bg-surface-tertiary);
   border: 1px solid var(--border-default); border-radius: var(--radius-pill);
   color: var(--text-content-primary); cursor: pointer;
-  transition: all .15s; touch-action: manipulation;
+  transition: border-color .15s, color .15s, transform .15s; touch-action: manipulation;
 }
 .btn-amount:hover { border-color: var(--border-strong); color: var(--accent-action); }
 .btn-amount:active { background: var(--accent-action); color: #fff; transform: scale(.96); }
@@ -477,7 +477,7 @@ main {
 <!-- KPI Row -->
 <div class="kpi-row" id="kpi-row">
   <div class="kpi-card"><div class="kpi-label">Total Armed</div><div class="kpi-value" id="kpi-armed">0</div><div class="kpi-sub">units across all slots</div></div>
-  <div class="kpi-card"><div class="kpi-label">Active Slots</div><div class="kpi-value" id="kpi-active" style="color:var(--status-positive);">6</div><div class="kpi-sub">of 6 operational</div></div>
+  <div class="kpi-card"><div class="kpi-label">In Stock</div><div class="kpi-value" id="kpi-active" style="color:var(--status-positive);">6</div><div class="kpi-sub">of 6 slots ready</div></div>
   <div class="kpi-card"><div class="kpi-label">Phase</div><div class="kpi-value" id="kpi-bundle">IDLE</div><div class="kpi-sub" id="kpi-bundle-sub">waiting for sale</div></div>
   <div class="kpi-card"><div class="kpi-label">Today</div><div class="kpi-value" id="kpi-today">0</div><div class="kpi-sub">dispenses completed</div></div>
 </div>
@@ -510,6 +510,7 @@ main {
     <section>
       <div class="section-label">Armed <span id="armed-count" style="font-weight:400;font-size:11px;">0</span></div>
       <div id="armed-list"><span class="muted">--</span></div>
+      <button id="btn-cancel-all" class="btn btn-negative btn-block" style="margin-top:8px;display:none;">Cancel All</button>
     </section>
 
     <section>
@@ -552,7 +553,7 @@ fetch('/qr').then(r => { document.getElementById('lan-url').textContent = r.url.
   };
   const PRODUCT_INITIAL = { 1:'D', 2:'LB', 3:'LD', 4:'S', 5:'5', 6:'6' };
   const AMOUNT_QTY = { 5:1, 10:2, 15:3, 20:4 };
-  const ACTIVE = 4, TOTAL = 6;
+  const ACTIVE = 6, TOTAL = 6;
 
   const S = {
     armedQty: new Array(7).fill(0), remaining: new Array(5).fill(0),
@@ -693,6 +694,7 @@ fetch('/qr').then(r => { document.getElementById('lan-url').textContent = r.url.
     }
     $('armed-count').textContent = cnt;
     $('armed-list').innerHTML = h || '<span class="muted">--</span>';
+    $('btn-cancel-all').style.display = h ? 'block' : 'none';
     $('armed-list').querySelectorAll('.btn-negative').forEach(b => {
       b.addEventListener('click', () => cancelSlot(+b.dataset.slot));
     });
@@ -703,11 +705,14 @@ fetch('/qr').then(r => { document.getElementById('lan-url').textContent = r.url.
     for (let s = 1; s <= ACTIVE; s++) {
       if (S.queueDepth[s] > 0) {
         cnt += S.queueDepth[s];
-        h += '<div class="list-row"><span style="font-weight:600;">'+PRODUCT[s]+'</span><span class="list-val">'+S.queueDepth[s]+' pending</span></div>';
+        h += '<div class="list-row"><span style="font-weight:600;">'+PRODUCT[s]+'</span><span class="list-val">'+S.queueDepth[s]+' pending</span><button class="btn-sm dismiss" data-qslot="'+s+'">Clear</button></div>';
       }
     }
     $('queue-count').textContent = cnt;
     $('queue-list').innerHTML = h || '<span class="muted">--</span>';
+    $('queue-list').querySelectorAll('[data-qslot]').forEach(b => {
+      b.addEventListener('click', () => cancelQueueSlot(+b.dataset.qslot));
+    });
   }
 
   function renderAlerts() {
@@ -793,8 +798,23 @@ fetch('/qr').then(r => { document.getElementById('lan-url').textContent = r.url.
     finally { updateArm(); }
   }
   async function cancelSlot(id) {
-    try { await fetch('/api/cancel', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({productId:id}) }); }
-    catch(e) { /* silent */ }
+    try {
+      await fetch('/api/cancel', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({productId:id}) });
+      toast('Slot ' + id + ' cancelled', 'info');
+    } catch(e) { /* silent */ }
+  }
+
+  async function cancelAll() {
+    try {
+      await fetch('/api/cancel-all', { method:'POST', headers:{'Content-Type':'application/json'} });
+      toast('All slots cancelled', 'info');
+    } catch(e) { /* silent */ }
+  }
+
+  async function cancelQueueSlot(id) {
+    try {
+      await fetch('/api/cancel-queue', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({productId:id}) });
+    } catch(e) { /* silent */ }
   }
   async function resolveUnclaimed(idx, action) {
     const it = unclaimed[idx];
@@ -847,6 +867,7 @@ fetch('/qr').then(r => { document.getElementById('lan-url').textContent = r.url.
   });
   $('btn-clear-sale').addEventListener('click', () => { staged = []; selProduct = null; $('btn-add-more').disabled = true; renderStaged(); renderGrid(); updateArm(); document.querySelectorAll('.btn-amount').forEach(b => b.disabled = true); });
   $('btn-arm').addEventListener('click', executeArm);
+  $('btn-cancel-all').addEventListener('click', cancelAll);
 
   // Init
   renderGrid();

@@ -280,6 +280,58 @@ void manage_connected_clients(AppState &state)
           saveStateToDisk(state, state.transactionDir);
         }
       }
+      else if (isFirstWordTest(client_buffer, "CANCEL_ALL"))
+      {
+        for (int i = 1; i <= 4; i++) {
+          state.armedQty[i] = 0;
+          while (!state.pendingQueue[i].empty()) state.pendingQueue[i].pop();
+        }
+        if (!state.anyArmed()) { state.phase = TxnPhase::IDLE; state.bundleComplete = false; }
+        log_info("socket", "CANCEL_ALL: all armed slots cleared");
+        broadcast_status(state);
+        saveStateToDisk(state, state.transactionDir);
+      }
+      else if (isFirstWordTest(client_buffer, "CANCEL_QUEUE"))
+      {
+        // CANCEL_QUEUE,<productId>
+        if (socket_count_commas(client_buffer) != 1)
+        {
+          log_error("socket", std::string("Malformed CANCEL_QUEUE: ") + client_buffer);
+        }
+        else
+        {
+          std::string input_str(client_buffer);
+          size_t p1 = input_str.find(',');
+          int productId = std::stoi(input_str.substr(p1 + 1));
+          if (productId >= 1 && productId <= 4) {
+            while (!state.pendingQueue[productId].empty()) state.pendingQueue[productId].pop();
+            log_info("socket", "CANCEL_QUEUE slot " + std::to_string(productId) + ": queue cleared");
+            broadcast_status(state);
+          }
+        }
+      }
+      else if (isFirstWordTest(client_buffer, "CANCEL"))
+      {
+        // CANCEL,<productId>
+        if (socket_count_commas(client_buffer) != 1)
+        {
+          log_error("socket", std::string("Malformed CANCEL: ") + client_buffer);
+        }
+        else
+        {
+          std::string input_str(client_buffer);
+          size_t p1 = input_str.find(',');
+          int productId = std::stoi(input_str.substr(p1 + 1));
+          if (productId >= 1 && productId <= 4) {
+            state.armedQty[productId] = 0;
+            while (!state.pendingQueue[productId].empty()) state.pendingQueue[productId].pop();
+            if (!state.anyArmed()) { state.phase = TxnPhase::IDLE; state.bundleComplete = false; }
+            log_info("socket", "CANCEL slot " + std::to_string(productId) + ": armed cleared");
+            broadcast_status(state);
+            saveStateToDisk(state, state.transactionDir);
+          }
+        }
+      }
       else if (isFirstWordTest(client_buffer, "WTRLVL"))
       {
         if (socket_count_commas(client_buffer) != 4)

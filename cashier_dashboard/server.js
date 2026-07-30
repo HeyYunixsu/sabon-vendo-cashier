@@ -247,12 +247,27 @@ app.post('/api/arm', (req, res) => {
   res.json({ saleId, results });
 });
 
-// Cancel armed slot
+// Cancel single armed slot
 app.post('/api/cancel', (req, res) => {
   const { productId } = req.body;
-  // Future: send CANCEL,<productId> to coin_slot
-  console.log(`[dashboard] Cancel requested for slot ${productId}`);
-  res.json({ success: false, error: 'Cancel command not yet implemented in coin_slot' });
+  const sent = sendToCoinSlot(`CANCEL,${productId}`);
+  console.log(`[dashboard] CANCEL slot ${productId}: ${sent ? 'sent' : 'queued'}`);
+  res.json({ success: sent });
+});
+
+// Cancel all armed slots + clear all queues
+app.post('/api/cancel-all', (req, res) => {
+  const sent = sendToCoinSlot('CANCEL_ALL');
+  console.log(`[dashboard] CANCEL_ALL: ${sent ? 'sent' : 'queued'}`);
+  res.json({ success: sent });
+});
+
+// Cancel queue for a specific slot
+app.post('/api/cancel-queue', (req, res) => {
+  const { productId } = req.body;
+  const sent = sendToCoinSlot(`CANCEL_QUEUE,${productId}`);
+  console.log(`[dashboard] CANCEL_QUEUE slot ${productId}: ${sent ? 'sent' : 'queued'}`);
+  res.json({ success: sent });
 });
 
 // Resolve unclaimed sale
