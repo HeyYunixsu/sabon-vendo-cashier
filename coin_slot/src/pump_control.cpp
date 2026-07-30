@@ -224,18 +224,22 @@ void pump_loop(AppState &state) {
     std::lock_guard<std::mutex> lock(g_pump_mutex);
     auto current_time = std::chrono::steady_clock::now();
 
-    // 1. Button scan — 2-sample noise filter (40ms debounce)
-    static int   prevRead[7]   = {0};
-    static int   confirmed[7]  = {0};
+    // 1. Button scan — 4-sample noise filter (80ms debounce).
+    //    Relays and socket I/O can cause sub-20ms spikes on GPIO rails.
+    static int   sampleBuf[7][4] = {{0}};  // rolling 4-sample window
+    static int   sampleIdx[7]   = {0};
 
     for (int i = 1; i <= TOTAL_SLOTS; i++) {
         int raw = (digitalRead(pin_button[i]) == HIGH) ? 1 : 0;
 
-        if (raw == 1 && prevRead[i] == 1) confirmed[i] = 1;
-        if (raw == 0)                     confirmed[i] = 0;
-        prevRead[i] = raw;
+        // Rolling window: replace oldest sample
+        sampleBuf[i][sampleIdx[i]] = raw;
+        sampleIdx[i] = (sampleIdx[i] + 1) % 4;
 
-        bool pressed = (confirmed[i] == 1);
+        // All 4 samples must be HIGH to confirm
+        int sum = 0;
+        for (int s = 0; s < 4; s++) sum += sampleBuf[i][s];
+        bool pressed = (sum == 4);
 
         if (pressed) {
             if (!pumps[i].buttonWasPressedLastFrame) {
