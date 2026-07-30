@@ -9,8 +9,9 @@
 
 int BTN1 = 14, BTN2 = 24, BTN3 = 25, BTN4 = 10, BTN5 = 13, BTN6 = 19;
 int PUMP1 = 15, PUMP2 = 16, PUMP3 =  6, PUMP4 = 17, PUMP5 = 23, PUMP6 =  8;
-// Slots 1-4: separate LED pins. Slots 5-6: share button pins (same GPIO)
-int LED1 = 18, LED2 = 26, LED3 =  4, LED4 = 22, LED5 = 13, LED6 = 19;
+// All 6 LEDs on Grove digital ports (D18,D26,D16,D22,D24,D5)
+// BTN2 (GPIO24) and PUMP2 (GPIO16) use header pass-through — same GPIO, different connector
+int LED1 = 18, LED2 = 26, LED3 = 16, LED4 = 22, LED5 = 24, LED6 =  5;
 
 int PUMP_TRIGGER_HIGH = 0;
 int PUMP_TRIGGER_LOW  = 1;
