@@ -302,27 +302,35 @@ void pump_loop(AppState &state) {
     //    Debounce via hold-detection: 200ms continuous press required for
     //    idle pumps. Already-running pumps accept instantly (re-press = extra credit).
     // Rotating single-pin sample: one pin per loop iteration.
-    // At 20ms/loop, each pin sampled every 80ms (12.5Hz) — plenty fast.
-    // Naturally staggered — no two pins are ever in INPUT mode simultaneously.
+    // At 20ms/loop, each pin sampled every 80ms (12.5Hz).
+    // All shared pins always get LED state refreshed — only sampled pin
+    // does the full INPUT→read→OUTPUT cycle.
     static int sampleSlot = 1;
     for (int i = 1; i <= TOTAL_SLOTS; i++) {
         int btnPin = pin_button[i];
-        bool isCurrentlyPressed;
+        bool isCurrentlyPressed = false;
+
         if (isSharedPin(i)) {
             if (i == sampleSlot) {
+                // This pin's turn: INPUT → read → OUTPUT with LED state
                 pinMode(btnPin, INPUT);
                 pullUpDnControl(btnPin, PUD_DOWN);
-                delayMicroseconds(1000);  // 1ms INPUT window
-                isCurrentlyPressed = (digitalRead(btnPin) == HIGH);
+                delayMicroseconds(1000);
+                // Debounce: read twice, 500µs apart, must agree
+                bool r1 = (digitalRead(btnPin) == HIGH);
+                delayMicroseconds(500);
+                bool r2 = (digitalRead(btnPin) == HIGH);
+                isCurrentlyPressed = (r1 && r2);
                 pinMode(btnPin, OUTPUT);
                 digitalWrite(btnPin, state.armedQty[i] > 0 ? HIGH : LOW);
             } else {
-                // Not this pin's turn — maintain LED state, skip button read
-                isCurrentlyPressed = pumps[i].buttonWasPressedLastFrame
-                    ? (digitalRead(btnPin) == HIGH)  // re-read only if was pressed
-                    : false;
+                // Not sampled — just refresh LED state (no button read)
+                pinMode(btnPin, OUTPUT);
+                digitalWrite(btnPin, state.armedQty[i] > 0 ? HIGH : LOW);
+                isCurrentlyPressed = false;
             }
         } else {
+            // Separate pins: button always INPUT, LED handled in step 2b
             isCurrentlyPressed = (digitalRead(btnPin) == HIGH);
         }
 
