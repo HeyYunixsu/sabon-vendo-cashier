@@ -239,7 +239,13 @@ void pump_setup(AppState &state) {
     if (config.count("PUMP_START_COOLDOWN_MS")) g_pump_start_cooldown_ms = std::stoi(config["PUMP_START_COOLDOWN_MS"]);
 
     log_info("pump", "Fully Integrated Logic Version 3.0 Live!");
-    log_info("pump", "Anti-Surge Setup: 200ms cold hold enforced. Live sessions open for continuous fast-tapping.");
+    for (int i = 1; i <= TOTAL_SLOTS; i++) {
+        log_info("pump", "Slot " + std::to_string(i)
+            + ": BTN=" + std::to_string(pin_button[i])
+            + " PUMP=" + std::to_string(pin_pump[i])
+            + " LED=" + std::to_string(pin_led[i])
+            + (isSharedPin(i) ? " [SHARED]" : " [SEPARATE]"));
+    }
 
     init_hardware_config(config);
     wiringPiSetupGpio();
@@ -313,17 +319,21 @@ void pump_loop(AppState &state) {
         if (isSharedPin(i)) {
             if (i == sampleSlot) {
                 // Discharge residual voltage before reading button.
-                // OUTPUT LOW → 50µs → INPUT+PUD_DOWN → 2ms settle → read.
                 pinMode(btnPin, OUTPUT);
                 digitalWrite(btnPin, LOW);
-                delayMicroseconds(50);
+                delayMicroseconds(200);   // 200µs discharge (was 50)
                 pinMode(btnPin, INPUT);
                 pullUpDnControl(btnPin, PUD_DOWN);
-                delayMicroseconds(2000);  // 2ms settle — let residual charge drain
+                delayMicroseconds(3000);  // 3ms settle
                 bool r1 = (digitalRead(btnPin) == HIGH);
                 delayMicroseconds(500);
                 bool r2 = (digitalRead(btnPin) == HIGH);
                 isCurrentlyPressed = (r1 && r2);
+                if (r1 || r2) {
+                    log_info("pump", "shared-pin slot " + std::to_string(i)
+                        + " reads: r1=" + std::to_string(r1) + " r2=" + std::to_string(r2)
+                        + " armed=" + std::to_string(state.armedQty[i]));
+                }
                 pinMode(btnPin, OUTPUT);
                 digitalWrite(btnPin, state.armedQty[i] > 0 ? HIGH : LOW);
             } else {
