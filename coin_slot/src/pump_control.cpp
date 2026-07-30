@@ -271,11 +271,12 @@ void pump_loop(AppState &state) {
         }
     }
 
-    // 2. LED outputs — staggered to avoid 3.3V rail sag from simultaneous inrush
+    // 2. LED outputs — staggered 20ms apart to avoid 3.3V rail sag.
+    //    Also add 100µF capacitor across Pi pins 1 (3.3V) and 6 (GND).
     for (int i = 1; i <= TOTAL_SLOTS; i++) {
         if (state.armedQty[i] > 0) {
             digitalWrite(pin_led[i], HIGH);
-            delayMicroseconds(500);  // 0.5ms gap between LEDs
+            delayMicroseconds(20000);  // 20ms gap — rail has time to recover
         } else {
             digitalWrite(pin_led[i], LOW);
         }
