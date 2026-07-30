@@ -260,10 +260,10 @@ void pump_setup(AppState &state) {
         digitalWrite(pin_pump[i], PUMP_TRIGGER_LOW);
     }
 
-    // LED pins: if shared with buttons, they stay as INPUT (initial state).
-    // pump_loop handles the pin mode flip during button read.
-    if (!isSharedPin(i)) {
-        for (int i = 1; i <= TOTAL_SLOTS; ++i) {
+    // LED pins: if shared with button, stays INPUT (pump_loop handles flip).
+    // Separate LED pins: set OUTPUT LOW (off until armed).
+    for (int i = 1; i <= TOTAL_SLOTS; ++i) {
+        if (!isSharedPin(i)) {
             pinMode(pin_led[i], OUTPUT);
             digitalWrite(pin_led[i], LOW);
         }
@@ -360,9 +360,9 @@ void pump_loop(AppState &state) {
         state.remaining_time[i] = std::max(0LL, (long long)diff);
     }
 
-    // 2b. Update LED outputs (skip shared pins — already set during button read)
-    if (!isSharedPin(i)) {
-        for (int i = 1; i <= TOTAL_SLOTS; i++) {
+    // 2b. Update LED outputs for separate pins (shared pins already set during button read)
+    for (int i = 1; i <= TOTAL_SLOTS; i++) {
+        if (!isSharedPin(i)) {
             digitalWrite(pin_led[i], state.armedQty[i] > 0 ? HIGH : LOW);
         }
     }
