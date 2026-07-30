@@ -280,6 +280,7 @@ void pump_loop(AppState &state) {
             digitalWrite(pin_led[i], LOW);
         }
     }
+    delayMicroseconds(3000);  // 3ms rail settle after LED writes
     // 3. Remaining times
     for (int i = 1; i <= TOTAL_SLOTS; i++) {
         auto diff = std::chrono::duration_cast<std::chrono::milliseconds>(
