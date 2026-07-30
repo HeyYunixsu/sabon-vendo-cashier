@@ -265,9 +265,14 @@ void pump_loop(AppState &state) {
         }
     }
 
-    // 2. LED outputs
+    // 2. LED outputs — staggered to avoid 3.3V rail sag from simultaneous inrush
     for (int i = 1; i <= TOTAL_SLOTS; i++) {
-        digitalWrite(pin_led[i], state.armedQty[i] > 0 ? HIGH : LOW);
+        if (state.armedQty[i] > 0) {
+            digitalWrite(pin_led[i], HIGH);
+            delayMicroseconds(500);  // 0.5ms gap between LEDs
+        } else {
+            digitalWrite(pin_led[i], LOW);
+        }
     }
     // 3. Remaining times
     for (int i = 1; i <= TOTAL_SLOTS; i++) {
