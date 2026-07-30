@@ -577,7 +577,18 @@ fetch('/qr').then(r => { document.getElementById('lan-url').textContent = r.url.
   function connectSSE() {
     const es = new EventSource('/api/status/stream');
     es.addEventListener('message', (e) => {
-      if (e.data === 'connected') { S.connected = true; refresh(); return; }
+      if (e.data === 'connected') {
+        // Fresh connection — reset all state
+        S.connected = true;
+        S.armedQty.fill(0); S.remaining.fill(0); S.wlvl.fill(false);
+        S.busy.fill(false); S.queueDepth.fill(0); S.paused = false;
+        S.phase = 0; S.bundleComplete = false;
+        dispenseCount = 0; staged = []; selProduct = null; unclaimed = [];
+        renderStaged(); updateArm();
+        document.querySelectorAll('.btn-amount').forEach(b => b.disabled = true);
+        $('btn-add-more').disabled = true;
+        refresh(); return;
+      }
       if (e.data.startsWith('UNCLAIMED:')) { addUnclaimed(e.data); return; }
       parse(e.data);
     });
