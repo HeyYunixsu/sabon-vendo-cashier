@@ -224,28 +224,30 @@ void pump_loop(AppState &state) {
     std::lock_guard<std::mutex> lock(g_pump_mutex);
     auto current_time = std::chrono::steady_clock::now();
 
-    // 1. Button scan — 4-sample rolling window (80ms debounce).
-    //    On any armedQty increase (new ARM), the filter is reset to avoid
-    //    transient spikes from socket I/O or rail sag being treated as presses.
-    static int   sampleBuf[7][4] = {{0}};
+    // 1. Button scan — 8-sample rolling window (160ms debounce).
+    //    No filter reset on ARM — let the window naturally flush transients.
+    static int   sampleBuf[7][8] = {{0}};
     static int   sampleIdx[7]   = {0};
-    static int   prevArmed[7]   = {0};
+    static int   logCount[7]    = {0};
 
     for (int i = 1; i <= TOTAL_SLOTS; i++) {
-        // Reset filter when armedQty just increased (fresh ARM)
-        if (state.armedQty[i] > prevArmed[i]) {
-            for (int s = 0; s < 4; s++) sampleBuf[i][s] = 0;
-            sampleIdx[i] = 0;
-        }
-        prevArmed[i] = state.armedQty[i];
-
         int raw = (digitalRead(pin_button[i]) == HIGH) ? 1 : 0;
         sampleBuf[i][sampleIdx[i]] = raw;
-        sampleIdx[i] = (sampleIdx[i] + 1) % 4;
+        sampleIdx[i] = (sampleIdx[i] + 1) % 8;
 
         int sum = 0;
-        for (int s = 0; s < 4; s++) sum += sampleBuf[i][s];
-        bool pressed = (sum == 4);
+        for (int s = 0; s < 8; s++) sum += sampleBuf[i][s];
+        bool pressed = (sum == 8);
+
+        // Log any slot that reads HIGH when armedQty just became > 0
+        if (raw == 1 && state.armedQty[i] > 0 && logCount[i] < 3) {
+            log_info("pump", "DIAG: slot " + std::to_string(i)
+                + " btn=" + std::to_string(pin_button[i])
+                + " raw=1 armed=" + std::to_string(state.armedQty[i])
+                + " filterSum=" + std::to_string(sum));
+            logCount[i]++;
+        }
+        if (state.armedQty[i] == 0) logCount[i] = 0;
 
         if (pressed) {
             if (!pumps[i].buttonWasPressedLastFrame) {
