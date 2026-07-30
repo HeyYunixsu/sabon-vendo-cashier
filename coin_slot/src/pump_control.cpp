@@ -195,10 +195,15 @@ void pump_setup(AppState &state) {
     init_hardware_config(config);
     wiringPiSetupGpio();
 
-    // Buttons: INPUT + pull-down (done once, never changes mode)
+    // Buttons: INPUT + pull-down. Shared pins start as OUTPUT (LED off).
     for (int i = 1; i <= TOTAL_SLOTS; i++) {
-        pinMode(pin_button[i], INPUT);
-        pullUpDnControl(pin_button[i], PUD_DOWN);
+        if (isSharedPin(i)) {
+            pinMode(pin_button[i], OUTPUT);
+            digitalWrite(pin_button[i], LOW);
+        } else {
+            pinMode(pin_button[i], INPUT);
+            pullUpDnControl(pin_button[i], PUD_DOWN);
+        }
     }
 
     // Pumps: OUTPUT, off
@@ -207,10 +212,12 @@ void pump_setup(AppState &state) {
         digitalWrite(pin_pump[i], PUMP_TRIGGER_LOW);
     }
 
-    // LEDs: OUTPUT, off
+    // Separate LEDs only (shared ones already handled above)
     for (int i = 1; i <= TOTAL_SLOTS; i++) {
-        pinMode(pin_led[i], OUTPUT);
-        digitalWrite(pin_led[i], LOW);
+        if (!isSharedPin(i)) {
+            pinMode(pin_led[i], OUTPUT);
+            digitalWrite(pin_led[i], LOW);
+        }
     }
 
     if (ensureDirectoryExists(state.transactionDir)) {
@@ -224,15 +231,29 @@ void pump_loop(AppState &state) {
     std::lock_guard<std::mutex> lock(g_pump_mutex);
     auto current_time = std::chrono::steady_clock::now();
 
-    // 1. Button scan — 2-sample noise filter (40ms debounce).
-    //    Single transient spikes (relay kickback, ground bounce) are ignored.
-    static int   prevRead[7]   = {0};  // previous raw read per slot
-    static int   confirmed[7]  = {0};  // HIGH for 2+ consecutive reads
+    // 1. Button scan + LED update. Separate pins: simple read + write.
+    //    Shared pins (slots 5-6): brief INPUT window to read button,
+    //    then back to OUTPUT for LED. 200µs discharge + 2ms settle.
+    static int   prevRead[7]   = {0};
+    static int   confirmed[7]  = {0};
 
     for (int i = 1; i <= TOTAL_SLOTS; i++) {
-        int raw = (digitalRead(pin_button[i]) == HIGH) ? 1 : 0;
+        int raw;
+        if (isSharedPin(i)) {
+            // Shared pin: discharge → INPUT → read → OUTPUT with LED state
+            pinMode(pin_button[i], OUTPUT);
+            digitalWrite(pin_button[i], LOW);
+            delayMicroseconds(200);
+            pinMode(pin_button[i], INPUT);
+            pullUpDnControl(pin_button[i], PUD_DOWN);
+            delayMicroseconds(2000);
+            raw = (digitalRead(pin_button[i]) == HIGH) ? 1 : 0;
+            pinMode(pin_button[i], OUTPUT);
+            digitalWrite(pin_button[i], state.armedQty[i] > 0 ? HIGH : LOW);
+        } else {
+            raw = (digitalRead(pin_button[i]) == HIGH) ? 1 : 0;
+        }
 
-        // Require 2 consecutive HIGH reads before accepting
         if (raw == 1 && prevRead[i] == 1) confirmed[i] = 1;
         if (raw == 0)                     confirmed[i] = 0;
         prevRead[i] = raw;
@@ -263,9 +284,11 @@ void pump_loop(AppState &state) {
         }
     }
 
-    // 2. LED outputs — simple digitalWrite, every loop
+    // 2. LED outputs — separate pins only (shared already done in button scan)
     for (int i = 1; i <= TOTAL_SLOTS; i++) {
-        digitalWrite(pin_led[i], state.armedQty[i] > 0 ? HIGH : LOW);
+        if (!isSharedPin(i)) {
+            digitalWrite(pin_led[i], state.armedQty[i] > 0 ? HIGH : LOW);
+        }
     }
     // 3. Remaining times
     for (int i = 1; i <= TOTAL_SLOTS; i++) {
@@ -307,6 +330,11 @@ void pump_shutdown() {
     }
     for (int i = 1; i <= TOTAL_SLOTS; i++) {
         digitalWrite(pin_pump[i], PUMP_TRIGGER_LOW);
-        digitalWrite(pin_led[i], LOW);
+        if (isSharedPin(i)) {
+            pinMode(pin_button[i], OUTPUT);
+            digitalWrite(pin_button[i], LOW);
+        } else {
+            digitalWrite(pin_led[i], LOW);
+        }
     }
 }

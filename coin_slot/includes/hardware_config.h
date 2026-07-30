@@ -36,6 +36,11 @@ extern std::map<int, int> pin_led;
 extern std::map<int, int> pin_button;
 extern std::map<int, Product> productMap;
 
+inline bool isSharedPin(int slot) {
+    return pin_led.count(slot) && pin_button.count(slot)
+        && pin_led[slot] == pin_button[slot];
+}
+
 const int TOTAL_SLOTS = 6;
 
 void init_hardware_config(const std::map<std::string, std::string> &config);
