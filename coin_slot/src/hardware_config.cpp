@@ -12,7 +12,7 @@ int BTN1 = 14, BTN2 = 24, BTN3 = 25, BTN4 = 10;
 // Pumps
 int PUMP1 = 15, PUMP2 = 16, PUMP3 =  6, PUMP4 = 17;
 // LEDs: slots 1-2 have separate GPIOs, slots 3-4 share button pins
-int LED1 = 27, LED2 =  4, LED3 = 25, LED4 = 10;
+int LED1 =  5, LED2 =  4, LED3 = 25, LED4 = 10;
 int PIN_STOP = 27;
 int PUMP_TRIGGER_HIGH = 0;  // LOW  — active-low relay: 0 turns pump ON
 int PUMP_TRIGGER_LOW  = 1;  // HIGH — off
