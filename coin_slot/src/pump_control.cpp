@@ -312,11 +312,14 @@ void pump_loop(AppState &state) {
 
         if (isSharedPin(i)) {
             if (i == sampleSlot) {
-                // This pin's turn: INPUT → read → OUTPUT with LED state
+                // Discharge residual voltage before reading button.
+                // OUTPUT LOW → 50µs → INPUT+PUD_DOWN → 2ms settle → read.
+                pinMode(btnPin, OUTPUT);
+                digitalWrite(btnPin, LOW);
+                delayMicroseconds(50);
                 pinMode(btnPin, INPUT);
                 pullUpDnControl(btnPin, PUD_DOWN);
-                delayMicroseconds(1000);
-                // Debounce: read twice, 500µs apart, must agree
+                delayMicroseconds(2000);  // 2ms settle — let residual charge drain
                 bool r1 = (digitalRead(btnPin) == HIGH);
                 delayMicroseconds(500);
                 bool r2 = (digitalRead(btnPin) == HIGH);
