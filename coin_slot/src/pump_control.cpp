@@ -302,16 +302,27 @@ void pump_loop(AppState &state) {
     //
     //    Debounce via hold-detection: 200ms continuous press required for
     //    idle pumps. Already-running pumps accept instantly (re-press = extra credit).
+    // Rotating single-pin sample: one pin per loop iteration.
+    // At 20ms/loop, each pin sampled every 80ms (12.5Hz) — plenty fast.
+    // Naturally staggered — no two pins are ever in INPUT mode simultaneously.
+    static int sampleSlot = 1;
     for (int i = 1; i <= TOTAL_SLOTS; i++) {
         int btnPin = pin_button[i];
         bool isCurrentlyPressed;
         if (SHARED_LED_BTN) {
-            pinMode(btnPin, INPUT);
-            pullUpDnControl(btnPin, PUD_DOWN);
-            delayMicroseconds(1000);  // 1ms settle — LED off briefly, invisible
-            isCurrentlyPressed = (digitalRead(btnPin) == HIGH);
-            pinMode(btnPin, OUTPUT);
-            digitalWrite(btnPin, state.armedQty[i] > 0 ? HIGH : LOW);
+            if (i == sampleSlot) {
+                pinMode(btnPin, INPUT);
+                pullUpDnControl(btnPin, PUD_DOWN);
+                delayMicroseconds(1000);  // 1ms INPUT window
+                isCurrentlyPressed = (digitalRead(btnPin) == HIGH);
+                pinMode(btnPin, OUTPUT);
+                digitalWrite(btnPin, state.armedQty[i] > 0 ? HIGH : LOW);
+            } else {
+                // Not this pin's turn — maintain LED state, skip button read
+                isCurrentlyPressed = pumps[i].buttonWasPressedLastFrame
+                    ? (digitalRead(btnPin) == HIGH)  // re-read only if was pressed
+                    : false;
+            }
         } else {
             isCurrentlyPressed = (digitalRead(btnPin) == HIGH);
         }
@@ -343,6 +354,7 @@ void pump_loop(AppState &state) {
         }
 
     }
+    sampleSlot = (sampleSlot % TOTAL_SLOTS) + 1;
 
     // 2. Update remaining times safely
     for (int i = 1; i <= TOTAL_SLOTS; i++) {

@@ -500,7 +500,7 @@ main {
         <button id="btn-clear-sale" class="btn btn-outline">Clear</button>
       </div>
       <div class="add-more-popup" id="add-more-popup">
-        <input type="number" id="custom-amount" placeholder="Amount" min="5" max="500" step="5" inputmode="numeric" pattern="[0-9]*" required>
+        <input type="number" id="custom-amount" placeholder="Amount (₱5–₱50)" min="5" max="50" step="5" inputmode="numeric" pattern="[0-9]*" required>
         <button class="btn-confirm" id="btn-confirm-add">Add</button>
       </div>
       <button id="btn-arm" class="btn btn-primary btn-block btn-lg" disabled>Arm</button>
@@ -832,7 +832,7 @@ fetch('/qr').then(r => { document.getElementById('lan-url').textContent = r.url.
   // Add More confirm
   $('btn-confirm-add').addEventListener('click', () => {
     const val = parseInt($('custom-amount').value);
-    if (!val || val < 5 || val > 500 || val % 5 !== 0) return;
+    if (!val || val < 5 || val > 50 || val % 5 !== 0) return;
     const slot = selProduct || 1;
     stageItem(slot, 0, val);
     $('add-more-popup').classList.remove('open');
