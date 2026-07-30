@@ -251,7 +251,7 @@ void manage_connected_clients(AppState &state)
           int productId = std::stoi(input_str.substr(p1 + 1, p2 - (p1 + 1)));
           int qty = std::stoi(input_str.substr(p2 + 1));
 
-          if (productId < 1 || productId > TOTAL_SLOTS)
+          if (productId < 1 || productId > 5)
           {
             log_error("socket", std::string("ARM rejected — invalid product ID: ") + std::to_string(productId));
           }
@@ -334,20 +334,20 @@ void manage_connected_clients(AppState &state)
       }
       else if (isFirstWordTest(client_buffer, "WTRLVL"))
       {
-        if (socket_count_commas(client_buffer) != 6)
+        if (socket_count_commas(client_buffer) != 5)
         {
-          log_error("socket", std::string("Malformed WTRLVL (expected 6 commas): ") + client_buffer);
+          log_error("socket", std::string("Malformed WTRLVL (expected 5 commas): ") + client_buffer);
         }
         else
         {
           std::string input_str(client_buffer);
-          size_t pos[7];
+          size_t pos[6];
           pos[0] = input_str.find(',');
-          for (int i = 1; i < 6; ++i) pos[i] = input_str.find(',', pos[i - 1] + 1);
+          for (int i = 1; i < 5; ++i) pos[i] = input_str.find(',', pos[i - 1] + 1);
 
-          for (int i = 1; i <= TOTAL_SLOTS; i++) {
+          for (int i = 1; i <= 5; i++) {
             size_t start = pos[i-1] + 1;
-            size_t len   = (i < TOTAL_SLOTS) ? (pos[i] - start) : std::string::npos;
+            size_t len   = (i < 5) ? (pos[i] - start) : std::string::npos;
             state.WLVL_PRESSED[i] = std::stoi(input_str.substr(start, len)) == 1;
           }
           log_info("socket", std::string("Water level:") +
@@ -355,8 +355,7 @@ void manage_connected_clients(AppState &state)
               " s2=" + (state.WLVL_PRESSED[2]?"E":"ok") +
               " s3=" + (state.WLVL_PRESSED[3]?"E":"ok") +
               " s4=" + (state.WLVL_PRESSED[4]?"E":"ok") +
-              " s5=" + (state.WLVL_PRESSED[5]?"E":"ok") +
-              " s6=" + (state.WLVL_PRESSED[6]?"E":"ok"));
+              " s5=" + (state.WLVL_PRESSED[5]?"E":"ok"));
           broadcast_status(state);
         }
       }

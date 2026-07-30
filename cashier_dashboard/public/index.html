@@ -477,7 +477,7 @@ main {
 <!-- KPI Row -->
 <div class="kpi-row" id="kpi-row">
   <div class="kpi-card"><div class="kpi-label">Total Armed</div><div class="kpi-value" id="kpi-armed">0</div><div class="kpi-sub">units across all slots</div></div>
-  <div class="kpi-card"><div class="kpi-label">In Stock</div><div class="kpi-value" id="kpi-active" style="color:var(--status-positive);">6</div><div class="kpi-sub">of 6 slots ready</div></div>
+  <div class="kpi-card"><div class="kpi-label">In Stock</div><div class="kpi-value" id="kpi-active" style="color:var(--status-positive);">5</div><div class="kpi-sub">of 5 active slots</div></div>
   <div class="kpi-card"><div class="kpi-label">Phase</div><div class="kpi-value" id="kpi-bundle">IDLE</div><div class="kpi-sub" id="kpi-bundle-sub">waiting for sale</div></div>
   <div class="kpi-card"><div class="kpi-label">Today</div><div class="kpi-value" id="kpi-today">0</div><div class="kpi-sub">dispenses completed</div></div>
 </div>
@@ -553,7 +553,7 @@ fetch('/qr').then(r => { document.getElementById('lan-url').textContent = r.url.
   };
   const PRODUCT_INITIAL = { 1:'D', 2:'LB', 3:'LD', 4:'S', 5:'5', 6:'6' };
   const AMOUNT_QTY = { 5:1, 10:2, 15:3, 20:4 };
-  const ACTIVE = 6, TOTAL = 6;
+  const ACTIVE = 5, TOTAL = 6;
 
   const S = {
     armedQty: new Array(7).fill(0), remaining: new Array(7).fill(0),
@@ -596,13 +596,13 @@ fetch('/qr').then(r => { document.getElementById('lan-url').textContent = r.url.
   }
 
   function parse(raw) {
-    const p = raw.split(','); if (p.length < 33) return;
+    const p = raw.split(','); if (p.length < 28) return;
     let i = 1;
-    for (let s = 1; s <= 6; s++) S.armedQty[s]   = parseInt(p[i++]) || 0;
-    for (let s = 1; s <= 6; s++) S.remaining[s]  = parseInt(p[i++]) || 0;
-    for (let s = 1; s <= 6; s++) S.wlvl[s]       = p[i++] === '1';
-    for (let s = 1; s <= 6; s++) S.busy[s]        = p[i++] === '1';
-    for (let s = 1; s <= 6; s++) S.queueDepth[s]  = parseInt(p[i++]) || 0;
+    for (let s = 1; s <= 5; s++) S.armedQty[s]   = parseInt(p[i++]) || 0;
+    for (let s = 1; s <= 5; s++) S.remaining[s]  = parseInt(p[i++]) || 0;
+    for (let s = 1; s <= 5; s++) S.wlvl[s]       = p[i++] === '1';
+    for (let s = 1; s <= 5; s++) S.busy[s]        = p[i++] === '1';
+    for (let s = 1; s <= 5; s++) S.queueDepth[s]  = parseInt(p[i++]) || 0;
     S.paused = p[i++] === '1';
     S.phase = parseInt(p[i++]) || 0;     // 0=IDLE, 1=ARMED, 2=DISPENSING, 3=COMPLETE
     S.bundleComplete = p[i] === '1';
