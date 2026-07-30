@@ -20,7 +20,7 @@
 //   - Runs pump for base_seconds[slot] (calibrated per product)
 //   - ₱15 credit = 3 presses, each running 1× base_seconds
 //
-// Shared GPIO wiring (SHARED_LED_BTN):
+// Shared GPIO wiring (isSharedPin(i)):
 //   3.3V ── button ── GPIO ── 800Ω ── LED(+) ── LED(-) ── GND
 //   OUTPUT HIGH = LED on (current through 800Ω + LED to GND).
 //   Every ~20ms: briefly (~1ms) INPUT + internal pull-down to sample button.
@@ -243,18 +243,16 @@ void pump_setup(AppState &state) {
     init_hardware_config(config);
     wiringPiSetupGpio();
 
-    // Configure buttons: if shared mode, start as OUTPUT (LEDs off until armed).
-    // pump_loop handles the INPUT/OUTPUT flip for button reads.
-    if (SHARED_LED_BTN) {
-        pinMode(BTN1, OUTPUT); digitalWrite(BTN1, LOW);
-        pinMode(BTN2, OUTPUT); digitalWrite(BTN2, LOW);
-        pinMode(BTN3, OUTPUT); digitalWrite(BTN3, LOW);
-        pinMode(BTN4, OUTPUT); digitalWrite(BTN4, LOW);
-    } else {
-        pinMode(BTN1, INPUT); pullUpDnControl(BTN1, PUD_DOWN);
-        pinMode(BTN2, INPUT); pullUpDnControl(BTN2, PUD_DOWN);
-        pinMode(BTN3, INPUT); pullUpDnControl(BTN3, PUD_DOWN);
-        pinMode(BTN4, INPUT); pullUpDnControl(BTN4, PUD_DOWN);
+    // Configure buttons per-slot: shared pins start as OUTPUT (LED off),
+    // separate pins stay as INPUT with pull-down.
+    for (int i = 1; i <= TOTAL_SLOTS; ++i) {
+        if (isSharedPin(i)) {
+            pinMode(pin_button[i], OUTPUT);
+            digitalWrite(pin_button[i], LOW);
+        } else {
+            pinMode(pin_button[i], INPUT);
+            pullUpDnControl(pin_button[i], PUD_DOWN);
+        }
     }
 
     for (int i = 1; i <= TOTAL_SLOTS; ++i) {
@@ -264,7 +262,7 @@ void pump_setup(AppState &state) {
 
     // LED pins: if shared with buttons, they stay as INPUT (initial state).
     // pump_loop handles the pin mode flip during button read.
-    if (!SHARED_LED_BTN) {
+    if (!isSharedPin(i)) {
         for (int i = 1; i <= TOTAL_SLOTS; ++i) {
             pinMode(pin_led[i], OUTPUT);
             digitalWrite(pin_led[i], LOW);
@@ -292,7 +290,7 @@ void pump_loop(AppState &state) {
     //      armedQty > 0 → LED = ON  (pin is OUTPUT, HIGH)
     //      armedQty = 0 → LED = OFF (pin is OUTPUT, LOW)
     //
-    //    Shared-pin read sequence (SHARED_LED_BTN, ~1ms INPUT window):
+    //    Shared-pin read sequence (isSharedPin(i), ~1ms INPUT window):
     //      1. pinMode → INPUT + PUD_DOWN   (pull-down holds pin LOW)
     //      2. delayMicroseconds(1000)      (let pin settle)
     //      3. digitalRead                  (button = 3.3V → HIGH, else LOW)
@@ -309,7 +307,7 @@ void pump_loop(AppState &state) {
     for (int i = 1; i <= TOTAL_SLOTS; i++) {
         int btnPin = pin_button[i];
         bool isCurrentlyPressed;
-        if (SHARED_LED_BTN) {
+        if (isSharedPin(i)) {
             if (i == sampleSlot) {
                 pinMode(btnPin, INPUT);
                 pullUpDnControl(btnPin, PUD_DOWN);
@@ -363,7 +361,7 @@ void pump_loop(AppState &state) {
     }
 
     // 2b. Update LED outputs (skip shared pins — already set during button read)
-    if (!SHARED_LED_BTN) {
+    if (!isSharedPin(i)) {
         for (int i = 1; i <= TOTAL_SLOTS; i++) {
             digitalWrite(pin_led[i], state.armedQty[i] > 0 ? HIGH : LOW);
         }
@@ -422,12 +420,14 @@ void pump_loop(AppState &state) {
 void pump_shutdown() {
     for (int i = 1; i <= TOTAL_SLOTS; i++) {
         digitalWrite(pin_pump[i], PUMP_TRIGGER_LOW);
-        if (!SHARED_LED_BTN) {
-            pinMode(pin_led[i], OUTPUT);
-            digitalWrite(pin_led[i], LOW);
-        } else {
+        if (isSharedPin(i)) {
+            // Shared pin: set to OUTPUT LOW (LED off, button won't read but we're shutting down)
             pinMode(pin_button[i], OUTPUT);
             digitalWrite(pin_button[i], LOW);
+        } else {
+            // Separate pins: turn off LED, button stays as-is
+            pinMode(pin_led[i], OUTPUT);
+            digitalWrite(pin_led[i], LOW);
         }
     }
 }

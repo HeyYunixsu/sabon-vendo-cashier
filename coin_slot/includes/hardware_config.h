@@ -35,7 +35,12 @@ extern std::map<int, int> pin_pump;     // slot index → pump BCM pin
 extern std::map<int, int> pin_led;      // slot index → LED BCM pin
 extern std::map<int, int> pin_button;   // slot index → button BCM pin
 extern std::map<int, Product> productMap;
-extern bool SHARED_LED_BTN;             // true when LEDs share button GPIOs
+
+// Per-slot check: true when LED and button share the same GPIO pin
+inline bool isSharedPin(int slot) {
+    return pin_led.count(slot) && pin_button.count(slot)
+        && pin_led[slot] == pin_button[slot];
+}
 
 const int TOTAL_SLOTS = 4;  // loop bound for pump_control / socket_server
 

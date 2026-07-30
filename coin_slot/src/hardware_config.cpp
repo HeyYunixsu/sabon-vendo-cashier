@@ -11,8 +11,8 @@
 int BTN1 = 14, BTN2 = 24, BTN3 = 25, BTN4 = 10;
 // Pumps
 int PUMP1 = 15, PUMP2 = 16, PUMP3 =  6, PUMP4 = 17;
-// LEDs share button pins (custom board — no separate LED GPIOs)
-int LED1 = 14, LED2 = 24, LED3 = 25, LED4 = 10;
+// LEDs: slots 1-2 have separate GPIOs, slots 3-4 share button pins
+int LED1 = 27, LED2 = 12, LED3 = 25, LED4 = 10;
 int PIN_STOP = 27;
 int PUMP_TRIGGER_HIGH = 0;  // LOW  — active-low relay: 0 turns pump ON
 int PUMP_TRIGGER_LOW  = 1;  // HIGH — off
@@ -28,11 +28,6 @@ std::map<int, int> pin_led {
 std::map<int, int> pin_button {
     {1, BTN1}, {2, BTN2}, {3, BTN3}, {4, BTN4}
 };
-
-// Shared pin mode: when LED pins == button pins, pump_loop briefly flips
-// the pin to INPUT with pull-down to read the button, then back to OUTPUT.
-// This avoids needing separate GPIOs for LEDs.
-bool SHARED_LED_BTN = true;
 
 std::map<int, Product> productMap {
     {1, {1, 5, 2.777777777777778}},
@@ -71,9 +66,6 @@ void init_hardware_config(const std::map<std::string, std::string> &config)
     pin_pump   = {{1, PUMP1}, {2, PUMP2}, {3, PUMP3}, {4, PUMP4}};
     pin_led    = {{1, LED1},  {2, LED2},  {3, LED3},  {4, LED4}};
     pin_button = {{1, BTN1},  {2, BTN2},  {3, BTN3},  {4, BTN4}};
-
-    // Auto-detect shared pin mode: if all LED pins match button pins
-    SHARED_LED_BTN = (LED1 == BTN1 && LED2 == BTN2 && LED3 == BTN3 && LED4 == BTN4);
 
     static const struct { int coins; double seconds; } defaults[5] = {
         {},
