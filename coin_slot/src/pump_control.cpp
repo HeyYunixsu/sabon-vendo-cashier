@@ -38,6 +38,7 @@
 #include "transaction.h"
 #include "utils.h"
 #include <wiringPi.h>
+#include <cstdio>
 #include <chrono>
 #include <algorithm>
 #include <mutex>
@@ -418,6 +419,11 @@ void pump_loop(AppState &state) {
     std::this_thread::sleep_for(std::chrono::milliseconds(20));
 }
 void pump_shutdown() {
+    // Clear persisted state on clean shutdown so PM2 restart starts fresh
+    if (g_state_ptr) {
+        std::string stateFile = g_state_ptr->transactionDir + "/state.dat";
+        std::remove(stateFile.c_str());
+    }
     for (int i = 1; i <= TOTAL_SLOTS; i++) {
         digitalWrite(pin_pump[i], PUMP_TRIGGER_LOW);
         if (isSharedPin(i)) {
