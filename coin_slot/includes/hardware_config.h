@@ -13,7 +13,6 @@
 extern int BTN1, BTN2, BTN3, BTN4, BTN5, BTN6;
 extern int PUMP1, PUMP2, PUMP3, PUMP4, PUMP5, PUMP6;
 extern int LED1, LED2, LED3, LED4, LED5, LED6;
-extern int LED_BUNDLE;  // GPIO 26 — Bundle Complete indicator, output-only
 
 extern int PUMP_TRIGGER_HIGH;  // Active-low relay: LOW (0) turns pump ON
 extern int PUMP_TRIGGER_LOW;   // HIGH (1) turns pump OFF

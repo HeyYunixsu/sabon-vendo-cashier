@@ -192,8 +192,6 @@ void pump_setup(AppState &state) {
             + " PUMP=" + std::to_string(pin_pump[i])
             + " LED=" + std::to_string(pin_led[i]));
     }
-    log_info("pump", "LED_BUNDLE=" + std::to_string(LED_BUNDLE));
-
     init_hardware_config(config);
     wiringPiSetupGpio();
 
@@ -214,10 +212,6 @@ void pump_setup(AppState &state) {
         pinMode(pin_led[i], OUTPUT);
         digitalWrite(pin_led[i], LOW);
     }
-
-    // LED7 Bundle Complete: OUTPUT, off
-    pinMode(LED_BUNDLE, OUTPUT);
-    digitalWrite(LED_BUNDLE, LOW);
 
     if (ensureDirectoryExists(state.transactionDir)) {
         log_info("pump", "Transaction dir: " + state.transactionDir);
@@ -273,8 +267,6 @@ void pump_loop(AppState &state) {
     for (int i = 1; i <= TOTAL_SLOTS; i++) {
         digitalWrite(pin_led[i], state.armedQty[i] > 0 ? HIGH : LOW);
     }
-    digitalWrite(LED_BUNDLE, state.bundleComplete ? HIGH : LOW);
-
     // 3. Remaining times
     for (int i = 1; i <= TOTAL_SLOTS; i++) {
         auto diff = std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -317,5 +309,4 @@ void pump_shutdown() {
         digitalWrite(pin_pump[i], PUMP_TRIGGER_LOW);
         digitalWrite(pin_led[i], LOW);
     }
-    digitalWrite(LED_BUNDLE, LOW);
 }
