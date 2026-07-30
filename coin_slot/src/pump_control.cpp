@@ -20,10 +20,13 @@
 //   - Runs pump for base_seconds[slot] (calibrated per product)
 //   - ₱15 credit = 3 presses, each running 1× base_seconds
 //
-// Shared GPIO multiplexing (SHARED_LED_BTN):
-//   Pin flips INPUT (read button, ~2µs) → OUTPUT (drive LED)
-//   External 10kΩ pull-down + LED→330Ω→GND holds pin LOW during INPUT phase.
-//   Button press connects 3.3V, overpowering the pull-down.
+// Shared GPIO wiring (SHARED_LED_BTN):
+//   3.3V ── button ── GPIO ── 800Ω ── LED(+) ── LED(-) ── GND
+//   OUTPUT HIGH = LED on (current through 800Ω + LED to GND).
+//   Every ~20ms: briefly (~1ms) INPUT + internal pull-down to sample button.
+//   Button pressed  → 3.3V reaches pin → reads HIGH.
+//   Button released → pull-down → reads LOW.
+//   Pin switches back to OUTPUT. LED appears solid — flicker invisible.
 //
 // Jam protection:
 //   armedUnitsReserved tracks in-flight dispenses. If postPressDeadline
@@ -289,12 +292,13 @@ void pump_loop(AppState &state) {
     //      armedQty > 0 → LED = ON  (pin is OUTPUT, HIGH)
     //      armedQty = 0 → LED = OFF (pin is OUTPUT, LOW)
     //
-    //    Shared-pin read sequence (SHARED_LED_BTN):
-    //      1. pinMode → INPUT  (external 10kΩ pull-down + LED→330Ω→GND pulls LOW)
-    //      2. digitalRead      (button press = 3.3V overpowers pull-down → HIGH)
-    //      3. pinMode → OUTPUT (restore LED drive)
-    //      4. digitalWrite     (HIGH if armed, LOW if not)
-    //      Total INPUT window: ~2µs. LED dimming invisible to human eye.
+    //    Shared-pin read sequence (SHARED_LED_BTN, ~1ms INPUT window):
+    //      1. pinMode → INPUT + PUD_DOWN   (pull-down holds pin LOW)
+    //      2. delayMicroseconds(1000)      (let pin settle)
+    //      3. digitalRead                  (button = 3.3V → HIGH, else LOW)
+    //      4. pinMode → OUTPUT             (restore LED drive)
+    //      5. digitalWrite                 (HIGH if armed, LOW if not)
+    //      LED off for ~1ms every ~20ms — invisible at 50Hz.
     //
     //    Debounce via hold-detection: 200ms continuous press required for
     //    idle pumps. Already-running pumps accept instantly (re-press = extra credit).
@@ -302,9 +306,11 @@ void pump_loop(AppState &state) {
         int btnPin = pin_button[i];
         bool isCurrentlyPressed;
         if (SHARED_LED_BTN) {
-            pinMode(btnPin, INPUT);   // float → external 10kΩ pulls to GND
+            pinMode(btnPin, INPUT);
+            pullUpDnControl(btnPin, PUD_DOWN);
+            delayMicroseconds(1000);  // 1ms settle — LED off briefly, invisible
             isCurrentlyPressed = (digitalRead(btnPin) == HIGH);
-            pinMode(btnPin, OUTPUT);  // restore LED drive
+            pinMode(btnPin, OUTPUT);
             digitalWrite(btnPin, state.armedQty[i] > 0 ? HIGH : LOW);
         } else {
             isCurrentlyPressed = (digitalRead(btnPin) == HIGH);
@@ -399,7 +405,7 @@ void pump_loop(AppState &state) {
         }
     }
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    std::this_thread::sleep_for(std::chrono::milliseconds(20));
 }
 void pump_shutdown() {
     for (int i = 1; i <= TOTAL_SLOTS; i++) {
