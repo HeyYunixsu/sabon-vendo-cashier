@@ -230,9 +230,20 @@ void pump_loop(AppState &state) {
     std::lock_guard<std::mutex> lock(g_pump_mutex);
     auto current_time = std::chrono::steady_clock::now();
 
-    // 1. Button scan — simple digitalRead, no mode switching
+    // 1. Button scan — 2-sample noise filter (40ms debounce).
+    //    Single transient spikes (relay kickback, ground bounce) are ignored.
+    static int   prevRead[7]   = {0};  // previous raw read per slot
+    static int   confirmed[7]  = {0};  // HIGH for 2+ consecutive reads
+
     for (int i = 1; i <= TOTAL_SLOTS; i++) {
-        bool pressed = (digitalRead(pin_button[i]) == HIGH);
+        int raw = (digitalRead(pin_button[i]) == HIGH) ? 1 : 0;
+
+        // Require 2 consecutive HIGH reads before accepting
+        if (raw == 1 && prevRead[i] == 1) confirmed[i] = 1;
+        if (raw == 0)                     confirmed[i] = 0;
+        prevRead[i] = raw;
+
+        bool pressed = (confirmed[i] == 1);
 
         if (pressed) {
             if (!pumps[i].buttonWasPressedLastFrame) {
