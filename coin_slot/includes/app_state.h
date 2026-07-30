@@ -3,6 +3,7 @@
 
 #include <string>
 #include <queue>
+#include "hardware_config.h"
 
 struct PendingArm {
     int productId;
