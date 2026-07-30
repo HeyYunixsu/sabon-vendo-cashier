@@ -224,19 +224,25 @@ void pump_loop(AppState &state) {
     std::lock_guard<std::mutex> lock(g_pump_mutex);
     auto current_time = std::chrono::steady_clock::now();
 
-    // 1. Button scan — 4-sample noise filter (80ms debounce).
-    //    Relays and socket I/O can cause sub-20ms spikes on GPIO rails.
-    static int   sampleBuf[7][4] = {{0}};  // rolling 4-sample window
+    // 1. Button scan — 4-sample rolling window (80ms debounce).
+    //    On any armedQty increase (new ARM), the filter is reset to avoid
+    //    transient spikes from socket I/O or rail sag being treated as presses.
+    static int   sampleBuf[7][4] = {{0}};
     static int   sampleIdx[7]   = {0};
+    static int   prevArmed[7]   = {0};
 
     for (int i = 1; i <= TOTAL_SLOTS; i++) {
-        int raw = (digitalRead(pin_button[i]) == HIGH) ? 1 : 0;
+        // Reset filter when armedQty just increased (fresh ARM)
+        if (state.armedQty[i] > prevArmed[i]) {
+            for (int s = 0; s < 4; s++) sampleBuf[i][s] = 0;
+            sampleIdx[i] = 0;
+        }
+        prevArmed[i] = state.armedQty[i];
 
-        // Rolling window: replace oldest sample
+        int raw = (digitalRead(pin_button[i]) == HIGH) ? 1 : 0;
         sampleBuf[i][sampleIdx[i]] = raw;
         sampleIdx[i] = (sampleIdx[i] + 1) % 4;
 
-        // All 4 samples must be HIGH to confirm
         int sum = 0;
         for (int s = 0; s < 4; s++) sum += sampleBuf[i][s];
         bool pressed = (sum == 4);
