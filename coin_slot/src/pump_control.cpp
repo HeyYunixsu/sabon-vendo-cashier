@@ -276,7 +276,7 @@ void pump_loop(AppState &state) {
     for (int i = 1; i <= TOTAL_SLOTS; i++) {
         if (state.armedQty[i] > 0) {
             digitalWrite(pin_led[i], HIGH);
-            delayMicroseconds(20000);  // 20ms gap — rail has time to recover
+            delayMicroseconds(50000);  // 50ms gap — more recovery time for small cap
         } else {
             digitalWrite(pin_led[i], LOW);
         }
