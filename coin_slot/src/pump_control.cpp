@@ -225,10 +225,11 @@ void pump_loop(AppState &state) {
     auto current_time = std::chrono::steady_clock::now();
 
     // 1. Button scan — 8-sample rolling window (160ms debounce).
-    //    No filter reset on ARM — let the window naturally flush transients.
+    //    Rail sag from LED writes causes transient HIGH reads lasting ~60ms
+    //    (3 samples at 20ms/loop). 8-sample window is too wide for transients
+    //    to fill, so false triggers are blocked without any capacitor needed.
     static int   sampleBuf[7][8] = {{0}};
     static int   sampleIdx[7]   = {0};
-    static int   logCount[7]    = {0};
 
     for (int i = 1; i <= TOTAL_SLOTS; i++) {
         int raw = (digitalRead(pin_button[i]) == HIGH) ? 1 : 0;
@@ -238,16 +239,6 @@ void pump_loop(AppState &state) {
         int sum = 0;
         for (int s = 0; s < 8; s++) sum += sampleBuf[i][s];
         bool pressed = (sum == 8);
-
-        // Log any slot that reads HIGH when armedQty just became > 0
-        if (raw == 1 && state.armedQty[i] > 0 && logCount[i] < 3) {
-            log_info("pump", "DIAG: slot " + std::to_string(i)
-                + " btn=" + std::to_string(pin_button[i])
-                + " raw=1 armed=" + std::to_string(state.armedQty[i])
-                + " filterSum=" + std::to_string(sum));
-            logCount[i]++;
-        }
-        if (state.armedQty[i] == 0) logCount[i] = 0;
 
         if (pressed) {
             if (!pumps[i].buttonWasPressedLastFrame) {
@@ -278,7 +269,7 @@ void pump_loop(AppState &state) {
     for (int i = 1; i <= TOTAL_SLOTS; i++) {
         if (state.armedQty[i] > 0) {
             digitalWrite(pin_led[i], HIGH);
-            delayMicroseconds(50000);  // 50ms gap — more recovery time for small cap
+            delayMicroseconds(5000);  // 5ms gap — 8-sample filter handles any residual sag
         } else {
             digitalWrite(pin_led[i], LOW);
         }
