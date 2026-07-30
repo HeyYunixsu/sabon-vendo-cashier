@@ -9,8 +9,7 @@
 
 int BTN1 = 14, BTN2 = 24, BTN3 = 25, BTN4 = 10, BTN5 = 13;
 int PUMP1 = 15, PUMP2 = 16, PUMP3 =  6, PUMP4 = 17, PUMP5 = 23;
-// LEDs on Grove ports: D18, D26, D5, D22, D24
-int LED1 = 18, LED2 = 26, LED3 =  5, LED4 = 22, LED5 = 24;
+int LED1 = 12, LED2 = 27, LED3 =  4, LED4 = 22, LED5 = 24;
 
 int PUMP_TRIGGER_HIGH = 0;
 int PUMP_TRIGGER_LOW  = 1;
