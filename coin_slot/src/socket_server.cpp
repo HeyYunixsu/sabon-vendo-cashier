@@ -119,19 +119,19 @@ static std::string build_status_response(AppState &state)
   // STATUS format (31 fields):
   //   armedQty1-6, remaining1-6, wlvl1-6, busy1-6, queueDepth1-6, paused
   std::string resp = "STATUS";
-  for (int i = 1; i <= 4; i++) {
+  for (int i = 1; i <= TOTAL_SLOTS; i++) {
     resp += "," + std::to_string(state.armedQty[i]);
   }
-  for (int i = 1; i <= 4; i++) {
+  for (int i = 1; i <= TOTAL_SLOTS; i++) {
     resp += "," + std::to_string(state.remaining_time[i]);
   }
-  for (int i = 1; i <= 4; i++) {
+  for (int i = 1; i <= TOTAL_SLOTS; i++) {
     resp += "," + std::to_string(state.WLVL_PRESSED[i] ? 1 : 0);
   }
-  for (int i = 1; i <= 4; i++) {
+  for (int i = 1; i <= TOTAL_SLOTS; i++) {
     resp += "," + std::to_string(state.slotBusy[i] ? 1 : 0);
   }
-  for (int i = 1; i <= 4; i++) {
+  for (int i = 1; i <= TOTAL_SLOTS; i++) {
     resp += "," + std::to_string((int)state.pendingQueue[i].size());
   }
   resp += "," + std::to_string(state.state_pause ? 1 : 0);
@@ -217,7 +217,7 @@ void manage_connected_clients(AppState &state)
             if (colon == std::string::npos) break;
             int slot = std::stoi(payload.substr(pos, colon - pos));
             int qty  = std::stoi(payload.substr(colon + 1, comma == std::string::npos ? std::string::npos : comma - colon - 1));
-            if (slot >= 1 && slot <= 4 && qty > 0) {
+            if (slot >= 1 && slot <= TOTAL_SLOTS && qty > 0) {
               if (state.slotBusy[slot]) {
                 state.pendingQueue[slot].push(PendingArm(slot, qty));
               } else {
@@ -251,7 +251,7 @@ void manage_connected_clients(AppState &state)
           int productId = std::stoi(input_str.substr(p1 + 1, p2 - (p1 + 1)));
           int qty = std::stoi(input_str.substr(p2 + 1));
 
-          if (productId < 1 || productId > 4)
+          if (productId < 1 || productId > TOTAL_SLOTS)
           {
             log_error("socket", std::string("ARM rejected — invalid product ID: ") + std::to_string(productId));
           }
@@ -282,7 +282,7 @@ void manage_connected_clients(AppState &state)
       }
       else if (isFirstWordTest(client_buffer, "CANCEL_ALL"))
       {
-        for (int i = 1; i <= 4; i++) {
+        for (int i = 1; i <= TOTAL_SLOTS; i++) {
           state.armedQty[i] = 0;
           while (!state.pendingQueue[i].empty()) state.pendingQueue[i].pop();
         }
@@ -334,27 +334,30 @@ void manage_connected_clients(AppState &state)
       }
       else if (isFirstWordTest(client_buffer, "WTRLVL"))
       {
-        if (socket_count_commas(client_buffer) != 4)
+        if (socket_count_commas(client_buffer) != 6)
         {
-          log_error("socket", std::string("Malformed WTRLVL (expected 4 commas): ") + client_buffer);
+          log_error("socket", std::string("Malformed WTRLVL (expected 6 commas): ") + client_buffer);
         }
         else
         {
           std::string input_str(client_buffer);
-          size_t pos[5];
+          size_t pos[7];
           pos[0] = input_str.find(',');
-          for (int i = 1; i < 4; ++i) pos[i] = input_str.find(',', pos[i - 1] + 1);
+          for (int i = 1; i < 6; ++i) pos[i] = input_str.find(',', pos[i - 1] + 1);
 
-          state.WLVL_PRESSED[1] = std::stoi(input_str.substr(pos[0] + 1, pos[1] - (pos[0] + 1))) == 1;
-          state.WLVL_PRESSED[2] = std::stoi(input_str.substr(pos[1] + 1, pos[2] - (pos[1] + 1))) == 1;
-          state.WLVL_PRESSED[3] = std::stoi(input_str.substr(pos[2] + 1, pos[3] - (pos[2] + 1))) == 1;
-          state.WLVL_PRESSED[4] = std::stoi(input_str.substr(pos[3] + 1)) == 1;
-          log_info("socket", std::string("Water level update:") +
-              "  slot1=" + (state.WLVL_PRESSED[1] ? "EMPTY" : "ok") +
-              "  slot2=" + (state.WLVL_PRESSED[2] ? "EMPTY" : "ok") +
-              "  slot3=" + (state.WLVL_PRESSED[3] ? "EMPTY" : "ok") +
-              "  slot4=" + (state.WLVL_PRESSED[4] ? "EMPTY" : "ok"));
-          broadcast_status(state);  // push updated water level flags immediately
+          for (int i = 1; i <= TOTAL_SLOTS; i++) {
+            size_t start = pos[i-1] + 1;
+            size_t len   = (i < TOTAL_SLOTS) ? (pos[i] - start) : std::string::npos;
+            state.WLVL_PRESSED[i] = std::stoi(input_str.substr(start, len)) == 1;
+          }
+          log_info("socket", std::string("Water level:") +
+              " s1=" + (state.WLVL_PRESSED[1]?"E":"ok") +
+              " s2=" + (state.WLVL_PRESSED[2]?"E":"ok") +
+              " s3=" + (state.WLVL_PRESSED[3]?"E":"ok") +
+              " s4=" + (state.WLVL_PRESSED[4]?"E":"ok") +
+              " s5=" + (state.WLVL_PRESSED[5]?"E":"ok") +
+              " s6=" + (state.WLVL_PRESSED[6]?"E":"ok"));
+          broadcast_status(state);
         }
       }
       else

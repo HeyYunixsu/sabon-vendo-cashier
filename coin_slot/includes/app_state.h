@@ -41,20 +41,20 @@ struct AppState {
     int serverPort = 8080;
     std::string transactionDir = "../transaction";
 
-    long long remaining_time[5] = {0};  // index 1-4, milliseconds, always >= 0
-    bool WLVL_PRESSED[5] = {false};     // index 1-4
+    long long remaining_time[7] = {0};  // index 1-6
+    bool WLVL_PRESSED[7] = {false};     // index 1-6
     bool state_pause = false;
 
     // Returns true if any slot is armed (armedQty > 0 or busy)
     bool anyArmed() const {
-        for (int i = 1; i <= 4; i++)
+        for (int i = 1; i <= TOTAL_SLOTS; i++)
             if (armedQty[i] > 0 || slotBusy[i]) return true;
         return false;
     }
 
     // Returns true if any slot is currently pumping
     bool anyDispensing() const {
-        for (int i = 1; i <= 4; i++)
+        for (int i = 1; i <= TOTAL_SLOTS; i++)
             if (slotBusy[i]) return true;
         return false;
     }
@@ -62,7 +62,7 @@ struct AppState {
     // Returns number of slots with armedQty > 0 (not yet dispensed)
     int armedCount() const {
         int c = 0;
-        for (int i = 1; i <= 4; i++)
+        for (int i = 1; i <= TOTAL_SLOTS; i++)
             if (armedQty[i] > 0) c++;
         return c;
     }

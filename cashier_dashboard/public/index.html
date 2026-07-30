@@ -556,8 +556,8 @@ fetch('/qr').then(r => { document.getElementById('lan-url').textContent = r.url.
   const ACTIVE = 6, TOTAL = 6;
 
   const S = {
-    armedQty: new Array(7).fill(0), remaining: new Array(5).fill(0),
-    wlvl: new Array(5).fill(false), busy: new Array(7).fill(false),
+    armedQty: new Array(7).fill(0), remaining: new Array(7).fill(0),
+    wlvl: new Array(7).fill(false), busy: new Array(7).fill(false),
     queueDepth: new Array(7).fill(0), paused: false,
     phase: 0, bundleComplete: false,
     lastUpdate: null, connected: false,
@@ -596,13 +596,13 @@ fetch('/qr').then(r => { document.getElementById('lan-url').textContent = r.url.
   }
 
   function parse(raw) {
-    const p = raw.split(','); if (p.length < 20) return;
+    const p = raw.split(','); if (p.length < 33) return;
     let i = 1;
-    for (let s = 1; s <= 4; s++) S.armedQty[s]   = parseInt(p[i++]) || 0;
-    for (let s = 1; s <= 4; s++) S.remaining[s]  = parseInt(p[i++]) || 0;
-    for (let s = 1; s <= 4; s++) S.wlvl[s]       = p[i++] === '1';
-    for (let s = 1; s <= 4; s++) S.busy[s]        = p[i++] === '1';
-    for (let s = 1; s <= 4; s++) S.queueDepth[s]  = parseInt(p[i++]) || 0;
+    for (let s = 1; s <= 6; s++) S.armedQty[s]   = parseInt(p[i++]) || 0;
+    for (let s = 1; s <= 6; s++) S.remaining[s]  = parseInt(p[i++]) || 0;
+    for (let s = 1; s <= 6; s++) S.wlvl[s]       = p[i++] === '1';
+    for (let s = 1; s <= 6; s++) S.busy[s]        = p[i++] === '1';
+    for (let s = 1; s <= 6; s++) S.queueDepth[s]  = parseInt(p[i++]) || 0;
     S.paused = p[i++] === '1';
     S.phase = parseInt(p[i++]) || 0;     // 0=IDLE, 1=ARMED, 2=DISPENSING, 3=COMPLETE
     S.bundleComplete = p[i] === '1';
