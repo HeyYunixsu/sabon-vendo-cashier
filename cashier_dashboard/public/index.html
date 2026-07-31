@@ -56,9 +56,10 @@
 
 body {
   max-width: 1280px; margin: 0 auto; min-height: 100vh;
-  padding: 20px; display: flex; flex-direction: column;
+  padding: 8px; display: flex; flex-direction: column;
   user-select: none; -webkit-user-select: none;
   cursor: default;
+  font-size: 13px;
 }
 
 ::-webkit-scrollbar { width: 5px; }
@@ -72,9 +73,9 @@ body {
   display: flex; justify-content: space-between; align-items: center;
   background: var(--bg-surface-secondary);
   border: 1px solid var(--border-default);
-  border-radius: var(--radius-container);
-  padding: 12px 24px; margin-bottom: 20px; flex-shrink: 0;
-  font-family: 'Poppins', sans-serif; font-size: 12px;
+  border-radius: 10px;
+  padding: 6px 14px; margin-bottom: 8px; flex-shrink: 0;
+  font-family: 'Poppins', sans-serif; font-size: 11px;
   color: var(--text-content-secondary);
 }
 .status-left, .status-center, .status-right {
@@ -106,31 +107,31 @@ body {
    =================================================================== */
 .kpi-row {
   display: grid; grid-template-columns: repeat(4, 1fr);
-  gap: 14px; margin-bottom: 20px; flex-shrink: 0;
+  gap: 8px; margin-bottom: 8px; flex-shrink: 0;
 }
 .kpi-card {
   background: var(--bg-surface-secondary);
   border: 1px solid var(--border-default);
-  border-radius: var(--radius-container);
-  padding: 16px 20px;
-  border-top: 3px solid transparent;
+  border-radius: 10px;
+  padding: 8px 14px;
+  border-top: 2px solid transparent;
 }
 .kpi-card:nth-child(1) { border-top-color: var(--accent-action); }
 .kpi-card:nth-child(2) { border-top-color: var(--status-positive); }
 .kpi-card:nth-child(3) { border-top-color: var(--status-caution); }
 .kpi-card:nth-child(4) { border-top-color: #8B5CF6; }
 .kpi-card .kpi-label {
-  font-family: 'Poppins', sans-serif; font-size: 10px;
-  font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em;
-  color: var(--text-content-secondary); margin-bottom: 6px;
+  font-family: 'Poppins', sans-serif; font-size: 9px;
+  font-weight: 500; text-transform: uppercase; letter-spacing: 0.04em;
+  color: var(--text-content-secondary); margin-bottom: 1px;
 }
 .kpi-card .kpi-value {
   font-family: 'Poppins', sans-serif;
-  font-size: 36px; font-weight: 700; line-height: 1;
+  font-size: 26px; font-weight: 700; line-height: 1;
   color: var(--text-content-primary);
 }
 .kpi-card .kpi-sub {
-  font-size: 11px; color: var(--text-content-secondary); margin-top: 4px;
+  font-size: 9px; color: var(--text-content-secondary); margin-top: 1px;
 }
 
 /* ===================================================================
@@ -138,12 +139,12 @@ body {
    =================================================================== */
 /* Sale Strip */
 #sale-strip {
-  display: flex; align-items: center; gap: 12px;
+  display: flex; align-items: center; gap: 8px;
   background: var(--bg-surface-secondary);
   border: 1px solid var(--border-default);
-  border-radius: var(--radius-container);
-  padding: 8px 16px; margin-bottom: 12px; flex-shrink: 0;
-  min-height: 52px; flex-wrap: wrap;
+  border-radius: 10px;
+  padding: 6px 12px; margin-bottom: 8px; flex-shrink: 0;
+  min-height: 44px; flex-wrap: wrap;
 }
 #sale-strip #staged-items {
   flex: 1; min-width: 140px; font-size: 12px;
@@ -175,25 +176,25 @@ body {
 .status-section .list-val { font-size: 13px; }
 
 main {
-  display: grid; grid-template-columns: 1fr 260px;
-  gap: 12px; flex: 1; min-height: 0;
+  display: grid; grid-template-columns: 1fr 240px;
+  gap: 8px; flex: 1; min-height: 0;
 }
 
 /* ===================================================================
    PRODUCT GRID
    =================================================================== */
 .grid {
-  display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px;
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
 }
 .product-card {
   background: var(--bg-surface-secondary);
   border: 1px solid var(--border-default);
-  border-radius: var(--radius-container);
-  padding: 22px 16px; text-align: center; cursor: pointer;
+  border-radius: 10px;
+  padding: 10px 8px; text-align: center; cursor: pointer;
   user-select: none; -webkit-tap-highlight-color: transparent;
   transition: border-color .18s, box-shadow .18s;
   display: flex; flex-direction: column; justify-content: center;
-  align-items: center; min-height: 160px; position: relative;
+  align-items: center; min-height: 110px; position: relative;
 }
 .product-card:hover { background: var(--bg-surface-tertiary); }
 .product-card.selected {
@@ -206,18 +207,18 @@ main {
 .product-card.inactive { opacity: .3; pointer-events: none; }
 
 .product-card .slot-num {
-  font-family: 'Poppins', sans-serif; font-size: 10px;
-  font-weight: 500; text-transform: uppercase; letter-spacing: 0.08em;
-  color: var(--text-content-secondary); margin-bottom: 4px;
+  font-family: 'Poppins', sans-serif; font-size: 8px;
+  font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--text-content-secondary); margin-bottom: 2px;
 }
 .product-card .product-name {
-  font-family: 'Inter', sans-serif; font-size: 16px;
-  font-weight: 600; color: var(--text-content-primary); margin-bottom: 6px;
+  font-family: 'Inter', sans-serif; font-size: 13px;
+  font-weight: 600; color: var(--text-content-primary); margin-bottom: 4px;
 }
 .product-card .product-icon {
-  width: 36px; height: 36px; border-radius: 50%; margin-bottom: 6px;
+  width: 26px; height: 26px; border-radius: 50%; margin-bottom: 4px;
   display: flex; align-items: center; justify-content: center;
-  font-family: 'Poppins', sans-serif; font-size: 13px;
+  font-family: 'Poppins', sans-serif; font-size: 11px;
   font-weight: 700; color: var(--text-content-secondary);
   border: 1px solid var(--border-default);
 }
@@ -230,8 +231,8 @@ main {
 }
 .product-card .armed-qty {
   font-family: 'Poppins', sans-serif;
-  font-size: 44px; font-weight: 700; line-height: 1;
-  color: var(--text-content-primary); margin: 4px 0;
+  font-size: 32px; font-weight: 700; line-height: 1;
+  color: var(--text-content-primary); margin: 2px 0;
 }
 .product-card .armed-qty.is-zero   { color: #3A4050; }
 .product-card .armed-qty.is-armed  { color: var(--accent-action); }
@@ -239,7 +240,7 @@ main {
 
 .product-card .status-row {
   display: flex; justify-content: center; align-items: center;
-  gap: 12px; margin-top: 6px; font-size: 11px; font-weight: 500;
+  gap: 8px; margin-top: 4px; font-size: 10px; font-weight: 500;
 }
 
 /* ===================================================================
