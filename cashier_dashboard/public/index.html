@@ -152,26 +152,52 @@ body {
   display: flex; gap: 10px; flex-wrap: wrap; align-items: center;
 }
 #sale-strip .staged-card {
-  display: inline-flex; flex-direction: column; justify-content: space-between;
+  display: grid; grid-template-columns: 1fr 22px;
+  grid-template-rows: auto auto;
+  align-items: center;
   background: var(--bg-surface-secondary);
   border: 1px solid var(--accent-action); border-radius: 8px;
-  padding: 10px 14px; min-width: 110px; max-width: 140px;
-  min-height: 64px; font-size: 12px; font-weight: 600;
-  white-space: nowrap; position: relative;
+  padding: 8px 10px 8px 14px; min-width: 110px; max-width: 150px;
+  min-height: 60px;
 }
-.staged-card .staged-card-name { font-size: 12px; font-weight: 600; color: var(--text-content-primary); }
-.staged-card .staged-card-amount { font-size: 15px; font-weight: 700; color: var(--accent-action); margin-top: 2px; }
+.staged-card .staged-card-name {
+  font-size: 12px; font-weight: 600; color: var(--text-content-primary);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  grid-column: 1;
+}
+.staged-card .staged-card-amount {
+  font-size: 15px; font-weight: 700; color: var(--accent-action);
+  grid-column: 1; grid-row: 2;
+}
 .staged-card .staged-card-remove {
-  position: absolute; top: 4px; right: 6px;
+  grid-column: 2; grid-row: 1 / 3;
   background: none; border: none; color: var(--text-content-secondary);
-  cursor: pointer; font-size: 15px; line-height: 1; padding: 2px 4px;
+  cursor: pointer; font-size: 16px; line-height: 1;
+  padding: 4px; text-align: center; align-self: center;
 }
 .staged-card .staged-card-remove:hover { color: var(--status-negative); }
-.sale-controls { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
-#sale-strip .quick-amounts { display: flex; gap: 4px; margin: 0; }
-#sale-strip .btn-amount { padding: 8px 12px; font-size: 13px; min-height: 0; }
-#sale-strip .btn { padding: 8px 14px; font-size: 12px; }
-#sale-strip .sale-total { font-size: 20px; margin: 0; white-space: nowrap; min-width: 40px; text-align: right; }
+.sale-controls { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+#sale-strip .quick-amounts {
+  display: flex; gap: 0; margin: 0;
+  border: 1px solid var(--border-default); border-radius: 8px; overflow: hidden;
+}
+#sale-strip .btn-amount {
+  padding: 10px 16px; font-size: 14px; font-weight: 700; min-height: 44px;
+  background: var(--bg-surface-secondary); border: none; border-right: 1px solid var(--border-default);
+  color: var(--text-content-primary); cursor: pointer; transition: all .15s;
+  font-family: 'Poppins', sans-serif;
+}
+#sale-strip .btn-amount:last-child { border-right: none; }
+#sale-strip .btn-amount:hover { background: var(--accent-action); color: #fff; border-color: var(--accent-action); }
+#sale-strip .btn-amount:disabled { opacity: .3; pointer-events: none; }
+#sale-strip .btn, #sale-strip .btn-confirm {
+  min-height: 44px; padding: 10px 18px; font-size: 13px; font-weight: 600;
+  border-radius: 8px;
+}
+#sale-strip .btn-primary { background: var(--accent-action); color: #fff; border: none; }
+#sale-strip .btn-outline { background: transparent; border: 1px solid var(--border-default); color: var(--text-content-primary); }
+#sale-strip .btn-outline:hover { border-color: var(--accent-action); color: var(--accent-action); }
+#sale-strip .sale-total { font-size: 22px; margin: 0 0 0 8px; white-space: nowrap; min-width: 50px; text-align: right; font-weight: 700; }
 
 /* Status-only right panel */
 .status-section {
@@ -324,28 +350,35 @@ main {
 
 /* Add More popup */
 .add-more-popup {
-  display: none; margin-top: 8px; padding: 10px 12px;
+  display: none; padding: 8px 12px;
   background: var(--bg-surface-tertiary); border: 1px solid var(--border-strong);
-  border-radius: var(--radius-element);
+  border-radius: 8px; min-height: 44px;
 }
-.add-more-popup.open { display: flex; align-items: center; gap: 8px; }
+.add-more-popup.open { display: flex; align-items: center; gap: 6px; }
 .add-more-popup input {
-  flex: 1; background: var(--bg-surface-secondary);
-  border: 1px solid var(--border-default); border-radius: var(--radius-element);
-  padding: 10px 12px; color: var(--text-content-primary);
-  font-family: 'Poppins', sans-serif; font-size: 18px; font-weight: 600;
+  width: 56px; background: var(--bg-surface-secondary);
+  border: 1px solid var(--border-default); border-radius: 6px;
+  padding: 8px 4px; color: var(--text-content-primary);
+  font-family: 'Poppins', sans-serif; font-size: 16px; font-weight: 700;
   text-align: center; outline: none;
+  -moz-appearance: textfield;
 }
-.add-more-popup input:focus { border-color: var(--border-strong); }
+.add-more-popup input::-webkit-outer-spin-button,
+.add-more-popup input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.stepper-btn {
+  width: 32px; height: 32px; border: 1px solid var(--border-default);
+  border-radius: 6px; background: var(--bg-surface-secondary);
+  color: var(--text-content-primary); cursor: pointer;
+  font-size: 16px; font-weight: 700; display: flex; align-items: center;
+  justify-content: center; font-family: 'Poppins', sans-serif;
+}
+.stepper-btn:hover { border-color: var(--accent-action); color: var(--accent-action); }
 .add-more-popup .btn-confirm {
-  padding: 10px 18px; background: var(--accent-action); color: #fff;
-  border: none; border-radius: var(--radius-pill); cursor: pointer;
+  min-height: 44px; padding: 10px 18px; background: var(--accent-action); color: #fff;
+  border: none; border-radius: 8px; cursor: pointer;
   font-family: 'Poppins', sans-serif; font-size: 13px; font-weight: 600;
 }
 .add-more-popup .btn-confirm:hover { background: var(--accent-action-hover); }
-.add-more-popup .hint {
-  font-size: 10px; color: var(--text-content-secondary); margin-top: 4px;
-}
 .sale-total {
   text-align: right; margin-top: 4px;
   font-family: 'Poppins', sans-serif;
@@ -560,7 +593,10 @@ main {
       <button id="btn-clear-sale" class="btn btn-outline">Clear</button>
     </div>
     <div class="add-more-popup" id="add-more-popup">
-      <input type="number" id="custom-amount" placeholder="Amount" min="5" max="50" step="5" inputmode="numeric" pattern="[0-9]*" required>
+      <span style="font-size:11px;color:var(--text-content-secondary);">Amount</span>
+      <button class="stepper-btn" id="stepper-down">−</button>
+      <input type="text" id="custom-amount" value="5" inputmode="numeric" pattern="[0-9]*" readonly>
+      <button class="stepper-btn" id="stepper-up">+</button>
       <button class="btn-confirm" id="btn-confirm-add">Add</button>
     </div>
     <button id="btn-arm" class="btn btn-primary" disabled>Arm</button>
@@ -941,25 +977,36 @@ fetch('/qr').then(r => { document.getElementById('lan-url').textContent = r.url.
     });
   });
   $('btn-add-more').addEventListener('click', () => {
+    $('custom-amount').value = '5';
     $('add-more-popup').classList.add('open');
-    $('custom-amount').value = ''; $('custom-amount').focus();
+    $('custom-amount').focus();
   });
 
-  // Add More confirm
+  // Stepper buttons
+  $('stepper-up').addEventListener('click', () => {
+    let v = parseInt($('custom-amount').value) || 5;
+    $('custom-amount').value = Math.min(v + 5, 50);
+  });
+  $('stepper-down').addEventListener('click', () => {
+    let v = parseInt($('custom-amount').value) || 5;
+    $('custom-amount').value = Math.max(v - 5, 5);
+  });
+
+  // Add amount confirm
   $('btn-confirm-add').addEventListener('click', () => {
     const val = parseInt($('custom-amount').value);
-    if (!val || val < 5 || val > 50 || val % 5 !== 0) return;
+    if (!val || val < 5 || val > 50) return;
     const slot = selProduct || 1;
     stageItem(slot, 0, val);
     $('add-more-popup').classList.remove('open');
-    $('custom-amount').value = '';
     $('btn-add-more').disabled = true;
   });
 
-  // Close popup on Enter
-  $('custom-amount').addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') $('btn-confirm-add').click();
-    if (e.key === 'Escape') { $('add-more-popup').classList.remove('open'); $('custom-amount').value = ''; }
+  // Close popup on Escape
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && $('add-more-popup').classList.contains('open')) {
+      $('add-more-popup').classList.remove('open');
+    }
   });
   $('btn-select-all').addEventListener('click', () => {
     multiSelect = true; selProduct = null;
