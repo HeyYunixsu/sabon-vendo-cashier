@@ -62,11 +62,6 @@ Runs via PM2 as **`05_Water_Level`**, **`06_Transaction_Upload`**, **`07_Status_
 See [uploaderTransaction/README.md](uploaderTransaction/README.md)
 
 ### `usb_to_coin_module` — Hardware Interfaces (Python)
-- **`simple_on_off_led_relay.py`** — controls the streetlight/LED module via Raspberry Pi GPIO relay.
-
-Runs via PM2 as **`03_Street_Light`**.
-See [usb_to_coin_module/README.md](usb_to_coin_module/README.md)
-
 ### `CONFIG` — Centralized Configuration
 `CONFIG/config.env` (gitignored) is the single config file shared by all components. Copy `CONFIG/config.env.sample` to create it. See [CONFIG/README.md](CONFIG/README.md) for all available keys.
 
@@ -77,7 +72,6 @@ See [usb_to_coin_module/README.md](usb_to_coin_module/README.md)
 | PM2 Name | Script / Binary | Purpose |
 |----------|----------------|---------|
 | `01_Main` | `coin_slot/main` | Core C++ controller |
-| `03_Street_Light` | `usb_to_coin_module/simple_on_off_led_relay.py` | LED relay control |
 | `05_Water_Level` | `uploaderTransaction/water_level_monitoring_v2.py` | GPIO water sensors → socket |
 | `06_Transaction_Upload` | `uploaderTransaction/uploader.py` | JSON transaction uploader |
 | `07_Status_Upload` | `uploaderTransaction/status_uploader.py` | Machine status uploader |

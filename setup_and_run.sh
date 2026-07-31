@@ -240,13 +240,6 @@ pm2_start_binary \
   "$COIN_SLOT_BIN" \
   "$SCRIPT_DIR/coin_slot"
 
-# 03_Street_Light — usb_to_coin_module/simple_on_off_led_relay.py
-pm2_start_python \
-  "03_Street_Light" \
-  "$SCRIPT_DIR/usb_to_coin_module/simple_on_off_led_relay.py" \
-  "$SCRIPT_DIR/usb_to_coin_module" \
-  "$SCRIPT_DIR/usb_to_coin_module"
-
 # 05_Water_Level — uploaderTransaction/water_level_monitoring_v2.py
 pm2_start_python \
   "05_Water_Level" \
