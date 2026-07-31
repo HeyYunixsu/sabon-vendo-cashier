@@ -253,7 +253,7 @@ void pump_loop(AppState &state) {
             } else if (pumps[i].processingTrigger) {
                 auto held = std::chrono::duration_cast<std::chrono::milliseconds>(
                     current_time - pumps[i].pressStartTime).count();
-                if (held >= 200) {  // 200ms hold for first press
+                if (held >= 50) {  // 50ms hold + 160ms filter = ~0.2s total
                     pumps[i].processingTrigger = false;
                     executeDispenseTrigger(i);
                 }
