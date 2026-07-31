@@ -262,13 +262,6 @@ app.post('/api/cancel-all', (req, res) => {
   res.json({ success: sent });
 });
 
-// Refund all armed credits
-app.post('/api/refund', (req, res) => {
-  const sent = sendToCoinSlot('REFUND');
-  console.log(`[dashboard] REFUND: ${sent ? 'sent' : 'queued'}`);
-  res.json({ success: sent });
-});
-
 // Cancel queue for a specific slot
 app.post('/api/cancel-queue', (req, res) => {
   const { productId } = req.body;
