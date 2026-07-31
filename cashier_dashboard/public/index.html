@@ -136,9 +136,47 @@ body {
 /* ===================================================================
    MAIN LAYOUT
    =================================================================== */
+/* Sale Strip */
+#sale-strip {
+  display: flex; align-items: center; gap: 12px;
+  background: var(--bg-surface-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-container);
+  padding: 8px 16px; margin-bottom: 12px; flex-shrink: 0;
+  min-height: 52px; flex-wrap: wrap;
+}
+#sale-strip #staged-items {
+  flex: 1; min-width: 140px; font-size: 12px;
+  display: flex; gap: 4px; flex-wrap: wrap; align-items: center;
+}
+#sale-strip .staged-pill {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: color-mix(in srgb, var(--accent-action) 10%, transparent);
+  border: 1px solid var(--accent-action); border-radius: var(--radius-pill);
+  padding: 2px 8px; font-size: 11px; font-weight: 600; white-space: nowrap;
+}
+.staged-pill .pill-remove { cursor: pointer; font-size: 13px; color: var(--text-content-secondary); }
+.staged-pill .pill-remove:hover { color: var(--status-negative); }
+.sale-controls { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+#sale-strip .quick-amounts { display: flex; gap: 4px; margin: 0; }
+#sale-strip .btn-amount { padding: 8px 12px; font-size: 13px; min-height: 0; }
+#sale-strip .btn { padding: 8px 14px; font-size: 12px; }
+#sale-strip .sale-total { font-size: 20px; margin: 0; white-space: nowrap; min-width: 40px; text-align: right; }
+
+/* Status-only right panel */
+.status-section {
+  background: var(--bg-surface-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-container);
+  padding: 10px 14px; margin-bottom: 8px;
+}
+.status-section .section-label { margin-bottom: 4px; padding-bottom: 4px; font-size: 10px; }
+.status-section .list-row { padding: 4px 0; font-size: 11px; }
+.status-section .list-val { font-size: 13px; }
+
 main {
-  display: grid; grid-template-columns: 1fr 380px;
-  gap: 20px; flex: 1; min-height: 0;
+  display: grid; grid-template-columns: 1fr 260px;
+  gap: 12px; flex: 1; min-height: 0;
 }
 
 /* ===================================================================
@@ -484,53 +522,52 @@ main {
   <div class="kpi-card"><div class="kpi-label">Today</div><div class="kpi-value" id="kpi-today">0</div><div class="kpi-sub">dispenses completed</div></div>
 </div>
 
+<!-- Sale Strip (horizontal, full width) -->
+<div id="sale-strip">
+  <div id="staged-items"><span class="muted">Select product, then amount</span></div>
+  <div class="sale-controls">
+    <div class="quick-amounts">
+      <button class="btn-amount" data-amount="5">P5</button>
+      <button class="btn-amount" data-amount="10">P10</button>
+      <button class="btn-amount" data-amount="15">P15</button>
+      <button class="btn-amount" data-amount="20">P20</button>
+    </div>
+    <div class="sale-actions">
+      <button id="btn-add-more" class="btn btn-outline" disabled>Add Amount</button>
+      <button id="btn-clear-sale" class="btn btn-outline">Clear</button>
+    </div>
+    <div class="add-more-popup" id="add-more-popup">
+      <input type="number" id="custom-amount" placeholder="Amount" min="5" max="50" step="5" inputmode="numeric" pattern="[0-9]*" required>
+      <button class="btn-confirm" id="btn-confirm-add">Add</button>
+    </div>
+    <button id="btn-arm" class="btn btn-primary" disabled>Arm</button>
+    <div id="sale-total" class="sale-total">P0</div>
+  </div>
+</div>
+
 <main>
-  <section>
+  <section style="min-width:0;">
     <div class="grid" id="grid-container"></div>
-    <button id="btn-select-all" class="btn btn-primary" style="margin-top:12px;width:100%;padding:14px;font-size:15px;">Select All Products</button>
+    <button id="btn-select-all" class="btn btn-primary" style="margin-top:10px;width:100%;padding:12px;font-size:14px;">Select All Products</button>
   </section>
 
   <aside id="right-panel">
-    <section>
-      <div class="section-label">New Sale</div>
-      <div id="staged-items"><span class="muted">Select product, then amount</span></div>
-      <div class="quick-amounts">
-        <button class="btn-amount" data-amount="5">P 5</button>
-        <button class="btn-amount" data-amount="10">P 10</button>
-        <button class="btn-amount" data-amount="15">P 15</button>
-        <button class="btn-amount" data-amount="20">P 20</button>
-      </div>
-      <div class="sale-actions">
-        <button id="btn-add-more" class="btn btn-outline" disabled>Add Amount</button>
-        <button id="btn-clear-sale" class="btn btn-outline">Clear</button>
-      </div>
-      <div class="add-more-popup" id="add-more-popup">
-        <input type="number" id="custom-amount" placeholder="Amount (₱5–₱50)" min="5" max="50" step="5" inputmode="numeric" pattern="[0-9]*" required>
-        <button class="btn-confirm" id="btn-confirm-add">Add</button>
-      </div>
-      <button id="btn-arm" class="btn btn-primary btn-block btn-lg" disabled>Arm</button>
-      <div id="sale-total" class="sale-total">P 0</div>
+    <section id="armed-section" class="status-section" style="display:none;">
+      <div class="section-label">Armed <span id="armed-count">0</span></div>
+      <div id="armed-list"></div>
+      <button id="btn-cancel-all" class="btn btn-negative btn-block" style="margin-top:4px;">Clear All Credits</button>
     </section>
-
-    <section>
-      <div class="section-label">Armed <span id="armed-count" style="font-weight:400;font-size:11px;">0</span></div>
-      <div id="armed-list"><span class="muted">--</span></div>
-      <button id="btn-cancel-all" class="btn btn-negative btn-block" style="margin-top:8px;display:none;">Clear All Credits</button>
+    <section id="dispensing-section" class="status-section" style="display:none;">
+      <div class="section-label">Dispensing <span id="queue-count">0</span></div>
+      <div id="queue-list"></div>
     </section>
-
-    <section>
-      <div class="section-label">Dispensing <span id="queue-count" style="font-weight:400;font-size:11px;">0</span></div>
-      <div id="queue-list"><span class="muted">--</span></div>
-    </section>
-
-    <section>
+    <section id="attention-section" class="status-section" style="display:none;">
       <div class="section-label">Attention</div>
-      <div id="unclaimed-list"><span class="muted">--</span></div>
+      <div id="unclaimed-list"></div>
     </section>
-
-    <section>
+    <section id="alerts-section" class="status-section" style="display:none;">
       <div class="section-label">Alerts</div>
-      <div id="alert-list"><span class="muted">--</span></div>
+      <div id="alert-list"></div>
     </section>
   </aside>
 </main>
@@ -719,6 +756,7 @@ fetch('/qr').then(r => { document.getElementById('lan-url').textContent = r.url.
     $('armed-count').textContent = cnt;
     $('armed-list').innerHTML = h || '<span class="muted">--</span>';
     $('btn-cancel-all').style.display = h ? 'block' : 'none';
+    $('armed-section').style.display = h ? 'block' : 'none';
     $('armed-list').querySelectorAll('.btn-negative').forEach(b => {
       b.addEventListener('click', () => cancelSlot(+b.dataset.slot));
     });
@@ -735,6 +773,7 @@ fetch('/qr').then(r => { document.getElementById('lan-url').textContent = r.url.
     }
     $('queue-count').textContent = cnt;
     $('queue-list').innerHTML = h || '<span class="muted">--</span>';
+    $('dispensing-section').style.display = h ? 'block' : 'none';
   }
 
   function renderAlerts() {
@@ -745,13 +784,15 @@ fetch('/qr').then(r => { document.getElementById('lan-url').textContent = r.url.
     if (!S.connected) issues += '<div class="list-row" style="color:var(--status-negative);"><span><span class="dot dot-negative"></span> Machine offline</span><span>[OFFLINE]</span></div>';
     if (issues) {
       $('alert-list').innerHTML = '<div class="alert-card"><div class="alert-heading">'+issues.split('class="list-row"').length+' issue(s) detected</div>'+issues+'</div>';
+      $('alerts-section').style.display = 'block';
     } else {
       $('alert-list').innerHTML = '<span class="muted">--</span>';
+      $('alerts-section').style.display = 'none';
     }
   }
 
   function renderUnclaimed() {
-    if (!unclaimed.length) { $('unclaimed-list').innerHTML = '<span class="muted">--</span>'; return; }
+    if (!unclaimed.length) { $('unclaimed-list').innerHTML = '<span class="muted">--</span>'; $('attention-section').style.display = 'none'; return; }
     let h = '';
     unclaimed.forEach((it, idx) => {
       h += '<div class="list-row" style="color:var(--status-caution);">';
@@ -762,6 +803,7 @@ fetch('/qr').then(r => { document.getElementById('lan-url').textContent = r.url.
       h += '</span></div>';
     });
     $('unclaimed-list').innerHTML = h;
+    $('attention-section').style.display = 'block';
     $('unclaimed-list').querySelectorAll('[data-idx]').forEach(b => {
       b.addEventListener('click', () => resolveUnclaimed(+b.dataset.idx, b.dataset.act));
     });
@@ -779,18 +821,14 @@ fetch('/qr').then(r => { document.getElementById('lan-url').textContent = r.url.
   }
   function removeStaged(i) { staged.splice(i,1); renderStaged(); updateArm(); }
   function renderStaged() {
-    if (!staged.length) { $('staged-items').innerHTML = '<span class="muted">Select product, then amount</span>'; $('sale-total').textContent = 'P 0'; return; }
+    if (!staged.length) { $('staged-items').innerHTML = '<span class="muted">Select product, then amount</span>'; $('sale-total').textContent = 'P0'; return; }
     let h = '', t = 0;
     staged.forEach((it, i) => {
       t += it.amt;
-      h += '<div class="staged-row">';
-      h += '<span class="staged-info"><span class="staged-name">'+it.name+'</span></span>';
-      h += '<span class="staged-price">P '+it.amt+'</span>';
-      h += '<button class="btn-remove" data-idx="'+i+'">x</button>';
-      h += '</div>';
+      h += '<span class="staged-pill">'+it.name+' P'+it.amt+'<span class="pill-remove" data-idx="'+i+'">&times;</span></span>';
     });
-    $('staged-items').innerHTML = h; $('sale-total').textContent = 'P '+t;
-    $('staged-items').querySelectorAll('.btn-remove').forEach(b => b.addEventListener('click', () => removeStaged(+b.dataset.idx)));
+    $('staged-items').innerHTML = h; $('sale-total').textContent = 'P'+t;
+    $('staged-items').querySelectorAll('.pill-remove').forEach(b => b.addEventListener('click', () => removeStaged(+b.dataset.idx)));
   }
   function updateArm() {
     $('btn-arm').disabled = !staged.length;
