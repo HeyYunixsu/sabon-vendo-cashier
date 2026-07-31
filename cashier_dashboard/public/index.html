@@ -152,10 +152,11 @@ body {
   display: flex; gap: 4px; flex-wrap: wrap; align-items: center;
 }
 #sale-strip .staged-pill {
-  display: inline-flex; align-items: center; gap: 4px;
-  background: color-mix(in srgb, var(--accent-action) 10%, transparent);
+  display: inline-flex; align-items: center; gap: 6px;
+  background: color-mix(in srgb, var(--accent-action) 12%, transparent);
   border: 1px solid var(--accent-action); border-radius: var(--radius-pill);
-  padding: 2px 8px; font-size: 11px; font-weight: 600; white-space: nowrap;
+  padding: 6px 12px; font-size: 12px; font-weight: 600; white-space: nowrap;
+  min-height: 36px; line-height: 1;
 }
 .staged-pill .pill-remove { cursor: pointer; font-size: 13px; color: var(--text-content-secondary); }
 .staged-pill .pill-remove:hover { color: var(--status-negative); }
@@ -380,14 +381,23 @@ main {
 
 /* List rows */
 .list-row {
-  display: flex; justify-content: space-between; align-items: center;
-  padding: 9px 0; border-bottom: 1px solid var(--border-default);
-  font-size: 13px; gap: 8px;
+  display: grid; grid-template-columns: 20px 1fr auto auto;
+  align-items: center; gap: 8px;
+  padding: 10px 0; border-bottom: 1px solid var(--border-default);
+  font-size: 13px; min-height: 48px;
 }
 .list-row:last-child { border-bottom: none; }
+.list-row .list-name {
+  font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
 .list-row .list-val {
   font-family: 'Poppins', sans-serif; font-weight: 600;
-  font-size: 15px; color: var(--text-content-primary); white-space: nowrap;
+  font-size: 15px; color: var(--text-content-primary);
+  text-align: right; font-variant-numeric: tabular-nums;
+  white-space: nowrap; min-width: 28px;
+}
+.list-row .btn-negative, .list-row .btn-sm {
+  width: 60px; text-align: center;
 }
 .muted {
   color: var(--text-content-secondary); font-family: 'Poppins', sans-serif;
@@ -754,7 +764,7 @@ fetch('/qr').then(r => { document.getElementById('lan-url').textContent = r.url.
       if (S.armedQty[s] > 0 || S.busy[s]) {
         cnt += S.armedQty[s];
         const dot = S.busy[s] ? '<span class="dot dot-caution"></span>' : '<span class="dot dot-accent"></span>';
-        h += '<div class="list-row">'+dot+' <span style="font-weight:600;">'+PRODUCT[s]+'</span>';
+        h += '<div class="list-row">'+dot+'<span class="list-name">'+PRODUCT[s]+'</span>';
         h += '<span class="list-val">'+S.armedQty[s]+'</span>';
         h += '<button class="btn-negative" data-slot="'+s+'">Cancel</button></div>';
       }
