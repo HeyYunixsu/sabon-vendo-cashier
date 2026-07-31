@@ -57,6 +57,8 @@
 body {
   max-width: 1280px; margin: 0 auto; min-height: 100vh;
   padding: 20px; display: flex; flex-direction: column;
+  user-select: none; -webkit-user-select: none;
+  cursor: default;
 }
 
 ::-webkit-scrollbar { width: 5px; }
@@ -511,11 +513,11 @@ main {
       <div class="section-label">Armed <span id="armed-count" style="font-weight:400;font-size:11px;">0</span></div>
       <div id="armed-list"><span class="muted">--</span></div>
       <button id="btn-cancel-all" class="btn btn-negative btn-block" style="margin-top:8px;display:none;">Cancel All</button>
-      <button id="btn-refund" class="btn btn-outline btn-block" style="margin-top:4px;">Refund All</button>
+      <button id="btn-refund" class="btn btn-outline btn-block" style="margin-top:4px;display:none;">Refund All</button>
     </section>
 
     <section>
-      <div class="section-label">Queue <span id="queue-count" style="font-weight:400;font-size:11px;">0</span></div>
+      <div class="section-label">Dispensing <span id="queue-count" style="font-weight:400;font-size:11px;">0</span></div>
       <div id="queue-list"><span class="muted">--</span></div>
     </section>
 
@@ -564,6 +566,7 @@ fetch('/qr').then(r => { document.getElementById('lan-url').textContent = r.url.
     lastUpdate: null, connected: false,
   };
   let selProduct = null, staged = [], unclaimed = [], saleCtr = 0, dispenseCount = 0;
+  let prevArmed = new Array(7).fill(0);
   const $ = (id) => document.getElementById(id);
 
   // Toast
@@ -607,6 +610,12 @@ fetch('/qr').then(r => { document.getElementById('lan-url').textContent = r.url.
     S.paused = p[i++] === '1';
     S.phase = parseInt(p[i++]) || 0;     // 0=IDLE, 1=ARMED, 2=DISPENSING, 3=COMPLETE
     S.bundleComplete = p[i] === '1';
+
+    // Count actual dispenses: any armedQty decrease = button was pressed
+    for (let s = 1; s <= ACTIVE; s++) {
+      if (S.armedQty[s] < prevArmed[s]) dispenseCount += (prevArmed[s] - S.armedQty[s]);
+      prevArmed[s] = S.armedQty[s];
+    }
     S.lastUpdate = new Date(); refresh();
   }
 
@@ -707,6 +716,7 @@ fetch('/qr').then(r => { document.getElementById('lan-url').textContent = r.url.
     $('armed-count').textContent = cnt;
     $('armed-list').innerHTML = h || '<span class="muted">--</span>';
     $('btn-cancel-all').style.display = h ? 'block' : 'none';
+    $('btn-refund').style.display = h ? 'block' : 'none';
     $('armed-list').querySelectorAll('.btn-negative').forEach(b => {
       b.addEventListener('click', () => cancelSlot(+b.dataset.slot));
     });
@@ -715,16 +725,14 @@ fetch('/qr').then(r => { document.getElementById('lan-url').textContent = r.url.
   function renderQueue() {
     let h = '', cnt = 0;
     for (let s = 1; s <= ACTIVE; s++) {
-      if (S.queueDepth[s] > 0) {
-        cnt += S.queueDepth[s];
-        h += '<div class="list-row"><span style="font-weight:600;">'+PRODUCT[s]+'</span><span class="list-val">'+S.queueDepth[s]+' pending</span><button class="btn-sm dismiss" data-qslot="'+s+'">Clear</button></div>';
+      if (S.busy[s]) {
+        cnt++;
+        let pct = S.remaining[s] > 0 ? Math.round(100 - (S.remaining[s] / 2500) * 100) : 100;
+        h += '<div class="list-row"><span style="font-weight:600;">'+PRODUCT[s]+'</span><span class="list-val">'+pct+'%</span></div>';
       }
     }
     $('queue-count').textContent = cnt;
     $('queue-list').innerHTML = h || '<span class="muted">--</span>';
-    $('queue-list').querySelectorAll('[data-qslot]').forEach(b => {
-      b.addEventListener('click', () => cancelQueueSlot(+b.dataset.qslot));
-    });
   }
 
   function renderAlerts() {
@@ -798,7 +806,6 @@ fetch('/qr').then(r => { document.getElementById('lan-url').textContent = r.url.
       const r = await fetch('/api/arm', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ saleId:sid, batch }) });
       const d = await r.json();
       if (d.success) {
-        dispenseCount += staged.length;
         toast('Armed: '+staged.map(i=>i.name).join(', '), 'success');
         staged = []; selProduct = null; $('btn-add-more').disabled = true;
         renderStaged(); renderGrid(); updateArm();
