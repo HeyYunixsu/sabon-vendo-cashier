@@ -996,10 +996,16 @@ fetch('/qr').then(r => { document.getElementById('lan-url').textContent = r.url.
   $('btn-confirm-add').addEventListener('click', () => {
     const val = parseInt($('custom-amount').value);
     if (!val || val < 5 || val > 50) return;
-    const slot = selProduct || 1;
-    stageItem(slot, 0, val);
+    if (multiSelect) {
+      for (let s = 1; s <= ACTIVE; s++) { if (!S.wlvl[s]) stageItem(s, 0, val); }
+      multiSelect = false;
+    } else {
+      const slot = selProduct || 1;
+      stageItem(slot, 0, val);
+    }
     $('add-more-popup').classList.remove('open');
     $('btn-add-more').disabled = true;
+    selProduct = null; renderGrid();
   });
 
   // Close popup on Escape
