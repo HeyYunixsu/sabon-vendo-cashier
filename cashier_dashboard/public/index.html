@@ -55,8 +55,9 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
-  max-width: 1280px; margin: 0 auto; min-height: 100vh;
-  padding: 8px; display: flex; flex-direction: column;
+  max-width: 1280px; margin: 0 auto;
+  height: 100dvh; overflow: hidden;
+  padding: 6px 8px; display: flex; flex-direction: column;
   user-select: none; -webkit-user-select: none;
   cursor: default;
   font-size: 13px;
@@ -184,17 +185,21 @@ main {
    PRODUCT GRID
    =================================================================== */
 .grid {
-  display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(2, 1fr); gap: 8px;
+  flex: 1; min-height: 0;
 }
 .product-card {
   background: var(--bg-surface-secondary);
   border: 1px solid var(--border-default);
   border-radius: 10px;
-  padding: 10px 8px; text-align: center; cursor: pointer;
+  padding: 8px 6px; text-align: center; cursor: pointer;
   user-select: none; -webkit-tap-highlight-color: transparent;
   transition: border-color .18s, box-shadow .18s;
   display: flex; flex-direction: column; justify-content: center;
-  align-items: center; min-height: 110px; position: relative;
+  align-items: center;
+  height: 100%; min-height: 0; position: relative;
+  overflow: hidden;
 }
 .product-card:hover { background: var(--bg-surface-tertiary); }
 .product-card.selected {
@@ -575,10 +580,10 @@ main {
 
 <div id="toast"></div>
 
-<div style="text-align:center;margin-top:24px;padding:16px;background:var(--bg-surface-secondary);border:1px solid var(--border-default);border-radius:var(--radius-container);">
-  <div style="font-family:'Poppins',sans-serif;font-size:12px;color:var(--text-content-secondary);margin-bottom:8px;">Scan to open on phone</div>
-  <img src="/qr" alt="QR Code" style="width:120px;height:120px;border-radius:var(--radius-element);" onerror="this.style.display='none'">
-  <div style="font-family:'Poppins',sans-serif;font-size:11px;color:var(--text-content-secondary);margin-top:6px;" id="lan-url"></div>
+<div id="below-fold" style="text-align:center;padding:12px;background:var(--bg-surface-secondary);border:1px solid var(--border-default);border-radius:10px;margin-top:8px;">
+  <div style="font-family:'Poppins',sans-serif;font-size:11px;color:var(--text-content-secondary);margin-bottom:4px;">Scan to open on phone</div>
+  <img src="/qr" alt="QR Code" style="width:80px;height:80px;border-radius:6px;" onerror="this.style.display='none'">
+  <div style="font-family:'Poppins',sans-serif;font-size:10px;color:var(--text-content-secondary);margin-top:4px;" id="lan-url"></div>
 </div>
 
 <script>
@@ -812,10 +817,14 @@ fetch('/qr').then(r => { document.getElementById('lan-url').textContent = r.url.
 
   // Sale
   function selectProduct(id) { multiSelect = false; selProduct = id; renderGrid(); document.querySelectorAll('.btn-amount').forEach(b => b.disabled = false); $('btn-add-more').disabled = false; }
+  function enableAmountButtons() { document.querySelectorAll('.btn-amount').forEach(b => b.disabled = false); $('btn-add-more').disabled = false; }
   function stageItem(id, amt, customAmt) {
     const amount = customAmt || amt;
     const qty = Math.round(amount / 5);
-    staged.push({ id, name: PRODUCT[id], amt: amount, qty });
+    // Merge: if product already staged, add to existing amount
+    const existing = staged.find(it => it.id === id);
+    if (existing) { existing.amt += amount; existing.qty += qty; }
+    else { staged.push({ id, name: PRODUCT[id], amt: amount, qty }); }
     selProduct = null; $('btn-add-more').disabled = true;
     renderStaged(); renderGrid(); updateArm();
     document.querySelectorAll('.btn-amount').forEach(b => b.disabled = true);
@@ -936,9 +945,9 @@ fetch('/qr').then(r => { document.getElementById('lan-url').textContent = r.url.
     if (e.key === 'Escape') { $('add-more-popup').classList.remove('open'); $('custom-amount').value = ''; }
   });
   $('btn-select-all').addEventListener('click', () => {
-    multiSelect = true; selProduct = null; $('btn-add-more').disabled = true;
+    multiSelect = true; selProduct = null;
     renderGrid();
-    document.querySelectorAll('.btn-amount').forEach(b => b.disabled = false);
+    enableAmountButtons();
   });
   $('btn-clear-sale').addEventListener('click', () => { staged = []; selProduct = null; multiSelect = false; $('btn-add-more').disabled = true; renderStaged(); renderGrid(); updateArm(); document.querySelectorAll('.btn-amount').forEach(b => b.disabled = true); });
   $('btn-arm').addEventListener('click', executeArm);
