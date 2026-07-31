@@ -149,17 +149,24 @@ body {
 }
 #sale-strip #staged-items {
   flex: 1; min-width: 140px; font-size: 12px;
-  display: flex; gap: 4px; flex-wrap: wrap; align-items: center;
+  display: flex; gap: 10px; flex-wrap: wrap; align-items: center;
 }
-#sale-strip .staged-pill {
-  display: inline-flex; align-items: center; gap: 6px;
-  background: color-mix(in srgb, var(--accent-action) 12%, transparent);
-  border: 1px solid var(--accent-action); border-radius: var(--radius-pill);
-  padding: 6px 12px; font-size: 12px; font-weight: 600; white-space: nowrap;
-  min-height: 36px; line-height: 1;
+#sale-strip .staged-card {
+  display: inline-flex; flex-direction: column; justify-content: space-between;
+  background: var(--bg-surface-secondary);
+  border: 1px solid var(--accent-action); border-radius: 8px;
+  padding: 10px 14px; min-width: 110px; max-width: 140px;
+  min-height: 64px; font-size: 12px; font-weight: 600;
+  white-space: nowrap; position: relative;
 }
-.staged-pill .pill-remove { cursor: pointer; font-size: 13px; color: var(--text-content-secondary); }
-.staged-pill .pill-remove:hover { color: var(--status-negative); }
+.staged-card .staged-card-name { font-size: 12px; font-weight: 600; color: var(--text-content-primary); }
+.staged-card .staged-card-amount { font-size: 15px; font-weight: 700; color: var(--accent-action); margin-top: 2px; }
+.staged-card .staged-card-remove {
+  position: absolute; top: 4px; right: 6px;
+  background: none; border: none; color: var(--text-content-secondary);
+  cursor: pointer; font-size: 15px; line-height: 1; padding: 2px 4px;
+}
+.staged-card .staged-card-remove:hover { color: var(--status-negative); }
 .sale-controls { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 #sale-strip .quick-amounts { display: flex; gap: 4px; margin: 0; }
 #sale-strip .btn-amount { padding: 8px 12px; font-size: 13px; min-height: 0; }
@@ -845,10 +852,10 @@ fetch('/qr').then(r => { document.getElementById('lan-url').textContent = r.url.
     let h = '', t = 0;
     staged.forEach((it, i) => {
       t += it.amt;
-      h += '<span class="staged-pill">'+it.name+' P'+it.amt+'<span class="pill-remove" data-idx="'+i+'">&times;</span></span>';
+      h += '<div class="staged-card"><button class="staged-card-remove" data-idx="'+i+'">&times;</button><span class="staged-card-name">'+it.name+'</span><span class="staged-card-amount">P'+it.amt+'</span></div>';
     });
     $('staged-items').innerHTML = h; $('sale-total').textContent = 'P'+t;
-    $('staged-items').querySelectorAll('.pill-remove').forEach(b => b.addEventListener('click', () => removeStaged(+b.dataset.idx)));
+    $('staged-items').querySelectorAll('.staged-card-remove').forEach(b => b.addEventListener('click', () => removeStaged(+b.dataset.idx)));
   }
   function updateArm() {
     $('btn-arm').disabled = !staged.length;
