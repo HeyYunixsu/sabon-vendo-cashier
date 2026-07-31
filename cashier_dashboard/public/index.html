@@ -56,7 +56,7 @@
 
 body {
   max-width: 1280px; margin: 0 auto;
-  height: 100dvh; overflow: hidden;
+  min-height: 100dvh;
   padding: 6px 8px; display: flex; flex-direction: column;
   user-select: none; -webkit-user-select: none;
   cursor: default;
@@ -187,7 +187,7 @@ main {
 .grid {
   display: grid; grid-template-columns: repeat(3, 1fr);
   grid-template-rows: repeat(2, 1fr); gap: 8px;
-  flex: 1; min-height: 0;
+  min-height: 240px;
 }
 .product-card {
   background: var(--bg-surface-secondary);
