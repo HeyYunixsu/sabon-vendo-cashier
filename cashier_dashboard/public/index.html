@@ -527,6 +527,22 @@ main {
   .btn-amount { font-size: 13px; padding: 14px 4px; min-height: 48px; }
   .btn { min-height: 44px; }
   .btn-lg { padding: 14px 20px; font-size: 14px; }
+
+  /* Fix: sale-controls was a single non-wrapping flex row, pushing
+     Clear/Arm/total off-screen on phone widths. Let it wrap into
+     stacked rows instead, same buttons, same sizes, no clipping. */
+  #sale-strip { flex-wrap: wrap; }
+  #sale-strip #staged-items { flex: 1 1 100%; }
+  .sale-controls {
+    flex-wrap: wrap; width: 100%; flex: 1 1 100%;
+    gap: 8px; justify-content: flex-start;
+  }
+  .quick-amounts { order: 1; flex: 0 0 100%; grid-template-columns: repeat(4, 1fr); }
+  .sale-actions { order: 2; flex: 1 1 auto; gap: 8px; margin: 0; }
+  .sale-actions .btn { flex: 1; }
+  .add-more-popup { order: 3; flex: 0 0 100%; }
+  #btn-arm { order: 4; flex: 1 1 90px; }
+  .sale-total { order: 5; flex: 0 0 auto; margin-left: auto; align-self: center; }
 }
 
 @media (max-width: 480px) {
@@ -540,6 +556,8 @@ main {
   .quick-amounts { gap: 4px; }
   .btn-amount { font-size: 12px; padding: 12px 2px; }
   .sale-total { font-size: 22px; }
+  .sale-actions { flex-wrap: wrap; }
+  .sale-actions .btn { flex: 1 1 45%; }
   .staged-row { font-size: 12px; }
   .staged-row .staged-price { font-size: 13px; }
   .btn { font-size: 12px; padding: 10px 14px; }
