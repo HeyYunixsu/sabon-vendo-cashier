@@ -570,6 +570,7 @@ fetch('/qr').then(r => { document.getElementById('lan-url').textContent = r.url.
   };
   let selProduct = null, multiSelect = false, staged = [], unclaimed = [], saleCtr = 0, dispenseCount = 0;
   let prevArmed = new Array(7).fill(0);
+  let prevBusy  = new Array(7).fill(false);
   const $ = (id) => document.getElementById(id);
 
   // Toast
@@ -614,10 +615,10 @@ fetch('/qr').then(r => { document.getElementById('lan-url').textContent = r.url.
     S.phase = parseInt(p[i++]) || 0;     // 0=IDLE, 1=ARMED, 2=DISPENSING, 3=COMPLETE
     S.bundleComplete = p[i] === '1';
 
-    // Count actual dispenses: any armedQty decrease = button was pressed
+    // Count actual dispenses: busy false→true = button was pressed
     for (let s = 1; s <= ACTIVE; s++) {
-      if (S.armedQty[s] < prevArmed[s]) dispenseCount += (prevArmed[s] - S.armedQty[s]);
-      prevArmed[s] = S.armedQty[s];
+      if (S.busy[s] && !prevBusy[s]) dispenseCount++;
+      prevBusy[s] = S.busy[s];
     }
     S.lastUpdate = new Date(); refresh();
   }
