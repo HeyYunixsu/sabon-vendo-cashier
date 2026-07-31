@@ -511,6 +511,7 @@ main {
       <div class="section-label">Armed <span id="armed-count" style="font-weight:400;font-size:11px;">0</span></div>
       <div id="armed-list"><span class="muted">--</span></div>
       <button id="btn-cancel-all" class="btn btn-negative btn-block" style="margin-top:8px;display:none;">Cancel All</button>
+      <button id="btn-refund" class="btn btn-outline btn-block" style="margin-top:4px;">Refund All</button>
     </section>
 
     <section>
@@ -879,6 +880,10 @@ fetch('/qr').then(r => { document.getElementById('lan-url').textContent = r.url.
   $('btn-clear-sale').addEventListener('click', () => { staged = []; selProduct = null; $('btn-add-more').disabled = true; renderStaged(); renderGrid(); updateArm(); document.querySelectorAll('.btn-amount').forEach(b => b.disabled = true); });
   $('btn-arm').addEventListener('click', executeArm);
   $('btn-cancel-all').addEventListener('click', cancelAll);
+  $('btn-refund').addEventListener('click', async () => {
+    try { await fetch('/api/refund', { method:'POST', headers:{'Content-Type':'application/json'} }); toast('Refunded', 'success'); }
+    catch(e) { toast('Refund failed', 'error'); }
+  });
 
   // Init
   renderGrid();

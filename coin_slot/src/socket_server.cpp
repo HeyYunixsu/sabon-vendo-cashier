@@ -332,6 +332,20 @@ void manage_connected_clients(AppState &state)
           }
         }
       }
+      else if (isFirstWordTest(client_buffer, "REFUND"))
+      {
+        int refunded = 0;
+        for (int i = 1; i <= TOTAL_SLOTS; i++) {
+          refunded += state.armedQty[i];
+          state.armedQty[i] = 0;
+          while (!state.pendingQueue[i].empty()) state.pendingQueue[i].pop();
+        }
+        state.phase = TxnPhase::IDLE;
+        state.bundleComplete = false;
+        log_info("socket", "REFUND: " + std::to_string(refunded) + " credits refunded");
+        broadcast_status(state);
+        saveStateToDisk(state, state.transactionDir);
+      }
       else if (isFirstWordTest(client_buffer, "WTRLVL"))
       {
         if (socket_count_commas(client_buffer) != 5)

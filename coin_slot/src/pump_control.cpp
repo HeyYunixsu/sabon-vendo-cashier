@@ -44,6 +44,8 @@ struct PumpState {
     bool processingTrigger = false;
     int armedUnitsReserved = 0;
     std::chrono::time_point<std::chrono::steady_clock> postPressDeadline{};
+    std::chrono::time_point<std::chrono::steady_clock> armTimestamp{};  // when last armed
+    bool firstPressAfterArm = false;  // true = next press needs 100ms hold
 };
 
 static std::mutex     g_pump_mutex;
@@ -248,13 +250,16 @@ void pump_loop(AppState &state) {
                 // Already pumping → instant re-press
                 if (pumps[i].isPumping) {
                     pumps[i].processingTrigger = false;
+                    pumps[i].firstPressAfterArm = false;  // subsequent presses = instant
                     executeDispenseTrigger(i);
                 }
             } else if (pumps[i].processingTrigger) {
                 auto held = std::chrono::duration_cast<std::chrono::milliseconds>(
                     current_time - pumps[i].pressStartTime).count();
-                if (held >= 50) {  // 50ms hold + 160ms filter = ~0.2s total
+                int required = pumps[i].firstPressAfterArm ? 100 : 50;
+                if (held >= required) {
                     pumps[i].processingTrigger = false;
+                    pumps[i].firstPressAfterArm = false;  // first press consumed
                     executeDispenseTrigger(i);
                 }
             }
@@ -264,12 +269,47 @@ void pump_loop(AppState &state) {
         }
     }
 
-    // 2. LED outputs — staggered 20ms apart to avoid 3.3V rail sag.
-    //    Also add 100µF capacitor across Pi pins 1 (3.3V) and 6 (GND).
+    // 1b. Track ARM timestamps + first-press flag
+    static int prevArmedQty[7] = {0};
     for (int i = 1; i <= TOTAL_SLOTS; i++) {
-        if (state.armedQty[i] > 0) {
-            digitalWrite(pin_led[i], HIGH);
-            delayMicroseconds(5000);  // 5ms gap — 8-sample filter handles any residual sag
+        if (state.armedQty[i] > prevArmedQty[i]) {
+            pumps[i].armTimestamp = current_time;
+            pumps[i].firstPressAfterArm = true;
+        }
+        prevArmedQty[i] = state.armedQty[i];
+    }
+
+    // 1c. 2-minute timeout — clear expired armed slots
+    for (int i = 1; i <= TOTAL_SLOTS; i++) {
+        if (state.armedQty[i] > 0 && !state.slotBusy[i]) {
+            auto armedFor = std::chrono::duration_cast<std::chrono::seconds>(
+                current_time - pumps[i].armTimestamp).count();
+            if (armedFor >= 120) {
+                log_info("pump", "Slot " + std::to_string(i) + ": TIMEOUT  refunded "
+                          + std::to_string(state.armedQty[i]) + " credits");
+                state.armedQty[i] = 0;
+                while (!state.pendingQueue[i].empty()) state.pendingQueue[i].pop();
+                saveStateToDisk(state, state.transactionDir);
+            }
+        }
+    }
+
+    // 2. LED outputs with blink (last 10s of 120s timeout = 1Hz blink)
+    for (int i = 1; i <= TOTAL_SLOTS; i++) {
+        if (state.armedQty[i] > 0 && !state.slotBusy[i]) {
+            auto remaining = 120 - std::chrono::duration_cast<std::chrono::seconds>(
+                current_time - pumps[i].armTimestamp).count();
+            if (remaining <= 10 && remaining > 0) {
+                // Blink every 500ms
+                bool on = (std::chrono::duration_cast<std::chrono::milliseconds>(
+                    current_time.time_since_epoch()).count() % 1000) < 500;
+                digitalWrite(pin_led[i], on ? HIGH : LOW);
+            } else {
+                digitalWrite(pin_led[i], HIGH);
+            }
+            if (i > 1) delayMicroseconds(5000);  // stagger
+        } else if (state.armedQty[i] > 0 && state.slotBusy[i]) {
+            digitalWrite(pin_led[i], HIGH);  // busy = solid on
         } else {
             digitalWrite(pin_led[i], LOW);
         }
