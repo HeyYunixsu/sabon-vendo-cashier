@@ -98,6 +98,10 @@ static void executeDispenseTrigger(int pumpIdx) {
 
         pump.postPressDeadline = current_time + extension + std::chrono::seconds(30);
         g_last_pump_start = current_time;
+        // Reset timeout for all armed slots — any press extends the session
+        for (int j = 1; j <= TOTAL_SLOTS; j++) {
+            if (state.armedQty[j] > 0) pumps[j].armTimestamp = current_time;
+        }
         digitalWrite(pump_pin, PUMP_TRIGGER_HIGH);
         saveStateToDisk(state, state.transactionDir);
 
@@ -248,18 +252,9 @@ void pump_loop(AppState &state) {
                 pumps[i].pressStartTime = current_time;
                 pumps[i].processingTrigger = true;
                 // Already pumping → instant re-press
-                if (pumps[i].isPumping) {
+                if (pumps[i].isPumping || pumps[i].processingTrigger) {
                     pumps[i].processingTrigger = false;
-                    pumps[i].firstPressAfterArm = false;  // subsequent presses = instant
-                    executeDispenseTrigger(i);
-                }
-            } else if (pumps[i].processingTrigger) {
-                auto held = std::chrono::duration_cast<std::chrono::milliseconds>(
-                    current_time - pumps[i].pressStartTime).count();
-                int required = pumps[i].firstPressAfterArm ? 100 : 50;
-                if (held >= required) {
-                    pumps[i].processingTrigger = false;
-                    pumps[i].firstPressAfterArm = false;  // first press consumed
+                    pumps[i].firstPressAfterArm = false;
                     executeDispenseTrigger(i);
                 }
             }
