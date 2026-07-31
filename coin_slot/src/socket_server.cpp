@@ -251,7 +251,7 @@ void manage_connected_clients(AppState &state)
           int productId = std::stoi(input_str.substr(p1 + 1, p2 - (p1 + 1)));
           int qty = std::stoi(input_str.substr(p2 + 1));
 
-          if (productId < 1 || productId > 5)
+          if (productId < 1 || productId > TOTAL_SLOTS)
           {
             log_error("socket", std::string("ARM rejected — invalid product ID: ") + std::to_string(productId));
           }
@@ -303,7 +303,7 @@ void manage_connected_clients(AppState &state)
           std::string input_str(client_buffer);
           size_t p1 = input_str.find(',');
           int productId = std::stoi(input_str.substr(p1 + 1));
-          if (productId >= 1 && productId <= 4) {
+          if (productId >= 1 && productId <= TOTAL_SLOTS) {
             while (!state.pendingQueue[productId].empty()) state.pendingQueue[productId].pop();
             log_info("socket", "CANCEL_QUEUE slot " + std::to_string(productId) + ": queue cleared");
             broadcast_status(state);
@@ -322,7 +322,7 @@ void manage_connected_clients(AppState &state)
           std::string input_str(client_buffer);
           size_t p1 = input_str.find(',');
           int productId = std::stoi(input_str.substr(p1 + 1));
-          if (productId >= 1 && productId <= 4) {
+          if (productId >= 1 && productId <= TOTAL_SLOTS) {
             state.armedQty[productId] = 0;
             while (!state.pendingQueue[productId].empty()) state.pendingQueue[productId].pop();
             if (!state.anyArmed()) { state.phase = TxnPhase::IDLE; state.bundleComplete = false; }
@@ -345,7 +345,7 @@ void manage_connected_clients(AppState &state)
           pos[0] = input_str.find(',');
           for (int i = 1; i < 5; ++i) pos[i] = input_str.find(',', pos[i - 1] + 1);
 
-          for (int i = 1; i <= 5; i++) {
+          for (int i = 1; i <= TOTAL_SLOTS; i++) {
             size_t start = pos[i-1] + 1;
             size_t len   = (i < 5) ? (pos[i] - start) : std::string::npos;
             state.WLVL_PRESSED[i] = std::stoi(input_str.substr(start, len)) == 1;
