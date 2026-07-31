@@ -230,21 +230,21 @@ void pump_loop(AppState &state) {
     std::lock_guard<std::mutex> lock(g_pump_mutex);
     auto current_time = std::chrono::steady_clock::now();
 
-    // 1. Button scan — 8-sample rolling window (160ms debounce).
-    //    Rail sag from LED writes causes transient HIGH reads lasting ~60ms
-    //    (3 samples at 20ms/loop). 8-sample window is too wide for transients
-    //    to fill, so false triggers are blocked without any capacitor needed.
-    static int   sampleBuf[7][8] = {{0}};
+    // 1. Button scan — 4-sample rolling window (80ms debounce).
+    //    GPIO conflict (BTN2/LED5 both on GPIO24) was the root cause of
+    //    false triggers, not rail sag. Conflict fixed (LED5 → GPIO26).
+    //    4 samples is sufficient with 5ms LED stagger.
+    static int   sampleBuf[7][4] = {{0}};
     static int   sampleIdx[7]   = {0};
 
     for (int i = 1; i <= TOTAL_SLOTS; i++) {
         int raw = (digitalRead(pin_button[i]) == HIGH) ? 1 : 0;
         sampleBuf[i][sampleIdx[i]] = raw;
-        sampleIdx[i] = (sampleIdx[i] + 1) % 8;
+        sampleIdx[i] = (sampleIdx[i] + 1) % 4;
 
         int sum = 0;
-        for (int s = 0; s < 8; s++) sum += sampleBuf[i][s];
-        bool pressed = (sum == 8);
+        for (int s = 0; s < 4; s++) sum += sampleBuf[i][s];
+        bool pressed = (sum == 4);
 
         if (pressed) {
             if (!pumps[i].buttonWasPressedLastFrame) {
