@@ -485,7 +485,10 @@ main {
 </div>
 
 <main>
-  <section><div class="grid" id="grid-container"></div></section>
+  <section>
+    <div class="grid" id="grid-container"></div>
+    <button id="btn-select-all" class="btn btn-outline" style="margin-top:12px;width:100%;">Select All Products</button>
+  </section>
 
   <aside id="right-panel">
     <section>
@@ -499,7 +502,6 @@ main {
       </div>
       <div class="sale-actions">
         <button id="btn-add-more" class="btn btn-outline" disabled>Add Amount</button>
-        <button id="btn-select-all" class="btn btn-outline">Select All</button>
         <button id="btn-clear-sale" class="btn btn-outline">Clear</button>
       </div>
       <div class="add-more-popup" id="add-more-popup">
@@ -566,7 +568,7 @@ fetch('/qr').then(r => { document.getElementById('lan-url').textContent = r.url.
     phase: 0, bundleComplete: false,
     lastUpdate: null, connected: false,
   };
-  let selProduct = null, staged = [], unclaimed = [], saleCtr = 0, dispenseCount = 0;
+  let selProduct = null, multiSelect = false, staged = [], unclaimed = [], saleCtr = 0, dispenseCount = 0;
   let prevArmed = new Array(7).fill(0);
   const $ = (id) => document.getElementById(id);
 
@@ -670,7 +672,7 @@ fetch('/qr').then(r => { document.getElementById('lan-url').textContent = r.url.
     let h = '';
     for (let s = 1; s <= TOTAL; s++) {
       const act = s <= ACTIVE, armed = S.armedQty[s] || 0, busy = S.busy[s],
-            empty = S.wlvl[s], sel = selProduct === s;
+            empty = S.wlvl[s], sel = multiSelect ? (!empty && act) : (selProduct === s);
       let cls = 'product-card';
       if (!act) cls += ' inactive'; else if (busy) cls += ' busy';
       else if (empty) cls += ' empty'; else if (armed > 0) cls += ' armed';
@@ -767,7 +769,7 @@ fetch('/qr').then(r => { document.getElementById('lan-url').textContent = r.url.
   }
 
   // Sale
-  function selectProduct(id) { selProduct = id; renderGrid(); document.querySelectorAll('.btn-amount').forEach(b => b.disabled = false); $('btn-add-more').disabled = false; }
+  function selectProduct(id) { multiSelect = false; selProduct = id; renderGrid(); document.querySelectorAll('.btn-amount').forEach(b => b.disabled = false); $('btn-add-more').disabled = false; }
   function stageItem(id, amt, customAmt) {
     const amount = customAmt || amt;
     const qty = Math.round(amount / 5);
@@ -862,7 +864,17 @@ fetch('/qr').then(r => { document.getElementById('lan-url').textContent = r.url.
   // Sale events
   document.querySelectorAll('.btn-amount').forEach(b => {
     b.disabled = true;
-    b.addEventListener('click', () => { if (selProduct !== null) stageItem(selProduct, +b.dataset.amount); });
+    b.addEventListener('click', () => {
+      const amt = +b.dataset.amount;
+      if (multiSelect) {
+        for (let s = 1; s <= ACTIVE; s++) {
+          if (!S.wlvl[s]) stageItem(s, amt);
+        }
+        multiSelect = false;
+      } else if (selProduct !== null) {
+        stageItem(selProduct, amt);
+      }
+    });
   });
   $('btn-add-more').addEventListener('click', () => {
     $('add-more-popup').classList.add('open');
@@ -886,15 +898,11 @@ fetch('/qr').then(r => { document.getElementById('lan-url').textContent = r.url.
     if (e.key === 'Escape') { $('add-more-popup').classList.remove('open'); $('custom-amount').value = ''; }
   });
   $('btn-select-all').addEventListener('click', () => {
-    staged = [];
-    for (let s = 1; s <= ACTIVE; s++) {
-      if (!S.wlvl[s]) staged.push({ id: s, name: PRODUCT[s], amt: 5, qty: 1 });
-    }
-    selProduct = null; $('btn-add-more').disabled = true;
-    renderStaged(); renderGrid(); updateArm();
-    document.querySelectorAll('.btn-amount').forEach(b => b.disabled = true);
+    multiSelect = true; selProduct = null; $('btn-add-more').disabled = true;
+    renderGrid();
+    document.querySelectorAll('.btn-amount').forEach(b => b.disabled = false);
   });
-  $('btn-clear-sale').addEventListener('click', () => { staged = []; selProduct = null; $('btn-add-more').disabled = true; renderStaged(); renderGrid(); updateArm(); document.querySelectorAll('.btn-amount').forEach(b => b.disabled = true); });
+  $('btn-clear-sale').addEventListener('click', () => { staged = []; selProduct = null; multiSelect = false; $('btn-add-more').disabled = true; renderStaged(); renderGrid(); updateArm(); document.querySelectorAll('.btn-amount').forEach(b => b.disabled = true); });
   $('btn-arm').addEventListener('click', executeArm);
   $('btn-cancel-all').addEventListener('click', cancelAll);
   $('btn-refund').addEventListener('click', async () => {
