@@ -499,6 +499,7 @@ main {
       </div>
       <div class="sale-actions">
         <button id="btn-add-more" class="btn btn-outline" disabled>Add Amount</button>
+        <button id="btn-select-all" class="btn btn-outline">Select All</button>
         <button id="btn-clear-sale" class="btn btn-outline">Clear</button>
       </div>
       <div class="add-more-popup" id="add-more-popup">
@@ -883,6 +884,15 @@ fetch('/qr').then(r => { document.getElementById('lan-url').textContent = r.url.
   $('custom-amount').addEventListener('keydown', (e) => {
     if (e.key === 'Enter') $('btn-confirm-add').click();
     if (e.key === 'Escape') { $('add-more-popup').classList.remove('open'); $('custom-amount').value = ''; }
+  });
+  $('btn-select-all').addEventListener('click', () => {
+    staged = [];
+    for (let s = 1; s <= ACTIVE; s++) {
+      if (!S.wlvl[s]) staged.push({ id: s, name: PRODUCT[s], amt: 5, qty: 1 });
+    }
+    selProduct = null; $('btn-add-more').disabled = true;
+    renderStaged(); renderGrid(); updateArm();
+    document.querySelectorAll('.btn-amount').forEach(b => b.disabled = true);
   });
   $('btn-clear-sale').addEventListener('click', () => { staged = []; selProduct = null; $('btn-add-more').disabled = true; renderStaged(); renderGrid(); updateArm(); document.querySelectorAll('.btn-amount').forEach(b => b.disabled = true); });
   $('btn-arm').addEventListener('click', executeArm);
