@@ -635,10 +635,10 @@ main {
 <div id="toast"></div>
 
 </div>
-<div id="below-fold" style="flex-shrink:0;text-align:center;padding:12px;background:var(--bg-surface-secondary);border:1px solid var(--border-default);border-radius:10px;margin-top:8px;">
-  <div style="font-family:'Poppins',sans-serif;font-size:11px;color:var(--text-content-secondary);margin-bottom:4px;">Scan to open on phone</div>
-  <img src="/qr" alt="QR Code" style="width:80px;height:80px;border-radius:6px;" onerror="this.style.display='none'">
-  <div style="font-family:'Poppins',sans-serif;font-size:10px;color:var(--text-content-secondary);margin-top:4px;" id="lan-url"></div>
+<div id="below-fold" style="flex-shrink:0;text-align:center;padding:16px;background:var(--bg-surface-secondary);border:1px solid var(--border-default);border-radius:10px;margin-top:8px;opacity:0;transform:translateY(24px);transition:opacity .5s,transform .5s;">
+  <div style="font-family:'Poppins',sans-serif;font-size:12px;color:var(--text-content-secondary);margin-bottom:6px;">Scan to open on phone</div>
+  <img src="/qr" alt="QR Code" style="width:100px;height:100px;border-radius:6px;" onerror="this.style.display='none'">
+  <div style="font-family:'Poppins',sans-serif;font-size:10px;color:var(--text-content-secondary);margin-top:6px;" id="lan-url"></div>
 </div>
 
 <script>
@@ -1024,6 +1024,16 @@ fetch('/qr').then(r => { document.getElementById('lan-url').textContent = r.url.
   $('btn-clear-sale').addEventListener('click', () => { staged = []; selProduct = null; multiSelect = false; $('btn-add-more').disabled = true; renderStaged(); renderGrid(); updateArm(); document.querySelectorAll('.btn-amount').forEach(b => b.disabled = true); });
   $('btn-arm').addEventListener('click', executeArm);
   $('btn-cancel-all').addEventListener('click', cancelAll);
+  // Scroll reveal for QR section
+  const viewport = $('viewport');
+  const belowFold = $('below-fold');
+  viewport.addEventListener('scroll', () => {
+    if (viewport.scrollTop > 60) {
+      belowFold.style.opacity = '1';
+      belowFold.style.transform = 'translateY(0)';
+    }
+  });
+
   // Init
   renderGrid();
   connectSSE();
