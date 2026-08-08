@@ -12,13 +12,13 @@ module.exports = {
     },
     {
       name: 'water-level',
-      cwd: './uploaderTransaction',
+      cwd: '/home/dgsi/Desktop/sabon-vendo-cashier/uploaderTransaction',
       script: 'water_level_monitoring_v2.py',
-      interpreter: './uploaderTransaction/venv/bin/python3',
+      interpreter: '/home/dgsi/Desktop/sabon-vendo-cashier/uploaderTransaction/venv/bin/python3',
       watch: false,
       autorestart: true,
       restart_delay: 5000,
-      log_file: './uploaderTransaction/pm2-water-level.log',
+      log_file: '/home/dgsi/Desktop/sabon-vendo-cashier/uploaderTransaction/pm2-water-level.log',
       time: true,
     },
     {
