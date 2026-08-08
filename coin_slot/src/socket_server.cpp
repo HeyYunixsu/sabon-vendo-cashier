@@ -334,28 +334,27 @@ void manage_connected_clients(AppState &state)
       }
       else if (isFirstWordTest(client_buffer, "WTRLVL"))
       {
-        if (socket_count_commas(client_buffer) != 5)
+        if (socket_count_commas(client_buffer) != 4)
         {
-          log_error("socket", std::string("Malformed WTRLVL (expected 5 commas): ") + client_buffer);
+          log_error("socket", std::string("Malformed WTRLVL (expected 4 commas): ") + client_buffer);
         }
         else
         {
           std::string input_str(client_buffer);
-          size_t pos[6];
+          size_t pos[5];
           pos[0] = input_str.find(',');
-          for (int i = 1; i < 5; ++i) pos[i] = input_str.find(',', pos[i - 1] + 1);
+          for (int i = 1; i < 4; ++i) pos[i] = input_str.find(',', pos[i - 1] + 1);
 
-          for (int i = 1; i <= TOTAL_SLOTS; i++) {
-            size_t start = pos[i-1] + 1;
-            size_t len   = (i < 5) ? (pos[i] - start) : std::string::npos;
-            state.WLVL_PRESSED[i] = std::stoi(input_str.substr(start, len)) == 1;
-          }
+          state.WLVL_PRESSED[1] = std::stoi(input_str.substr(pos[0]+1, pos[1]-(pos[0]+1))) == 1;
+          state.WLVL_PRESSED[2] = std::stoi(input_str.substr(pos[1]+1, pos[2]-(pos[1]+1))) == 1;
+          state.WLVL_PRESSED[3] = std::stoi(input_str.substr(pos[2]+1, pos[3]-(pos[2]+1))) == 1;
+          state.WLVL_PRESSED[4] = std::stoi(input_str.substr(pos[3]+1)) == 1;
+          state.WLVL_PRESSED[5] = false;
           log_info("socket", std::string("Water level:") +
               " s1=" + (state.WLVL_PRESSED[1]?"E":"ok") +
               " s2=" + (state.WLVL_PRESSED[2]?"E":"ok") +
               " s3=" + (state.WLVL_PRESSED[3]?"E":"ok") +
-              " s4=" + (state.WLVL_PRESSED[4]?"E":"ok") +
-              " s5=" + (state.WLVL_PRESSED[5]?"E":"ok"));
+              " s4=" + (state.WLVL_PRESSED[4]?"E":"ok"));
           broadcast_status(state);
         }
       }

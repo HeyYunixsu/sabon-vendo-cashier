@@ -11,6 +11,17 @@ module.exports = {
       time: true,
     },
     {
+      name: 'water-level',
+      cwd: './uploaderTransaction',
+      script: 'water_level_monitoring_v2.py',
+      interpreter: './uploaderTransaction/venv/bin/python3',
+      watch: false,
+      autorestart: true,
+      restart_delay: 5000,
+      log_file: './uploaderTransaction/pm2-water-level.log',
+      time: true,
+    },
+    {
       name: 'dashboard',
       cwd: './cashier_dashboard',
       script: 'server.js',
