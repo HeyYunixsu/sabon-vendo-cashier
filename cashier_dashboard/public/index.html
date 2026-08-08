@@ -870,7 +870,8 @@ main {
     }
     if (!S.connected) issues += '<div class="list-row" style="color:var(--status-negative);"><span><span class="dot dot-negative"></span> Machine offline</span><span>[OFFLINE]</span></div>';
     if (issues) {
-      $('alert-list').innerHTML = '<div class="alert-card"><div class="alert-heading">'+issues.split('class="list-row"').length+' issue(s) detected</div>'+issues+'</div>';
+      let issueCount = (issues.match(/list-row/g) || []).length;
+      $('alert-list').innerHTML = '<div class="alert-card"><div class="alert-heading">'+issueCount+' issue(s) detected</div>'+issues+'</div>';
       $('alerts-section').style.display = 'block';
     } else {
       $('alert-list').innerHTML = '<span class="muted">--</span>';
