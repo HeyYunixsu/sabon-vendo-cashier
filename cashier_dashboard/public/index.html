@@ -122,7 +122,7 @@ body {
   background: var(--bg-surface-secondary);
   border: 1px solid var(--border-default);
   border-radius: 10px;
-  padding: 12px 18px;
+  padding: 12px 18px; min-height: 80px;
   border-top: 3px solid transparent;
 }
 .kpi-card:nth-child(1) { border-top-color: var(--accent-action); }
@@ -168,14 +168,14 @@ body {
   background: var(--bg-surface-secondary);
   border: 1px solid var(--accent-action); border-radius: 8px;
   padding: 8px 10px 8px 14px; width: 100%; min-width: 0; max-width: none;
-  min-height: 60px;
+  min-height: 52px;
 }
 .staged-card .staged-card-name {
   font-size: 12px; font-weight: 600; color: var(--text-content-primary);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   grid-column: 1;
 }
-.staged-card .staged-card-amount {
+.staged-card .staged-card-qty {
   font-size: 15px; font-weight: 700; color: var(--accent-action);
   grid-column: 1; grid-row: 2;
 }
@@ -186,20 +186,32 @@ body {
   padding: 4px; text-align: center; align-self: center;
 }
 .staged-card .staged-card-remove:hover { color: var(--status-negative); }
-.sale-controls { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
-#sale-strip .quick-amounts {
-  display: flex; gap: 0; margin: 0;
+.qty-stepper {
+  display: flex; align-items: center; gap: 0;
   border: 1px solid var(--border-default); border-radius: 8px; overflow: hidden;
 }
-#sale-strip .btn-amount {
-  padding: 10px 16px; font-size: 14px; font-weight: 700; min-height: 44px;
-  background: var(--bg-surface-secondary); border: none; border-right: 1px solid var(--border-default);
-  color: var(--text-content-primary); cursor: pointer; transition: all .15s;
-  font-family: 'Poppins', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+.qty-stepper .stepper-btn {
+  width: 38px; height: 40px; border: none;
+  border-radius: 0; background: var(--bg-surface-tertiary);
+  color: var(--text-content-primary); cursor: pointer;
+  font-size: 18px; font-weight: 700; display: flex; align-items: center;
+  justify-content: center; font-family: 'Poppins', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  transition: all .15s;
 }
-#sale-strip .btn-amount:last-child { border-right: none; }
-#sale-strip .btn-amount:hover { background: var(--accent-action); color: #fff; border-color: var(--accent-action); }
-#sale-strip .btn-amount:disabled { opacity: .3; pointer-events: none; }
+.qty-stepper .stepper-btn:hover { background: var(--accent-action); color: #fff; }
+.qty-stepper .stepper-btn:disabled { opacity: .25; pointer-events: none; }
+.qty-stepper input {
+  width: 48px; background: var(--bg-surface-secondary);
+  border: none; border-left: 1px solid var(--border-default);
+  border-right: 1px solid var(--border-default);
+  padding: 8px 2px; color: var(--text-content-primary);
+  font-family: 'Poppins', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-size: 18px; font-weight: 700;
+  text-align: center; outline: none;
+  -moz-appearance: textfield;
+}
+.qty-stepper input::-webkit-outer-spin-button,
+.qty-stepper input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 #sale-strip .btn, #sale-strip .btn-confirm {
   min-height: 44px; padding: 10px 18px; font-size: 13px; font-weight: 600;
   border-radius: 8px;
@@ -230,53 +242,102 @@ main {
    =================================================================== */
 .grid {
   display: grid; grid-template-columns: repeat(3, 1fr);
-  grid-template-rows: repeat(2, 1fr); gap: 10px;
+  grid-template-rows: repeat(2, 1fr); gap: 8px;
   min-height: 300px;
 }
 .product-card {
   background: var(--bg-surface-secondary);
   border: 1px solid var(--border-default);
-  border-radius: 10px;
-  padding: 16px 12px; text-align: center; cursor: pointer;
+  border-radius: 10px; cursor: pointer; overflow: hidden;
   user-select: none; -webkit-tap-highlight-color: transparent;
-  transition: border-color .18s, box-shadow .18s;
-  display: flex; flex-direction: column; justify-content: center;
-  align-items: center;
-  height: 100%; min-height: 0; position: relative;
-  overflow: hidden;
+  transition: border-color .2s, box-shadow .2s, transform .2s;
+  display: flex; align-items: center; gap: 16px;
+  padding: 16px; min-height: 100px; position: relative;
 }
-.product-card:hover { background: var(--bg-surface-tertiary); }
+.product-card:hover { border-color: var(--border-strong); transform: translateY(-1px); }
 .product-card.selected {
   border-color: var(--border-strong);
-  box-shadow: 0 0 0 2px rgba(59,109,240,0.35);
+  box-shadow: 0 0 0 3px rgba(59,109,240,0.25);
 }
-.product-card.armed   { border-color: var(--border-strong); }
-.product-card.busy    { border-color: var(--status-caution); }
-.product-card.empty   { border-color: var(--status-negative); opacity: .55; pointer-events: none; }
+.product-card.armed {
+  border-color: var(--border-strong);
+  box-shadow: 0 0 0 3px rgba(59,109,240,0.25);
+}
+.product-card.busy {
+  border-color: var(--status-caution);
+  box-shadow: 0 0 0 3px rgba(251,191,36,0.25);
+}
+.product-card.busy .product-icon {
+  animation: pulse-busy .8s ease-in-out infinite;
+}
+.product-card.empty {
+  border-color: var(--status-negative);
+  box-shadow: 0 0 0 3px rgba(248,113,113,0.25);
+  pointer-events: none;
+}
+.product-card.empty .product-icon { filter: saturate(0.4); }
 .product-card.inactive { opacity: .3; pointer-events: none; }
 
+/* Icon tile */
+.product-icon {
+  width: 22%; max-width: 64px;
+  aspect-ratio: 1 / 1;
+  border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  background: var(--tile-bg, #1C2333);
+  color: var(--tile-icon, #8A93A6);
+  transition: background .2s, color .2s;
+}
+.product-icon svg {
+  width: 55%; height: 55%;
+}
+
+/* Per-product tile colors -- dark theme (default) */
+[data-product="1"] { --tile-bg: #2A2450; --tile-icon: #8B82E0; }
+[data-product="2"] { --tile-bg: #1A3050; --tile-icon: #5B9BD5; }
+[data-product="3"] { --tile-bg: #1A3A30; --tile-icon: #4DB89E; }
+[data-product="4"] { --tile-bg: #3A2018; --tile-icon: #D4856A; }
+[data-product="5"] { --tile-bg: #3A2A15; --tile-icon: #C89240; }
+[data-product="6"] { --tile-bg: #253A18; --tile-icon: #6BA830; }
+
+/* Per-product tile colors -- light theme override */
+[data-theme="light"] [data-product="1"] { --tile-bg: #EEEDFE; --tile-icon: #534AB7; }
+[data-theme="light"] [data-product="2"] { --tile-bg: #E6F1FB; --tile-icon: #185FA5; }
+[data-theme="light"] [data-product="3"] { --tile-bg: #E1F5EE; --tile-icon: #0F6E56; }
+[data-theme="light"] [data-product="4"] { --tile-bg: #FAECE7; --tile-icon: #993C1D; }
+[data-theme="light"] [data-product="5"] { --tile-bg: #FAEEDA; --tile-icon: #854F0B; }
+[data-theme="light"] [data-product="6"] { --tile-bg: #EAF3DE; --tile-icon: #3B6D11; }
+
+/* Pulse animations */
+@keyframes pulse-arm {
+  0%   { transform: scale(1); }
+  50%  { transform: scale(1.18); }
+  100% { transform: scale(1); }
+}
+@keyframes pulse-busy {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: .55; }
+}
+.armed-qty.pulse-arm {
+  animation: pulse-arm .4s ease;
+}
+
+/* Text panel */
+.product-card .text-panel {
+  padding: 8px 0 8px 4px;
+  display: flex; flex-direction: column; justify-content: center;
+  gap: 1px; min-width: 0;
+}
 .product-card .slot-num {
-  font-family: 'Poppins', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; font-size: 8px;
-  font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em;
-  color: var(--text-content-secondary); margin-bottom: 2px;
+  font-family: 'Poppins', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-size: 8px; font-weight: 500; text-transform: uppercase;
+  letter-spacing: 0.06em; color: var(--text-content-secondary);
 }
 .product-card .product-name {
   font-family: 'Inter', sans-serif; font-size: 13px;
-  font-weight: 600; color: var(--text-content-primary); margin-bottom: 4px;
-}
-.product-card .product-icon {
-  width: 26px; height: 26px; border-radius: 50%; margin-bottom: 4px;
-  display: flex; align-items: center; justify-content: center;
-  font-family: 'Poppins', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; font-size: 11px;
-  font-weight: 700; color: var(--text-content-secondary);
-  border: 1px solid var(--border-default);
-}
-.product-card.armed .product-icon,
-.product-card.busy .product-icon {
-  border-color: var(--accent-action); color: var(--accent-action);
-}
-.product-card.empty .product-icon {
-  border-color: var(--status-negative); color: var(--status-negative);
+  font-weight: 600; color: var(--text-content-primary);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .product-card .armed-qty {
   font-family: 'Poppins', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
@@ -288,19 +349,19 @@ main {
 .product-card .armed-qty.is-busy   { color: var(--status-caution); }
 
 .product-card .status-row {
-  display: flex; justify-content: center; align-items: center;
-  gap: 8px; margin-top: 4px; font-size: 10px; font-weight: 500;
+  display: flex; align-items: center;
+  gap: 6px; margin-top: 2px; font-size: 10px; font-weight: 500;
 }
 
 /* ===================================================================
    RIGHT PANEL
    =================================================================== */
-#right-panel { display: flex; flex-direction: column; gap: 14px; }
+#right-panel { display: flex; flex-direction: column; gap: 10px; }
 #right-panel section {
   background: var(--bg-surface-secondary);
   border: 1px solid var(--border-default);
   border-radius: var(--radius-container);
-  padding: 16px 20px;
+  padding: 12px 16px;
   border-left: 3px solid transparent;
 }
 #right-panel section:nth-child(1) { border-left-color: var(--accent-action); }
@@ -316,19 +377,6 @@ main {
   display: flex; justify-content: space-between; align-items: center;
 }
 
-/* Quick amounts */
-.quick-amounts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 10px 0; }
-.btn-amount {
-  font-family: 'Poppins', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; font-size: 15px; font-weight: 600;
-  padding: 14px 6px; background: var(--bg-surface-tertiary);
-  border: 1px solid var(--border-default); border-radius: var(--radius-pill);
-  color: var(--text-content-primary); cursor: pointer;
-  transition: border-color .15s, color .15s, transform .15s; touch-action: manipulation;
-}
-.btn-amount:hover { border-color: var(--border-strong); color: var(--accent-action); }
-.btn-amount:active { background: var(--accent-action); color: #fff; transform: scale(.96); }
-.btn-amount:disabled { opacity: .25; pointer-events: none; }
-
 /* Staged items */
 .staged-row {
   display: grid; grid-template-columns: 1fr auto 30px; align-items: center;
@@ -338,7 +386,7 @@ main {
 .staged-row:last-child { border-bottom: none; }
 .staged-row .staged-info { text-align: left; }
 .staged-row .staged-name { font-weight: 600; }
-.staged-row .staged-price {
+.staged-row .staged-qty {
   font-family: 'Poppins', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; font-weight: 700; font-size: 15px;
   color: var(--accent-action); text-align: center;
   background: color-mix(in srgb, var(--accent-action) 10%, transparent);
@@ -356,43 +404,11 @@ main {
 .btn-remove:hover { border-color: var(--status-negative); color: var(--status-negative); }
 @keyframes slide-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
 
-.sale-actions { display: flex; gap: 8px; margin: 10px 0; }
-
-/* Add More popup */
-.add-more-popup {
-  display: none; padding: 8px 12px;
-  background: var(--bg-surface-tertiary); border: 1px solid var(--border-strong);
-  border-radius: 8px; min-height: 44px;
-}
-.add-more-popup.open { display: flex; align-items: center; gap: 6px; }
-.add-more-popup input {
-  width: 56px; background: var(--bg-surface-secondary);
-  border: 1px solid var(--border-default); border-radius: 6px;
-  padding: 8px 4px; color: var(--text-content-primary);
-  font-family: 'Poppins', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; font-size: 16px; font-weight: 700;
-  text-align: center; outline: none;
-  -moz-appearance: textfield;
-}
-.add-more-popup input::-webkit-outer-spin-button,
-.add-more-popup input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-.stepper-btn {
-  width: 32px; height: 32px; border: 1px solid var(--border-default);
-  border-radius: 6px; background: var(--bg-surface-secondary);
-  color: var(--text-content-primary); cursor: pointer;
-  font-size: 16px; font-weight: 700; display: flex; align-items: center;
-  justify-content: center; font-family: 'Poppins', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-}
-.stepper-btn:hover { border-color: var(--accent-action); color: var(--accent-action); }
-.add-more-popup .btn-confirm {
-  min-height: 44px; padding: 10px 18px; background: var(--accent-action); color: #fff;
-  border: none; border-radius: 8px; cursor: pointer;
-  font-family: 'Poppins', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; font-size: 13px; font-weight: 600;
-}
-.add-more-popup .btn-confirm:hover { background: var(--accent-action-hover); }
 .sale-total {
   text-align: right; margin-top: 4px;
   font-family: 'Poppins', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  font-size: 28px; font-weight: 700; color: var(--text-content-primary);
+  font-size: 22px; font-weight: 700; color: var(--text-content-primary);
+  white-space: nowrap;
 }
 
 /* Buttons */
@@ -433,8 +449,8 @@ main {
 .list-row {
   display: grid; grid-template-columns: 20px 1fr auto auto;
   align-items: center; gap: 8px;
-  padding: 10px 0; border-bottom: 1px solid var(--border-default);
-  font-size: 13px; min-height: 48px;
+  padding: 8px 0; border-bottom: 1px solid var(--border-default);
+  font-size: 13px; min-height: 44px;
 }
 .list-row:last-child { border-bottom: none; }
 .list-row .list-name {
@@ -525,40 +541,36 @@ main {
   .kpi-card .kpi-label { font-size: 9px; }
   .kpi-card .kpi-value { font-size: 24px; }
   .kpi-card .kpi-sub { font-size: 9px; }
-  .grid { grid-template-columns: repeat(2, 1fr); grid-template-rows: repeat(3, 1fr); gap: 10px; }
-  .product-card { min-height: 100px; padding: 14px 10px; }
+  .grid { grid-template-columns: repeat(2, 1fr); grid-template-rows: repeat(3, 1fr); gap: 8px; }
+  .product-card { flex-direction: column; align-items: stretch; gap: 10px; padding: 12px; min-height: auto; }
+  .product-icon { width: 100%; max-width: none; aspect-ratio: auto; height: 80px; border-radius: 8px; }
+  .product-icon svg { width: 32px; height: 32px; }
+  .product-card .text-panel { padding: 0; text-align: center; }
   .product-card .product-name { font-size: 13px; }
-  .product-card .product-icon { width: 28px; height: 28px; font-size: 11px; }
-  .product-card .armed-qty { font-size: 32px; }
+  .product-card .armed-qty { font-size: 28px; }
   .product-card .slot-num { font-size: 9px; }
   #right-panel { gap: 10px; }
   #right-panel section { padding: 12px 14px; }
-  .quick-amounts { gap: 6px; }
-  .btn-amount { font-size: 13px; padding: 14px 4px; min-height: 48px; }
   .btn { min-height: 44px; }
   .btn-lg { padding: 14px 20px; font-size: 14px; }
 
-  /* Fix: sale-controls was a single non-wrapping flex row, pushing
-     Clear/Arm/total off-screen on phone widths. Let it wrap into
-     stacked rows instead, same buttons, same sizes, no clipping. */
   #sale-strip { flex-wrap: wrap; }
-  #sale-strip #staged-items { flex: 1 1 100%; }
+  #sale-strip #staged-items { flex: 1 1 100%; gap: 6px; }
 
   /* Fix: staged product cards used flex-wrap with min/max width,
      causing uneven 2-2-1 wrapping on phone. Force a real 3-column
      grid so it's always 3 per row, wrapping cleanly to next row. */
   #sale-strip #staged-items {
-    display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px;
+    display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px;
   }
   #sale-strip .staged-card { min-width: 0; max-width: none; width: 100%; }
   .sale-controls {
     flex-wrap: wrap; width: 100%; flex: 1 1 100%;
     gap: 8px; justify-content: flex-start;
   }
-  .quick-amounts { order: 1; flex: 0 0 100%; grid-template-columns: repeat(4, 1fr); }
-  .sale-actions { order: 2; flex: 1 1 auto; gap: 8px; margin: 0; }
-  .sale-actions .btn { flex: 1; }
-  .add-more-popup { order: 3; flex: 0 0 100%; }
+  .qty-stepper { order: 1; }
+  #btn-stage { order: 2; flex: 1 1 auto; }
+  #btn-clear-sale { order: 3; flex: 1 1 auto; }
   #btn-arm { order: 4; flex: 1 1 90px; }
   .sale-total { order: 5; flex: 0 0 auto; margin-left: auto; align-self: center; }
 }
@@ -567,21 +579,19 @@ main {
   .kpi-row { grid-template-columns: repeat(2, 1fr); gap: 6px; }
   .kpi-card .kpi-value { font-size: 22px; }
   .grid { grid-template-rows: repeat(3, 1fr); }
-  .product-card { min-height: 92px; padding: 12px 8px; }
+  .product-card { flex-direction: column; align-items: stretch; gap: 8px; padding: 10px; min-height: auto; }
+  .product-icon { width: 100%; max-width: none; aspect-ratio: auto; height: 64px; border-radius: 8px; }
+  .product-icon svg { width: 28px; height: 28px; }
+  .product-card .text-panel { padding: 0; text-align: center; }
   .product-card .product-name { font-size: 12px; }
-  .product-card .armed-qty { font-size: 28px; }
+  .product-card .armed-qty { font-size: 24px; }
   .product-card .status-row { font-size: 10px; gap: 6px; }
-  .quick-amounts { gap: 4px; }
-  .btn-amount { font-size: 12px; padding: 12px 2px; }
-  .sale-total { font-size: 22px; }
-  .sale-actions { flex-wrap: wrap; }
-  .sale-actions .btn { flex: 1 1 45%; }
-  .staged-row { font-size: 12px; }
-  .staged-row .staged-price { font-size: 13px; }
+  .sale-total { font-size: 18px; }
+  .staged-row .staged-qty { font-size: 13px; }
   .btn { font-size: 12px; padding: 10px 14px; }
   .section-label { font-size: 10px; }
   #status-bar { font-size: 10px; }
-  .add-more-popup input { font-size: 16px; }
+  .qty-stepper input { font-size: 16px; }
   .toast { font-size: 12px; padding: 10px 16px; }
 }
 </style>
@@ -617,27 +627,17 @@ main {
 
 <!-- Sale Strip (horizontal, full width) -->
 <div id="sale-strip">
-  <div id="staged-items"><span class="muted">Select product, then amount</span></div>
+  <div id="staged-items"><span class="muted">Select product, then set quantity</span></div>
   <div class="sale-controls">
-    <div class="quick-amounts">
-      <button class="btn-amount" data-amount="5">P5</button>
-      <button class="btn-amount" data-amount="10">P10</button>
-      <button class="btn-amount" data-amount="15">P15</button>
-      <button class="btn-amount" data-amount="20">P20</button>
-    </div>
-    <div class="sale-actions">
-      <button id="btn-add-more" class="btn btn-outline" disabled>Add Amount</button>
-      <button id="btn-clear-sale" class="btn btn-outline">Clear</button>
-    </div>
-    <div class="add-more-popup" id="add-more-popup">
-      <span style="font-size:11px;color:var(--text-content-secondary);">Amount</span>
+    <div class="qty-stepper" id="qty-stepper">
       <button class="stepper-btn" id="stepper-down">−</button>
-      <input type="text" id="custom-amount" value="5" inputmode="numeric" pattern="[0-9]*" readonly>
+      <input type="text" id="qty-value" value="1" inputmode="numeric" pattern="[0-9]*" readonly>
       <button class="stepper-btn" id="stepper-up">+</button>
-      <button class="btn-confirm" id="btn-confirm-add">Add</button>
     </div>
+    <button id="btn-stage" class="btn btn-outline" disabled>Stage</button>
+    <button id="btn-clear-sale" class="btn btn-outline">Clear</button>
     <button id="btn-arm" class="btn btn-primary" disabled>Arm</button>
-    <div id="sale-total" class="sale-total">P0</div>
+    <div id="sale-total" class="sale-total">0 presses</div>
   </div>
 </div>
 
@@ -677,12 +677,21 @@ main {
   'use strict';
 
   const PRODUCT = {
-    1: 'Deesh Premium', 2: 'Lanz Blossom', 3: 'Lanz Dainty',
-    4: 'Switch', 5: 'Slot 5', 6: 'Slot 6',
+    1: 'Detergent 1', 2: 'Detergent 2', 3: 'Fabcon 1',
+    4: 'Fabcon 2', 5: 'Zonrox 1', 6: 'Zonrox 2',
   };
-  const PRODUCT_INITIAL = { 1:'D', 2:'LB', 3:'LD', 4:'S', 5:'5', 6:'6' };
-  const AMOUNT_QTY = { 5:1, 10:2, 15:3, 20:4 };
+  const PRODUCT_INITIAL = { 1:'D1', 2:'D2', 3:'F1', 4:'F2', 5:'Z1', 6:'Z2' };
+  const PRODUCT_ML = { 1: 75, 2: 75, 3: 60, 4: 60, 5: 100, 6: 100 };
+  const PRODUCT_ICON = {
+    1: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3c4.2 4.6 6.5 8.1 6.5 11a6.5 6.5 0 0 1-13 0c0-2.9 2.3-6.4 6.5-11z"/></svg>',
+    2: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3c4.2 4.6 6.5 8.1 6.5 11a6.5 6.5 0 0 1-13 0c0-2.9 2.3-6.4 6.5-11z"/></svg>',
+    3: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 4h8l1 3-2 1v9a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2V8L7 7l1-3z"/><path d="M10 4V2.5M14 4V2.5"/></svg>',
+    4: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 4h8l1 3-2 1v9a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2V8L7 7l1-3z"/><path d="M10 4V2.5M14 4V2.5"/></svg>',
+    5: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h4v3l2 2v10a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V8l2-2V3z"/><path d="M15 9h1.5a1.5 1.5 0 0 1 1.5 1.5V15a1.5 1.5 0 0 1-1.5 1.5H15"/></svg>',
+    6: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h4v3l2 2v10a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V8l2-2V3z"/><path d="M15 9h1.5a1.5 1.5 0 0 1 1.5 1.5V15a1.5 1.5 0 0 1-1.5 1.5H15"/></svg>',
+  };
   const ACTIVE = 5, TOTAL = 6;
+  const MAX_QTY = 10;
 
   const S = {
     armedQty: new Array(7).fill(0), remaining: new Array(7).fill(0),
@@ -691,9 +700,10 @@ main {
     phase: 0, bundleComplete: false,
     lastUpdate: null, connected: false,
   };
-  let selProduct = null, multiSelect = false, staged = [], unclaimed = [], saleCtr = 0, dispenseCount = 0;
+  let selProduct = null, multiSelect = false, staged = [], unclaimed = [], saleCtr = 0, dispenseCount = 0, currentQty = 1;
   let prevArmed = new Array(7).fill(0);
   let prevBusy  = new Array(7).fill(false);
+  let prevArmedQty = new Array(7).fill(0); // pulse-on-arm detection
   const $ = (id) => document.getElementById(id);
 
   // Toast
@@ -716,8 +726,7 @@ main {
         S.phase = 0; S.bundleComplete = false;
         dispenseCount = 0; staged = []; selProduct = null; unclaimed = [];
         renderStaged(); updateArm();
-        document.querySelectorAll('.btn-amount').forEach(b => b.disabled = true);
-        $('btn-add-more').disabled = true;
+        $('btn-stage').disabled = true; currentQty = 1; $('qty-value').value = 1;
         refresh(); return;
       }
       if (e.data.startsWith('UNCLAIMED:')) { addUnclaimed(e.data); return; }
@@ -749,7 +758,7 @@ main {
   function addUnclaimed(raw) {
     const p = raw.substring(10).split(',');
     if (p.length >= 3) {
-      unclaimed.push({ slot: +p[0], qty: +p[1], amount: +p[2], time: p[3] || '' });
+      unclaimed.push({ slot: +p[0], qty: +p[1], time: p[2] || '' });
       renderUnclaimed();
     }
   }
@@ -809,15 +818,19 @@ main {
       else if (empty){ dotHtml = '<span class="dot dot-negative"></span> Empty'; dotColor = 'var(--status-negative)'; }
       else           { dotHtml = '<span class="dot dot-neutral"></span> Idle';   dotColor = 'var(--text-content-secondary)'; }
 
+      const justArmed = act && !prevArmedQty[s] && armed > 0;
+      prevArmedQty[s] = armed;
       const qCls = !act || armed === 0 ? 'is-zero' : (busy ? 'is-busy' : 'is-armed');
+      const pulseCls = justArmed ? ' pulse-arm' : '';
 
-      h += '<div class="'+cls+'" data-slot="'+s+'">';
+      h += '<div class="'+cls+'" data-slot="'+s+'" data-product="'+s+'">';
+      h += '<div class="product-icon">'+PRODUCT_ICON[s]+'</div>';
+      h += '<div class="text-panel">';
       h += '<div class="slot-num">SLOT '+String(s).padStart(2,'0')+'</div>';
-      h += '<div class="product-icon">'+PRODUCT_INITIAL[s]+'</div>';
       h += '<div class="product-name">'+PRODUCT[s]+'</div>';
-      h += '<div class="armed-qty '+qCls+'">'+(act ? armed : '--')+'</div>';
+      h += '<div class="armed-qty '+qCls+pulseCls+'">'+(act ? armed : '--')+'</div>';
       h += '<div class="status-row" style="color:'+dotColor+'">'+dotHtml+'</div>';
-      h += '</div>';
+      h += '</div></div>';
     }
     $('grid-container').innerHTML = h;
     $('grid-container').querySelectorAll('.product-card').forEach(c => {
@@ -884,7 +897,7 @@ main {
     let h = '';
     unclaimed.forEach((it, idx) => {
       h += '<div class="list-row" style="color:var(--status-caution);">';
-      h += '<span><span class="dot dot-caution"></span> SLOT '+String(it.slot).padStart(2,'0')+': '+it.qty+'u -- P'+it.amount+'</span>';
+      h += '<span><span class="dot dot-caution"></span> SLOT '+String(it.slot).padStart(2,'0')+': '+it.qty+' presses'+'</span>';
       h += '<span style="display:flex;gap:4px;">';
       h += '<button class="btn-sm retry" data-idx="'+idx+'" data-act="retry">Retry</button>';
       h += '<button class="btn-sm dismiss" data-idx="'+idx+'" data-act="dismiss">Dismiss</button>';
@@ -898,28 +911,27 @@ main {
   }
 
   // Sale
-  function selectProduct(id) { multiSelect = false; selProduct = id; renderGrid(); document.querySelectorAll('.btn-amount').forEach(b => b.disabled = false); $('btn-add-more').disabled = false; }
-  function enableAmountButtons() { document.querySelectorAll('.btn-amount').forEach(b => b.disabled = false); $('btn-add-more').disabled = false; }
-  function stageItem(id, amt, customAmt) {
-    const amount = customAmt || amt;
-    const qty = Math.round(amount / 5);
-    // Merge: if product already staged, add to existing amount
+  function selectProduct(id) { multiSelect = false; selProduct = id; renderGrid(); $('btn-stage').disabled = false; }
+  function enableQtyStepper() { $('btn-stage').disabled = false; }
+  function stageItem(id) {
+    const qty = currentQty;
+    const ml = qty * (PRODUCT_ML[id] || 0);
+    // Merge: if product already staged, add to existing qty
     const existing = staged.find(it => it.id === id);
-    if (existing) { existing.amt += amount; existing.qty += qty; }
-    else { staged.push({ id, name: PRODUCT[id], amt: amount, qty }); }
-    selProduct = null; $('btn-add-more').disabled = true;
+    if (existing) { existing.qty += qty; existing.ml += ml; }
+    else { staged.push({ id, name: PRODUCT[id], qty, ml }); }
+    selProduct = null; $('btn-stage').disabled = true; currentQty = 1; $('qty-value').value = 1;
     renderStaged(); renderGrid(); updateArm();
-    document.querySelectorAll('.btn-amount').forEach(b => b.disabled = true);
   }
   function removeStaged(i) { staged.splice(i,1); renderStaged(); updateArm(); }
   function renderStaged() {
-    if (!staged.length) { $('staged-items').innerHTML = '<span class="muted">Select product, then amount</span>'; $('sale-total').textContent = 'P0'; return; }
-    let h = '', t = 0;
+    if (!staged.length) { $('staged-items').innerHTML = '<span class="muted">Select product, then set quantity</span>'; $('sale-total').textContent = '0 presses'; return; }
+    let h = '', totalQty = 0;
     staged.forEach((it, i) => {
-      t += it.amt;
-      h += '<div class="staged-card"><button class="staged-card-remove" data-idx="'+i+'">&times;</button><span class="staged-card-name">'+it.name+'</span><span class="staged-card-amount">P'+it.amt+'</span></div>';
+      totalQty += it.qty;
+      h += '<div class="staged-card"><button class="staged-card-remove" data-idx="'+i+'">&times;</button><span class="staged-card-name">'+it.name+'</span><span class="staged-card-qty">'+it.qty+'\xD7 \xB7 '+it.ml+'ml</span></div>';
     });
-    $('staged-items').innerHTML = h; $('sale-total').textContent = 'P'+t;
+    $('staged-items').innerHTML = h; $('sale-total').textContent = totalQty + ' press' + (totalQty !== 1 ? 'es' : '');
     $('staged-items').querySelectorAll('.staged-card-remove').forEach(b => b.addEventListener('click', () => removeStaged(+b.dataset.idx)));
   }
   function updateArm() {
@@ -938,10 +950,9 @@ main {
       const r = await fetch('/api/arm', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ saleId:sid, batch }) });
       const d = await r.json();
       if (d.success) {
-        toast('Armed: '+staged.map(i=>i.name).join(', '), 'success');
-        staged = []; selProduct = null; $('btn-add-more').disabled = true;
+        toast('Armed: '+staged.map(i=>i.name+' ('+i.qty+'x)').join(', '), 'success');
+        staged = []; selProduct = null; $('btn-stage').disabled = true; currentQty = 1; $('qty-value').value = 1;
         renderStaged(); renderGrid(); updateArm();
-        document.querySelectorAll('.btn-amount').forEach(b => b.disabled = true);
       } else {
         toast('Arm failed: '+ (d.error || 'unknown'), 'error');
       }
@@ -970,7 +981,7 @@ main {
   async function resolveUnclaimed(idx, action) {
     const it = unclaimed[idx];
     try {
-      await fetch('/api/unclaimed/resolve', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({slot:it.slot,qty:it.qty,amount:it.amount,action}) });
+      await fetch('/api/unclaimed/resolve', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({slot:it.slot,qty:it.qty,action}) });
       unclaimed.splice(idx,1); renderUnclaimed();
     } catch(e) { /* silent */ }
   }
@@ -991,79 +1002,58 @@ main {
   $('offline-retry').addEventListener('click', () => { connectSSE(); });
 
   // Sale events
-  document.querySelectorAll('.btn-amount').forEach(b => {
-    b.disabled = true;
-    b.addEventListener('click', () => {
-      const amt = +b.dataset.amount;
-      if (multiSelect) {
-        for (let s = 1; s <= ACTIVE; s++) {
-          if (!S.wlvl[s]) stageItem(s, amt);
-        }
-        multiSelect = false;
-      } else if (selProduct !== null) {
-        stageItem(selProduct, amt);
-      }
-    });
-  });
-  $('btn-add-more').addEventListener('click', () => {
-    $('custom-amount').value = '5';
-    $('add-more-popup').classList.add('open');
-    $('custom-amount').focus();
-  });
-
   // Stepper buttons
   $('stepper-up').addEventListener('click', () => {
-    let v = parseInt($('custom-amount').value) || 5;
-    $('custom-amount').value = Math.min(v + 5, 50);
+    currentQty = Math.min(currentQty + 1, MAX_QTY);
+    $('qty-value').value = currentQty;
   });
   $('stepper-down').addEventListener('click', () => {
-    let v = parseInt($('custom-amount').value) || 5;
-    $('custom-amount').value = Math.max(v - 5, 5);
+    currentQty = Math.max(currentQty - 1, 1);
+    $('qty-value').value = currentQty;
   });
 
-  // Add amount confirm
-  $('btn-confirm-add').addEventListener('click', () => {
-    const val = parseInt($('custom-amount').value);
-    if (!val || val < 5 || val > 50) return;
+  // Stage button
+  $('btn-stage').addEventListener('click', () => {
     if (multiSelect) {
-      for (let s = 1; s <= ACTIVE; s++) { if (!S.wlvl[s]) stageItem(s, 0, val); }
+      for (let s = 1; s <= ACTIVE; s++) { if (!S.wlvl[s]) stageItem(s); }
       multiSelect = false;
-    } else {
-      const slot = selProduct || 1;
-      stageItem(slot, 0, val);
+    } else if (selProduct !== null) {
+      stageItem(selProduct);
     }
-    $('add-more-popup').classList.remove('open');
-    $('btn-add-more').disabled = true;
-    selProduct = null; renderGrid();
   });
 
-  // Close popup on Escape
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && $('add-more-popup').classList.contains('open')) {
-      $('add-more-popup').classList.remove('open');
-    }
-  });
+  // Select All
   $('btn-select-all').addEventListener('click', () => {
     multiSelect = true; selProduct = null;
     renderGrid();
-    enableAmountButtons();
+    enableQtyStepper();
   });
-  $('btn-clear-sale').addEventListener('click', () => { staged = []; selProduct = null; multiSelect = false; $('btn-add-more').disabled = true; renderStaged(); renderGrid(); updateArm(); document.querySelectorAll('.btn-amount').forEach(b => b.disabled = true); });
+
+  // Clear
+  $('btn-clear-sale').addEventListener('click', () => {
+    staged = []; selProduct = null; multiSelect = false;
+    $('btn-stage').disabled = true; currentQty = 1; $('qty-value').value = 1;
+    renderStaged(); renderGrid(); updateArm();
+  });
+
+  // Arm
   $('btn-arm').addEventListener('click', executeArm);
+
+  // Cancel all
   $('btn-cancel-all').addEventListener('click', cancelAll);
+
   // Init
   renderGrid();
   connectSSE();
 
-  // Skeleton timeout: if no connection after 4s, show demo
+  // Skeleton timeout: if no STATUS data after 4s, show demo
   setTimeout(() => {
-    if (!S.connected) {
+    if (!S.lastUpdate) {
       S.armedQty[1] = 2; S.armedQty[2] = 1; S.busy[3] = true;
       S.wlvl[4] = true; S.queueDepth[2] = 1;
       S.lastUpdate = new Date(); refresh();
     }
   }, 4000);
-})();
-</script>
+})();</script>
 </body>
 </html>
