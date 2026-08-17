@@ -158,9 +158,9 @@ function broadcastSSE(data) {
 }
 
 // Push unclaimed sales to SSE clients
-function pushUnclaimed(slot, qty, amount) {
+function pushUnclaimed(slot, qty) {
   const ts = new Date().toISOString();
-  const msg = `UNCLAIMED:${slot},${qty},${amount},${ts}`;
+  const msg = `UNCLAIMED:${slot},${qty},${ts}`;
   for (const res of sseClients) {
     try { res.write(`data: ${msg}\n\n`); } catch (_) {}
   }
@@ -188,10 +188,16 @@ app.get('/api/status/stream', (req, res) => {
 
   // Push existing unclaimed sales to new client
   for (const u of unclaimedSales) {
-    res.write(`data: UNCLAIMED:${u.slot},${u.qty},${u.amount},${u.time}\n\n`);
+    res.write(`data: UNCLAIMED:${u.slot},${u.qty},${u.time}\n\n`);
   }
 
+  // Keep-alive heartbeat every 15s so the browser doesn't time out
+  const keepAlive = setInterval(() => {
+    try { res.write(':keepalive\n\n'); } catch (_) { clearInterval(keepAlive); }
+  }, 15000);
+
   req.on('close', () => {
+    clearInterval(keepAlive);
     sseClients.delete(res);
     console.log(`[dashboard] SSE client disconnected (${sseClients.size} total)`);
   });
@@ -272,7 +278,7 @@ app.post('/api/cancel-queue', (req, res) => {
 
 // Resolve unclaimed sale
 app.post('/api/unclaimed/resolve', (req, res) => {
-  const { slot, qty, amount, action } = req.body;
+  const { slot, qty, action } = req.body;
   console.log(`[dashboard] Resolving unclaimed: slot=${slot} qty=${qty} action=${action}`);
 
   if (action === 'retry') {
@@ -280,7 +286,7 @@ app.post('/api/unclaimed/resolve', (req, res) => {
     sendToCoinSlot(`ARM,${slot},${qty}`);
   }
   // Either way, remove from unclaimed list
-  const idx = unclaimedSales.findIndex(u => u.slot === slot && u.qty === qty && u.amount === amount);
+  const idx = unclaimedSales.findIndex(u => u.slot === slot && u.qty === qty);
   if (idx >= 0) unclaimedSales.splice(idx, 1);
   saveUnclaimed();
 
@@ -288,12 +294,12 @@ app.post('/api/unclaimed/resolve', (req, res) => {
 });
 
 // Track unclaimed sale (called internally or via SSE status parsing)
-function trackUnclaimed(slot, qty, amount) {
-  const entry = { slot, qty, amount, time: new Date().toISOString() };
+function trackUnclaimed(slot, qty) {
+  const entry = { slot, qty, time: new Date().toISOString() };
   unclaimedSales.push(entry);
   saveUnclaimed();
-  pushUnclaimed(slot, qty, amount);
-  console.log(`[dashboard] Unclaimed sale tracked: slot=${slot} qty=${qty} amount=${amount}`);
+  pushUnclaimed(slot, qty);
+  console.log(`[dashboard] Unclaimed sale tracked: slot=${slot} qty=${qty}`);
 }
 
 // ---------------------------------------------------------------------------
