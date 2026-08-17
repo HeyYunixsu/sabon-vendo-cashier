@@ -259,13 +259,13 @@ main {
   padding: 16px; min-height: 100px; position: relative;
 }
 .product-card:hover { border-color: var(--border-strong); transform: translateY(-1px); }
+.product-card.armed {
+  border-color: var(--status-positive);
+  box-shadow: 0 0 0 3px rgba(52,211,153,0.28);
+}
 .product-card.selected {
   border-color: var(--border-strong);
-  box-shadow: 0 0 0 3px rgba(59,109,240,0.25);
-}
-.product-card.armed {
-  border-color: var(--border-strong);
-  box-shadow: 0 0 0 3px rgba(59,109,240,0.25);
+  box-shadow: 0 0 0 3px rgba(59,109,240,0.28);
 }
 .product-card.busy {
   border-color: var(--status-caution);
@@ -349,7 +349,7 @@ main {
   color: var(--text-content-primary); margin: 2px 0;
 }
 .product-card .armed-qty.is-zero   { color: #3A4050; }
-.product-card .armed-qty.is-armed  { color: var(--accent-action); }
+.product-card .armed-qty.is-armed  { color: var(--status-positive); }
 .product-card .armed-qty.is-busy   { color: var(--status-caution); }
 
 .product-card .status-row {
@@ -818,7 +818,7 @@ main {
       let dotHtml, dotColor;
       if (!act)      { dotHtml = '<span class="dot dot-neutral"></span> N/A';   dotColor = 'var(--text-content-secondary)'; }
       else if (busy) { dotHtml = '<span class="dot dot-caution"></span> Busy';  dotColor = 'var(--status-caution)'; }
-      else if (armed){ dotHtml = '<span class="dot dot-accent"></span> Armed';   dotColor = 'var(--accent-action)'; }
+      else if (armed){ dotHtml = '<span class="dot dot-positive"></span> Armed';  dotColor = 'var(--status-positive)'; }
       else if (empty){ dotHtml = '<span class="dot dot-negative"></span> Empty'; dotColor = 'var(--status-negative)'; }
       else           { dotHtml = '<span class="dot dot-neutral"></span> Idle';   dotColor = 'var(--text-content-secondary)'; }
 
@@ -851,7 +851,7 @@ main {
     for (let s = 1; s <= ACTIVE; s++) {
       if (S.armedQty[s] > 0 || S.busy[s]) {
         cnt += S.armedQty[s];
-        const dot = S.busy[s] ? '<span class="dot dot-caution"></span>' : '<span class="dot dot-accent"></span>';
+        const dot = S.busy[s] ? '<span class="dot dot-caution"></span>' : '<span class="dot dot-positive"></span>';
         h += '<div class="list-row">'+dot+'<span class="list-name">'+PRODUCT[s]+'</span>';
         h += '<span class="list-val">'+S.armedQty[s]+'</span>';
         h += '<button class="btn-negative" data-slot="'+s+'">Cancel</button></div>';
@@ -917,8 +917,8 @@ main {
   // Sale
   function selectProduct(id) { multiSelect = false; selProduct = id; renderGrid(); $('btn-stage').disabled = false; }
   function enableQtyStepper() { $('btn-stage').disabled = false; }
-  function stageItem(id) {
-    const qty = currentQty;
+  function stageItem(id, qtyOverride) {
+    const qty = qtyOverride != null ? qtyOverride : currentQty;
     const ml = qty * (PRODUCT_ML[id] || 0);
     // Merge: if product already staged, add to existing qty
     const existing = staged.find(it => it.id === id);
@@ -1019,8 +1019,9 @@ main {
   // Stage button
   $('btn-stage').addEventListener('click', () => {
     if (multiSelect) {
-      for (let s = 1; s <= ACTIVE; s++) { if (!S.wlvl[s]) stageItem(s); }
-      multiSelect = false;
+      const qty = currentQty;
+      for (let s = 1; s <= ACTIVE; s++) { if (!S.wlvl[s]) stageItem(s, qty); }
+      multiSelect = false; renderGrid();
     } else if (selProduct !== null) {
       stageItem(selProduct);
     }
