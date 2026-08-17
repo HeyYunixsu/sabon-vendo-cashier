@@ -186,12 +186,16 @@ body {
   padding: 4px; text-align: center; align-self: center;
 }
 .staged-card .staged-card-remove:hover { color: var(--status-negative); }
+.sale-controls {
+  display: flex; align-items: center; gap: 10px; flex-shrink: 0;
+}
 .qty-stepper {
   display: flex; align-items: center; gap: 0;
   border: 1px solid var(--border-default); border-radius: 8px; overflow: hidden;
+  height: 44px; flex-shrink: 0;
 }
 .qty-stepper .stepper-btn {
-  width: 38px; height: 40px; border: none;
+  width: 38px; height: 100%; border: none;
   border-radius: 0; background: var(--bg-surface-tertiary);
   color: var(--text-content-primary); cursor: pointer;
   font-size: 18px; font-weight: 700; display: flex; align-items: center;
@@ -201,10 +205,10 @@ body {
 .qty-stepper .stepper-btn:hover { background: var(--accent-action); color: #fff; }
 .qty-stepper .stepper-btn:disabled { opacity: .25; pointer-events: none; }
 .qty-stepper input {
-  width: 48px; background: var(--bg-surface-secondary);
+  width: 48px; height: 100%; background: var(--bg-surface-secondary);
   border: none; border-left: 1px solid var(--border-default);
   border-right: 1px solid var(--border-default);
-  padding: 8px 2px; color: var(--text-content-primary);
+  padding: 0 2px; color: var(--text-content-primary);
   font-family: 'Poppins', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   font-size: 18px; font-weight: 700;
   text-align: center; outline: none;
@@ -213,11 +217,11 @@ body {
 .qty-stepper input::-webkit-outer-spin-button,
 .qty-stepper input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 #sale-strip .btn, #sale-strip .btn-confirm {
-  min-height: 44px; padding: 10px 18px; font-size: 13px; font-weight: 600;
-  border-radius: 8px;
+  height: 44px; padding: 0 18px; font-size: 13px; font-weight: 600;
+  border-radius: 8px; line-height: 1;
 }
-#sale-strip .btn-primary { background: var(--accent-action); color: #fff; border: none; }
-#sale-strip .btn-outline { background: transparent; border: 1px solid var(--border-default); color: var(--text-content-primary); }
+#sale-strip .btn-primary { background: var(--accent-action); color: #fff; border: 1px solid transparent; }
+#sale-strip .btn-outline { background: transparent; border: 1px solid var(--border-default); color: var(--text-content-primary); flex: 0 0 auto; }
 #sale-strip .btn-outline:hover { border-color: var(--accent-action); color: var(--accent-action); }
 #sale-strip .sale-total { font-size: 22px; margin: 0 0 0 8px; white-space: nowrap; min-width: 50px; text-align: right; font-weight: 700; }
 
