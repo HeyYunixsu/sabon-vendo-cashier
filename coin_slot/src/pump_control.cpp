@@ -2,7 +2,7 @@
 // pump_control.cpp — 6-slot independent button+LED dispense state machine
 //
 // All pins fully independent — no shared/multiplexed pins.
-// Buttons: INPUT + PUD_DOWN, digitalRead every loop.
+// Buttons: INPUT + PUD_UP (active-low, button wired GPIO->GND), digitalRead every loop.
 // LEDs:    OUTPUT, digitalWrite every loop.
 // LED7 (Bundle Complete): GPIO26, OUTPUT, driven by state.bundleComplete.
 //
@@ -201,10 +201,10 @@ void pump_setup(AppState &state) {
     init_hardware_config(config);
     wiringPiSetupGpio();
 
-    // Buttons: INPUT + pull-down
+    // Buttons: INPUT + pull-up (active-low: button wired GPIO -> GND)
     for (int i = 1; i <= TOTAL_SLOTS; i++) {
         pinMode(pin_button[i], INPUT);
-        pullUpDnControl(pin_button[i], PUD_DOWN);
+        pullUpDnControl(pin_button[i], PUD_UP);
     }
 
     // Pumps: OUTPUT, off
@@ -238,7 +238,7 @@ void pump_loop(AppState &state) {
     static int   sampleIdx[7]   = {0};
 
     for (int i = 1; i <= TOTAL_SLOTS; i++) {
-        int raw = (digitalRead(pin_button[i]) == HIGH) ? 1 : 0;
+        int raw = (digitalRead(pin_button[i]) == LOW) ? 1 : 0;
         sampleBuf[i][sampleIdx[i]] = raw;
         sampleIdx[i] = (sampleIdx[i] + 1) % 4;
 
