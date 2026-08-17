@@ -350,6 +350,7 @@ main {
 }
 .product-card .armed-qty.is-zero   { color: #3A4050; }
 .product-card .armed-qty.is-armed  { color: var(--status-positive); }
+.product-card .armed-qty.is-selected { color: var(--accent-action); }
 .product-card .armed-qty.is-busy   { color: var(--status-caution); }
 
 .product-card .status-row {
@@ -812,19 +813,20 @@ main {
             empty = S.wlvl[s], sel = multiSelect ? (!empty && act) : (selProduct === s);
       let cls = 'product-card';
       if (!act) cls += ' inactive'; else if (busy) cls += ' busy';
-      else if (empty) cls += ' empty'; else if (armed > 0) cls += ' armed';
+      else if (empty) cls += ' empty'; else if (armed > 0 && !sel) cls += ' armed';
       if (sel) cls += ' selected';
 
       let dotHtml, dotColor;
-      if (!act)      { dotHtml = '<span class="dot dot-neutral"></span> N/A';   dotColor = 'var(--text-content-secondary)'; }
-      else if (busy) { dotHtml = '<span class="dot dot-caution"></span> Busy';  dotColor = 'var(--status-caution)'; }
-      else if (armed){ dotHtml = '<span class="dot dot-positive"></span> Armed';  dotColor = 'var(--status-positive)'; }
-      else if (empty){ dotHtml = '<span class="dot dot-negative"></span> Empty'; dotColor = 'var(--status-negative)'; }
-      else           { dotHtml = '<span class="dot dot-neutral"></span> Idle';   dotColor = 'var(--text-content-secondary)'; }
+      if (!act)      { dotHtml = '<span class="dot dot-neutral"></span> N/A';      dotColor = 'var(--text-content-secondary)'; }
+      else if (busy) { dotHtml = '<span class="dot dot-caution"></span> Busy';     dotColor = 'var(--status-caution)'; }
+      else if (empty){ dotHtml = '<span class="dot dot-negative"></span> Empty';   dotColor = 'var(--status-negative)'; }
+      else if (sel)  { dotHtml = '<span class="dot dot-accent"></span> Selected';  dotColor = 'var(--accent-action)'; }
+      else if (armed){ dotHtml = '<span class="dot dot-positive"></span> Armed';   dotColor = 'var(--status-positive)'; }
+      else           { dotHtml = '<span class="dot dot-neutral"></span> Idle';     dotColor = 'var(--text-content-secondary)'; }
 
       const justArmed = act && !prevArmedQty[s] && armed > 0;
       prevArmedQty[s] = armed;
-      const qCls = !act || armed === 0 ? 'is-zero' : (busy ? 'is-busy' : 'is-armed');
+      const qCls = !act || armed === 0 ? 'is-zero' : (busy ? 'is-busy' : (sel ? 'is-selected' : 'is-armed'));
       const pulseCls = justArmed ? ' pulse-arm' : '';
 
       h += '<div class="'+cls+'" data-slot="'+s+'" data-product="'+s+'">';
