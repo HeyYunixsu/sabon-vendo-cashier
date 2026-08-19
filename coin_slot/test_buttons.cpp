@@ -1,26 +1,23 @@
 // test_buttons.cpp — standalone button tester for Sabon Express coin_slot
 //
-// Reads all 5 buttons (BCM GPIO, active-high: button wired GPIO -> 3V3) and
-// prints live press/release events. Completely independent of the dispense
-// state machine, so it isolates the button + wiring + pull-down from the app.
+// Reads all 5 buttons (BCM GPIO, active-low: button wired GPIO -> GND).
+// The pull-up is set at boot via /boot/firmware/config.txt (gpio=X=ip,pu) —
+// this program does NOT configure the pull (wiringPi's pull-up is unreliable
+// on Debian), so it tests exactly what the firmware sees.
 //
-// Build (on the Pi):
-//   g++ -o test_buttons test_buttons.cpp -lwiringPi
+// Build:  g++ -o test_buttons test_buttons.cpp -lwiringPi
+// Run:    sudo ./test_buttons
 //
-// Run (pull-down config needs root):
-//   sudo ./test_buttons
+// Expected HEALTHY output (after config.txt pull-up + reboot):
+//   - All buttons show "OPEN (1)" when NOT touched.
+//   - Each press shows ">>> PRESSED" and release "<<< RELEASED".
 //
-// Expected HEALTHY output:
-//   - All 5 buttons print "LOW (0)" when NOT touched.
-//   - Each press prints ">>> PRESSED" and each release "<<< RELEASED".
-//
-// If a button prints "HIGH (1)" while NOT pressed, the signal is stuck high:
-//   -> the button is shorting GPIO to 3V3, OR the pull-down is broken.
+// If a button shows "LOW (0)" while NOT pressed, the pull-up is missing:
+//   -> check /boot/firmware/config.txt has gpio=<pin>=ip,pu AND that you rebooted.
 
 #include <wiringPi.h>
 #include <cstdio>
 
-// BCM pin numbers — MUST match coin_slot/src/hardware_config.cpp
 static const int BTN_PINS[5] = {14, 24, 25, 10, 13};   // BTN1 .. BTN5
 static const int NUM_BTNS = 5;
 
@@ -30,41 +27,38 @@ int main() {
         return 1;
     }
 
-    // Same setup as the firmware: INPUT + internal pull-down (active-high).
+    // INPUT only — do NOT call pullUpDnControl; the pull-up comes from config.txt.
     for (int i = 0; i < NUM_BTNS; i++) {
         pinMode(BTN_PINS[i], INPUT);
-        pullUpDnControl(BTN_PINS[i], PUD_DOWN);
     }
 
-    printf("Sabon Express — button test (BCM GPIO, active-high). Ctrl+C to quit.\n\n");
+    printf("Sabon Express — button test (BCM GPIO, active-low). Ctrl+C to quit.\n\n");
 
-    // Initial state dump: the key diagnostic line.
     printf("Initial state (NOT pressing anything):\n");
     int prev[NUM_BTNS];
     for (int i = 0; i < NUM_BTNS; i++) {
         prev[i] = digitalRead(BTN_PINS[i]);
-        const char *label = (prev[i] == HIGH) ? "HIGH (1)  <-- STUCK" : "LOW (0) OK";
+        const char *label = (prev[i] == HIGH) ? "OPEN (1) OK" : "LOW (0)  <-- STUCK (no pull-up?)";
         printf("  BTN%d  GPIO%-2d  %s\n", i + 1, BTN_PINS[i], label);
     }
 
     printf("\n");
-    printf("Healthy = every button shows LOW (0) above.\n");
-    printf("If any shows HIGH (1) while untouched, that button's signal is stuck high.\n\n");
+    printf("Healthy = every button shows OPEN (1).\n");
+    printf("If any shows LOW (0), check config.txt has gpio=<pin>=ip,pu and that you rebooted.\n\n");
     printf("Now press each button and watch for events:\n\n");
 
-    // Edge-detect loop: print only when a button changes state.
     for (;;) {
         for (int i = 0; i < NUM_BTNS; i++) {
             int cur = digitalRead(BTN_PINS[i]);
             if (cur != prev[i]) {
-                if (cur == HIGH)
+                if (cur == LOW)
                     printf("  BTN%d (GPIO%d)  >>> PRESSED\n", i + 1, BTN_PINS[i]);
                 else
                     printf("  BTN%d (GPIO%d)  <<< RELEASED\n", i + 1, BTN_PINS[i]);
                 prev[i] = cur;
             }
         }
-        delay(10);   // 10 ms poll
+        delay(10);
     }
 
     return 0;
