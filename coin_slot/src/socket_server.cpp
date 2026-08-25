@@ -116,8 +116,11 @@ bool start_listening_for_connections()
 
 static std::string build_status_response(AppState &state)
 {
-  // STATUS format (31 fields):
-  //   armedQty1-6, remaining1-6, wlvl1-6, busy1-6, queueDepth1-6, paused
+  // STATUS format (34 comma-separated fields for TOTAL_SLOTS = 6):
+  //   "STATUS", armedQty1-6, remaining1-6, wlvl1-6, busy1-6, queueDepth1-6,
+  //   paused, phase, bundleComplete
+  // Field count is 5 * TOTAL_SLOTS + 4 — keep the dashboard parser
+  // (public/index.html) and status_uploader.py in sync when this changes.
   std::string resp = "STATUS";
   for (int i = 1; i <= TOTAL_SLOTS; i++) {
     resp += "," + std::to_string(state.armedQty[i]);
@@ -334,27 +337,42 @@ void manage_connected_clients(AppState &state)
       }
       else if (isFirstWordTest(client_buffer, "WTRLVL"))
       {
-        if (socket_count_commas(client_buffer) != 4)
+        // "WTRLVL,v1,...,vN" — N is TOTAL_SLOTS (current wiring, one sensor
+        // per slot) or the legacy 4, so an un-upgraded
+        // water_level_monitoring_v2.py keeps working. Slots past N are
+        // treated as "has liquid" so they are never blocked from dispensing.
+        // Any other count is malformed and ignored.
+        const int LEGACY_SENSOR_COUNT = 4;
+        int sensorCount = socket_count_commas(client_buffer);
+        if (sensorCount != TOTAL_SLOTS && sensorCount != LEGACY_SENSOR_COUNT)
         {
-          log_error("socket", std::string("Malformed WTRLVL (expected 4 commas): ") + client_buffer);
+          log_error("socket", std::string("Malformed WTRLVL (expected ")
+              + std::to_string(LEGACY_SENSOR_COUNT) + " or "
+              + std::to_string(TOTAL_SLOTS) + " commas, got "
+              + std::to_string(sensorCount) + "): " + client_buffer);
         }
         else
         {
           std::string input_str(client_buffer);
-          size_t pos[5];
-          pos[0] = input_str.find(',');
-          for (int i = 1; i < 4; ++i) pos[i] = input_str.find(',', pos[i - 1] + 1);
+          size_t start = input_str.find(',') + 1;
+          std::string summary;
 
-          state.WLVL_PRESSED[1] = std::stoi(input_str.substr(pos[0]+1, pos[1]-(pos[0]+1))) == 1;
-          state.WLVL_PRESSED[2] = std::stoi(input_str.substr(pos[1]+1, pos[2]-(pos[1]+1))) == 1;
-          state.WLVL_PRESSED[3] = std::stoi(input_str.substr(pos[2]+1, pos[3]-(pos[2]+1))) == 1;
-          state.WLVL_PRESSED[4] = std::stoi(input_str.substr(pos[3]+1)) == 1;
-          state.WLVL_PRESSED[5] = false;
-          log_info("socket", std::string("Water level:") +
-              " s1=" + (state.WLVL_PRESSED[1]?"E":"ok") +
-              " s2=" + (state.WLVL_PRESSED[2]?"E":"ok") +
-              " s3=" + (state.WLVL_PRESSED[3]?"E":"ok") +
-              " s4=" + (state.WLVL_PRESSED[4]?"E":"ok"));
+          for (int slot = 1; slot <= TOTAL_SLOTS; slot++) {
+            if (slot <= sensorCount) {
+              size_t end = input_str.find(',', start);
+              std::string field = trim(end == std::string::npos
+                  ? input_str.substr(start)
+                  : input_str.substr(start, end - start));
+              state.WLVL_PRESSED[slot] = (field == "1");
+              start = (end == std::string::npos) ? input_str.size() : end + 1;
+            } else {
+              state.WLVL_PRESSED[slot] = false;  // no sensor wired for this slot
+            }
+            summary += " s" + std::to_string(slot) + "="
+                     + (state.WLVL_PRESSED[slot] ? "E" : "ok");
+          }
+
+          log_info("socket", "Water level:" + summary);
           broadcast_status(state);
         }
       }

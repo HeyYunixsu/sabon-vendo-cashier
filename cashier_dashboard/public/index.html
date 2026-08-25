@@ -625,7 +625,7 @@ main {
 <!-- KPI Row -->
 <div class="kpi-row" id="kpi-row">
   <div class="kpi-card"><div class="kpi-label">Total Armed</div><div class="kpi-value" id="kpi-armed">0</div><div class="kpi-sub">units across all slots</div></div>
-  <div class="kpi-card"><div class="kpi-label">In Stock</div><div class="kpi-value" id="kpi-active" style="color:var(--status-positive);">5</div><div class="kpi-sub">of 5 active slots</div></div>
+  <div class="kpi-card"><div class="kpi-label">In Stock</div><div class="kpi-value" id="kpi-active" style="color:var(--status-positive);">6</div><div class="kpi-sub" id="kpi-active-sub">of 6 active slots</div></div>
   <div class="kpi-card"><div class="kpi-label">Phase</div><div class="kpi-value" id="kpi-bundle">IDLE</div><div class="kpi-sub" id="kpi-bundle-sub">waiting for sale</div></div>
   <div class="kpi-card"><div class="kpi-label">Today</div><div class="kpi-value" id="kpi-today">0</div><div class="kpi-sub">dispenses completed</div></div>
 </div>
@@ -695,20 +695,23 @@ main {
     5: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h4v3l2 2v10a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V8l2-2V3z"/><path d="M15 9h1.5a1.5 1.5 0 0 1 1.5 1.5V15a1.5 1.5 0 0 1-1.5 1.5H15"/></svg>',
     6: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h4v3l2 2v10a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V8l2-2V3z"/><path d="M15 9h1.5a1.5 1.5 0 0 1 1.5 1.5V15a1.5 1.5 0 0 1-1.5 1.5H15"/></svg>',
   };
-  const ACTIVE = 5, TOTAL = 6;
+  // ACTIVE must match TOTAL_SLOTS in coin_slot/includes/hardware_config.h.
+  const ACTIVE = 6, TOTAL = 6;
   const MAX_QTY = 10;
+  // STATUS field count: "STATUS" + 5 arrays of ACTIVE + paused/phase/bundle.
+  const STATUS_FIELDS = 5 * ACTIVE + 4;
 
   const S = {
-    armedQty: new Array(7).fill(0), remaining: new Array(7).fill(0),
-    wlvl: new Array(7).fill(false), busy: new Array(7).fill(false),
-    queueDepth: new Array(7).fill(0), paused: false,
+    armedQty: new Array(TOTAL + 1).fill(0), remaining: new Array(TOTAL + 1).fill(0),
+    wlvl: new Array(TOTAL + 1).fill(false), busy: new Array(TOTAL + 1).fill(false),
+    queueDepth: new Array(TOTAL + 1).fill(0), paused: false,
     phase: 0, bundleComplete: false,
     lastUpdate: null, connected: false,
   };
   let selProduct = null, multiSelect = false, staged = [], unclaimed = [], saleCtr = 0, dispenseCount = 0, currentQty = 1;
-  let prevArmed = new Array(7).fill(0);
-  let prevBusy  = new Array(7).fill(false);
-  let prevArmedQty = new Array(7).fill(0); // pulse-on-arm detection
+  let prevArmed = new Array(TOTAL + 1).fill(0);
+  let prevBusy  = new Array(TOTAL + 1).fill(false);
+  let prevArmedQty = new Array(TOTAL + 1).fill(0); // pulse-on-arm detection
   const $ = (id) => document.getElementById(id);
 
   // Toast
@@ -741,13 +744,13 @@ main {
   }
 
   function parse(raw) {
-    const p = raw.split(','); if (p.length < 28) return;
+    const p = raw.split(','); if (p.length < STATUS_FIELDS) return;
     let i = 1;
-    for (let s = 1; s <= 5; s++) S.armedQty[s]   = parseInt(p[i++]) || 0;
-    for (let s = 1; s <= 5; s++) S.remaining[s]  = parseInt(p[i++]) || 0;
-    for (let s = 1; s <= 5; s++) S.wlvl[s]       = p[i++] === '1';
-    for (let s = 1; s <= 5; s++) S.busy[s]        = p[i++] === '1';
-    for (let s = 1; s <= 5; s++) S.queueDepth[s]  = parseInt(p[i++]) || 0;
+    for (let s = 1; s <= ACTIVE; s++) S.armedQty[s]   = parseInt(p[i++]) || 0;
+    for (let s = 1; s <= ACTIVE; s++) S.remaining[s]  = parseInt(p[i++]) || 0;
+    for (let s = 1; s <= ACTIVE; s++) S.wlvl[s]       = p[i++] === '1';
+    for (let s = 1; s <= ACTIVE; s++) S.busy[s]       = p[i++] === '1';
+    for (let s = 1; s <= ACTIVE; s++) S.queueDepth[s] = parseInt(p[i++]) || 0;
     S.paused = p[i++] === '1';
     S.phase = parseInt(p[i++]) || 0;     // 0=IDLE, 1=ARMED, 2=DISPENSING, 3=COMPLETE
     S.bundleComplete = p[i] === '1';
@@ -796,7 +799,9 @@ main {
     for (let s = 1; s <= ACTIVE; s++) { armed += S.armedQty[s]; if (!S.wlvl[s]) inStock++; }
     $('kpi-armed').textContent = armed;
     $('kpi-active').textContent = inStock;
-    $('kpi-active').style.color = inStock === ACTIVE ? 'var(--status-positive)' : (inStock >= 2 ? 'var(--status-caution)' : 'var(--status-negative)');
+    $('kpi-active-sub').textContent = 'of ' + ACTIVE + ' active slots';
+    $('kpi-active').style.color = inStock === ACTIVE ? 'var(--status-positive)'
+      : (inStock >= Math.ceil(ACTIVE / 2) ? 'var(--status-caution)' : 'var(--status-negative)');
     // Phase indicator
     const phases = ['IDLE','ARMED','DISPENSING','COMPLETE'];
     $('kpi-bundle').textContent = phases[S.phase] || 'IDLE';
@@ -1058,6 +1063,7 @@ main {
     if (!S.lastUpdate) {
       S.armedQty[1] = 2; S.armedQty[2] = 1; S.busy[3] = true;
       S.wlvl[4] = true; S.queueDepth[2] = 1;
+      S.armedQty[6] = 3; S.busy[6] = true;   // slot 6 live — no longer inactive
       S.lastUpdate = new Date(); refresh();
     }
   }, 4000);

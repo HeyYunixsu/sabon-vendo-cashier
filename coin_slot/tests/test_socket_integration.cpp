@@ -8,8 +8,9 @@
 // verifies both the AppState mutations and the STATUS response payload.
 //
 // Protocol messages:
-//   - Client sends:  "ARM,<productId>,<qty>" / "WTRLVL,0,0,0,0" / "Client ACK"
-//   - Server sends:  "STATUS,<armedQty1-4>,<t1-4>,<wl1-4>,<busy1-4>,<qDepth1-4>,<pause>"
+//   - Client sends:  "ARM,<productId>,<qty>" / "WTRLVL,0,0,0,0,0,0" / "Client ACK"
+//   - Server sends:  "STATUS,<armedQty>,<t>,<wl>,<busy>,<qDepth>  (TOTAL_SLOTS
+//                     values each), <pause>,<phase>,<bundleComplete>"
 //
 // Protocol: plain TCP SOCK_STREAM on 127.0.0.1:9901 (test port, not 8080)
 
@@ -182,10 +183,11 @@ void test_integration_unknown_command_returns_status()
     CLOSE_CLIENT(sock);
 }
 
-void test_integration_status_has_18_fields()
+void test_integration_status_field_count()
 {
-    // STATUS,<armedQty1-4>,<t1-4>,<wl1-4>,<busy1-4>,<qDepth1-4>,<pause>
-    // 18 fields = 17 commas
+    // STATUS + five per-slot arrays of TOTAL_SLOTS + paused + phase + bundle.
+    // Derived from TOTAL_SLOTS so adding a slot cannot leave this stale.
+    const int expectedFields = 5 * TOTAL_SLOTS + 4;
     ClientSock sock = connect_test_client();
     CHECK(sock != INVALID_CLIENT_SOCK);
     if (sock == INVALID_CLIENT_SOCK) return;
@@ -195,7 +197,8 @@ void test_integration_status_has_18_fields()
     std::string body = resp.substr(7);  // skip "STATUS,"
     int commas = 0;
     for (char c : body) if (c == ',') commas++;
-    CHECK_EQ(commas, 16);  // 17 commas total (including the one after STATUS)
+    // body holds expectedFields - 1 values, so expectedFields - 2 separators
+    CHECK_EQ(commas, expectedFields - 2);
 
     CLOSE_CLIENT(sock);
 }
@@ -204,7 +207,7 @@ void test_integration_status_has_18_fields()
 
 void test_integration_arm_increases_armedQty()
 {
-    for (int i = 1; i <= 4; i++) g_test_state.armedQty[i] = 0;
+    for (int i = 1; i <= TOTAL_SLOTS; i++) g_test_state.armedQty[i] = 0;
     ClientSock sock = connect_test_client();
     CHECK(sock != INVALID_CLIENT_SOCK);
     if (sock == INVALID_CLIENT_SOCK) return;
@@ -219,7 +222,7 @@ void test_integration_arm_increases_armedQty()
 
 void test_integration_arm_accumulates_for_same_slot()
 {
-    for (int i = 1; i <= 4; i++) g_test_state.armedQty[i] = 0;
+    for (int i = 1; i <= TOTAL_SLOTS; i++) g_test_state.armedQty[i] = 0;
     ClientSock sock = connect_test_client();
     CHECK(sock != INVALID_CLIENT_SOCK);
     if (sock == INVALID_CLIENT_SOCK) return;
@@ -235,7 +238,7 @@ void test_integration_arm_accumulates_for_same_slot()
 
 void test_integration_arm_different_slots_independent()
 {
-    for (int i = 1; i <= 4; i++) g_test_state.armedQty[i] = 0;
+    for (int i = 1; i <= TOTAL_SLOTS; i++) g_test_state.armedQty[i] = 0;
     ClientSock sock = connect_test_client();
     CHECK(sock != INVALID_CLIENT_SOCK);
     if (sock == INVALID_CLIENT_SOCK) return;
@@ -252,7 +255,7 @@ void test_integration_arm_different_slots_independent()
 
 void test_integration_arm_reflected_in_status()
 {
-    for (int i = 1; i <= 4; i++) g_test_state.armedQty[i] = 0;
+    for (int i = 1; i <= TOTAL_SLOTS; i++) g_test_state.armedQty[i] = 0;
     ClientSock sock = connect_test_client();
     CHECK(sock != INVALID_CLIENT_SOCK);
     if (sock == INVALID_CLIENT_SOCK) return;
@@ -265,13 +268,13 @@ void test_integration_arm_reflected_in_status()
     // First field after "STATUS," should be "7"
     CHECK(resp.find("STATUS,7,") == 0);
 
-    for (int i = 1; i <= 4; i++) g_test_state.armedQty[i] = 0;
+    for (int i = 1; i <= TOTAL_SLOTS; i++) g_test_state.armedQty[i] = 0;
     CLOSE_CLIENT(sock);
 }
 
 void test_integration_malformed_arm_is_ignored()
 {
-    for (int i = 1; i <= 4; i++) g_test_state.armedQty[i] = 0;
+    for (int i = 1; i <= TOTAL_SLOTS; i++) g_test_state.armedQty[i] = 0;
     ClientSock sock = connect_test_client();
     CHECK(sock != INVALID_CLIENT_SOCK);
     if (sock == INVALID_CLIENT_SOCK) return;
@@ -286,23 +289,23 @@ void test_integration_malformed_arm_is_ignored()
 
 void test_integration_arm_invalid_product_rejected()
 {
-    for (int i = 1; i <= 4; i++) g_test_state.armedQty[i] = 0;
+    for (int i = 1; i <= TOTAL_SLOTS; i++) g_test_state.armedQty[i] = 0;
     ClientSock sock = connect_test_client();
     CHECK(sock != INVALID_CLIENT_SOCK);
     if (sock == INVALID_CLIENT_SOCK) return;
 
-    // Product ID 7 is out of range (valid: 1-4)
+    // Product ID 7 is out of range (valid: 1..TOTAL_SLOTS)
     send(sock, "ARM,7,1", 7, 0);
     yield_to_server();
 
-    for (int i = 1; i <= 4; i++)
+    for (int i = 1; i <= TOTAL_SLOTS; i++)
         CHECK_EQ((int)g_test_state.armedQty[i], 0);
     CLOSE_CLIENT(sock);
 }
 
 void test_integration_arm_zero_qty_rejected()
 {
-    for (int i = 1; i <= 4; i++) g_test_state.armedQty[i] = 0;
+    for (int i = 1; i <= TOTAL_SLOTS; i++) g_test_state.armedQty[i] = 0;
     ClientSock sock = connect_test_client();
     CHECK(sock != INVALID_CLIENT_SOCK);
     if (sock == INVALID_CLIENT_SOCK) return;
@@ -316,7 +319,7 @@ void test_integration_arm_zero_qty_rejected()
 
 void test_integration_arm_queues_when_slot_busy()
 {
-    for (int i = 1; i <= 4; i++) {
+    for (int i = 1; i <= TOTAL_SLOTS; i++) {
         g_test_state.armedQty[i] = 0;
         while (!g_test_state.pendingQueue[i].empty())
             g_test_state.pendingQueue[i].pop();
@@ -344,7 +347,8 @@ void test_integration_arm_queues_when_slot_busy()
 
 void test_integration_wtrlvl_sets_flags()
 {
-    for (int i = 1; i <= 4; i++) g_test_state.WLVL_PRESSED[i] = false;
+    // Legacy 4-value form: slots 5..TOTAL_SLOTS must fall back to "has liquid".
+    for (int i = 1; i <= TOTAL_SLOTS; i++) g_test_state.WLVL_PRESSED[i] = false;
     ClientSock sock = connect_test_client();
     CHECK(sock != INVALID_CLIENT_SOCK);
     if (sock == INVALID_CLIENT_SOCK) return;
@@ -357,14 +361,35 @@ void test_integration_wtrlvl_sets_flags()
     CHECK( g_test_state.WLVL_PRESSED[2]);
     CHECK(!g_test_state.WLVL_PRESSED[3]);
     CHECK( g_test_state.WLVL_PRESSED[4]);
+    for (int i = 5; i <= TOTAL_SLOTS; i++) CHECK(!g_test_state.WLVL_PRESSED[i]);
 
-    for (int i = 1; i <= 4; i++) g_test_state.WLVL_PRESSED[i] = false;
+    for (int i = 1; i <= TOTAL_SLOTS; i++) g_test_state.WLVL_PRESSED[i] = false;
+    CLOSE_CLIENT(sock);
+}
+
+void test_integration_wtrlvl_six_sensors()
+{
+    // Full per-slot form: every slot including 5 and 6 is driven by a sensor.
+    for (int i = 1; i <= TOTAL_SLOTS; i++) g_test_state.WLVL_PRESSED[i] = false;
+    ClientSock sock = connect_test_client();
+    CHECK(sock != INVALID_CLIENT_SOCK);
+    if (sock == INVALID_CLIENT_SOCK) return;
+
+    std::string msg = "WTRLVL,0,0,0,0,1,1";
+    send(sock, msg.c_str(), (int)msg.length(), 0);
+    yield_to_server();
+
+    for (int i = 1; i <= 4; i++) CHECK(!g_test_state.WLVL_PRESSED[i]);
+    CHECK(g_test_state.WLVL_PRESSED[5]);
+    CHECK(g_test_state.WLVL_PRESSED[6]);
+
+    for (int i = 1; i <= TOTAL_SLOTS; i++) g_test_state.WLVL_PRESSED[i] = false;
     CLOSE_CLIENT(sock);
 }
 
 void test_integration_wtrlvl_all_clear()
 {
-    for (int i = 1; i <= 4; i++) g_test_state.WLVL_PRESSED[i] = true;
+    for (int i = 1; i <= TOTAL_SLOTS; i++) g_test_state.WLVL_PRESSED[i] = true;
     ClientSock sock = connect_test_client();
     CHECK(sock != INVALID_CLIENT_SOCK);
     if (sock == INVALID_CLIENT_SOCK) return;
@@ -373,22 +398,22 @@ void test_integration_wtrlvl_all_clear()
     send(sock, msg.c_str(), (int)msg.length(), 0);
     yield_to_server();
 
-    for (int i = 1; i <= 4; i++) CHECK(!g_test_state.WLVL_PRESSED[i]);
+    for (int i = 1; i <= TOTAL_SLOTS; i++) CHECK(!g_test_state.WLVL_PRESSED[i]);
     CLOSE_CLIENT(sock);
 }
 
 void test_integration_malformed_wtrlvl_is_ignored()
 {
-    for (int i = 1; i <= 4; i++) g_test_state.WLVL_PRESSED[i] = false;
+    for (int i = 1; i <= TOTAL_SLOTS; i++) g_test_state.WLVL_PRESSED[i] = false;
     ClientSock sock = connect_test_client();
     CHECK(sock != INVALID_CLIENT_SOCK);
     if (sock == INVALID_CLIENT_SOCK) return;
 
-    std::string msg = "WTRLVL,0,1";
+    std::string msg = "WTRLVL,0,1";   // neither 4 nor TOTAL_SLOTS values
     send(sock, msg.c_str(), (int)msg.length(), 0);
     yield_to_server();
 
-    for (int i = 1; i <= 4; i++) CHECK(!g_test_state.WLVL_PRESSED[i]);
+    for (int i = 1; i <= TOTAL_SLOTS; i++) CHECK(!g_test_state.WLVL_PRESSED[i]);
     CLOSE_CLIENT(sock);
 }
 
@@ -396,7 +421,7 @@ void test_integration_malformed_wtrlvl_is_ignored()
 
 void test_integration_two_clients_independent()
 {
-    for (int i = 1; i <= 4; i++) g_test_state.armedQty[i] = 0;
+    for (int i = 1; i <= TOTAL_SLOTS; i++) g_test_state.armedQty[i] = 0;
     ClientSock c1 = connect_test_client();
     ClientSock c2 = connect_test_client();
     CHECK(c1 != INVALID_CLIENT_SOCK);
@@ -419,7 +444,7 @@ void test_integration_two_clients_independent()
     std::string resp = send_and_recv(c2, "STATUS");
     CHECK(resp.find("STATUS,5,") == 0);
 
-    for (int i = 1; i <= 4; i++) g_test_state.armedQty[i] = 0;
+    for (int i = 1; i <= TOTAL_SLOTS; i++) g_test_state.armedQty[i] = 0;
     CLOSE_CLIENT(c1);
     CLOSE_CLIENT(c2);
 }
@@ -450,7 +475,7 @@ void run_socket_integration_tests()
     RUN_TEST(test_integration_client_can_connect);
     RUN_TEST(test_integration_server_pushes_status_on_connect);
     RUN_TEST(test_integration_unknown_command_returns_status);
-    RUN_TEST(test_integration_status_has_18_fields);
+    RUN_TEST(test_integration_status_field_count);
     RUN_TEST(test_integration_arm_increases_armedQty);
     RUN_TEST(test_integration_arm_accumulates_for_same_slot);
     RUN_TEST(test_integration_arm_different_slots_independent);
@@ -460,6 +485,7 @@ void run_socket_integration_tests()
     RUN_TEST(test_integration_arm_zero_qty_rejected);
     RUN_TEST(test_integration_arm_queues_when_slot_busy);
     RUN_TEST(test_integration_wtrlvl_sets_flags);
+    RUN_TEST(test_integration_wtrlvl_six_sensors);
     RUN_TEST(test_integration_wtrlvl_all_clear);
     RUN_TEST(test_integration_malformed_wtrlvl_is_ignored);
     RUN_TEST(test_integration_two_clients_independent);

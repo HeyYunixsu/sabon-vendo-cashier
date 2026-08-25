@@ -1,6 +1,6 @@
 // test_buttons.cpp — standalone button tester for Sabon Express coin_slot
 //
-// Reads all 5 buttons (BCM GPIO, active-low: button wired GPIO -> GND).
+// Reads all 6 buttons (BCM GPIO, active-low: button wired GPIO -> GND).
 // The pull-up is set at boot via /boot/firmware/config.txt (gpio=X=ip,pu) —
 // this program does NOT configure the pull (wiringPi's pull-up is unreliable
 // on Debian), so it tests exactly what the firmware sees.
@@ -18,8 +18,8 @@
 #include <wiringPi.h>
 #include <cstdio>
 
-static const int BTN_PINS[5] = {14, 24, 25, 10, 13};   // BTN1 .. BTN5
-static const int NUM_BTNS = 5;
+static const int BTN_PINS[6] = {14, 24, 25, 10, 13, 23};   // BTN1 .. BTN6
+static const int NUM_BTNS = 6;
 
 int main() {
     if (wiringPiSetupGpio() == -1) {

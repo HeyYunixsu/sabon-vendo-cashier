@@ -5,7 +5,7 @@
 // Phase 9 — Per-slot armed state and pending queues (was: voucherQueue/maxCoinCredit)
 //
 // Changes tested here:
-//   1. AppState.armedQty[1..4] starts at 0 for every slot
+//   1. AppState.armedQty[1..TOTAL_SLOTS] starts at 0 for every slot
 //   2. AppState.pendingQueue[1..4] starts empty for every slot
 //   3. AppState.slotBusy[1..4] defaults to false
 //   4. PendingArm struct construction and field access
@@ -17,7 +17,7 @@
 void test_appstate_armedQty_defaults_zero()
 {
     AppState s;
-    for (int i = 1; i <= 4; i++)
+    for (int i = 1; i <= TOTAL_SLOTS; i++)
         CHECK_EQ(s.armedQty[i], 0);
 }
 
@@ -42,7 +42,7 @@ void test_appstate_armedQty_decrement()
 void test_appstate_pendingQueue_starts_empty()
 {
     AppState s;
-    for (int i = 1; i <= 4; i++)
+    for (int i = 1; i <= TOTAL_SLOTS; i++)
         CHECK(s.pendingQueue[i].empty());
 }
 
@@ -94,7 +94,7 @@ void test_pendingArm_value_construction()
 void test_appstate_slotBusy_defaults_false()
 {
     AppState s;
-    for (int i = 1; i <= 4; i++)
+    for (int i = 1; i <= TOTAL_SLOTS; i++)
         CHECK(!s.slotBusy[i]);
 }
 

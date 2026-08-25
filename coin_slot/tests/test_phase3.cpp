@@ -12,7 +12,7 @@
 void test_appstate_armedQty_default_zero()
 {
     AppState s;
-    for (int i = 1; i <= 4; i++)
+    for (int i = 1; i <= TOTAL_SLOTS; i++)
         CHECK_EQ(s.armedQty[i], 0);
 }
 
@@ -31,14 +31,14 @@ void test_appstate_vendorId_default_empty()
 void test_appstate_remaining_time_all_zero()
 {
     AppState s;
-    for (int i = 1; i <= 4; i++)
+    for (int i = 1; i <= TOTAL_SLOTS; i++)
         CHECK_EQ(s.remaining_time[i], 0LL);
 }
 
 void test_appstate_WLVL_PRESSED_all_false()
 {
     AppState s;
-    for (int i = 1; i <= 4; i++)
+    for (int i = 1; i <= TOTAL_SLOTS; i++)
         CHECK(!s.WLVL_PRESSED[i]);
 }
 
@@ -51,14 +51,14 @@ void test_appstate_state_pause_default_false()
 void test_appstate_slotBusy_default_false()
 {
     AppState s;
-    for (int i = 1; i <= 4; i++)
+    for (int i = 1; i <= TOTAL_SLOTS; i++)
         CHECK(!s.slotBusy[i]);
 }
 
 void test_appstate_pendingQueue_default_empty()
 {
     AppState s;
-    for (int i = 1; i <= 4; i++)
+    for (int i = 1; i <= TOTAL_SLOTS; i++)
         CHECK(s.pendingQueue[i].empty());
 }
 

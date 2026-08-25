@@ -38,23 +38,45 @@ logging.basicConfig(
     ]
 )
 
-water_level_data = ["-1", "-1", "-1", "-1"]
+# Must match TOTAL_SLOTS in coin_slot/includes/hardware_config.h.
+TOTAL_SLOTS = 6
+
+# STATUS layout (see build_status_response in coin_slot/src/socket_server.cpp):
+#   [0]="STATUS", then armedQty, remaining, wlvl, busy, queueDepth
+#   (TOTAL_SLOTS values each), then paused, phase, bundleComplete.
+WLVL_START = 1 + 2 * TOTAL_SLOTS          # first water-level field index
+WLVL_END = WLVL_START + TOTAL_SLOTS       # one past the last
+STATUS_FIELD_COUNT = 5 * TOTAL_SLOTS + 4  # total fields in a well-formed line
+
+water_level_data = ["-1"] * TOTAL_SLOTS
 
 def preprocess_data(sensor_reading_string):
-    if "STATUS:" not in sensor_reading_string:
+    # coin_slot sends "STATUS,<fields...>" — index by position rather than by
+    # a negative slice, so adding fields to the tail cannot silently shift
+    # which values get read as water levels.
+    if not sensor_reading_string.startswith("STATUS,"):
         return None, False
     global water_level_data
     print(sensor_reading_string)
 
+    parts = sensor_reading_string.split(',')
+    if len(parts) < STATUS_FIELD_COUNT:
+        logging.warning(
+            f"  [API Sender] Short STATUS line "
+            f"({len(parts)} fields, expected {STATUS_FIELD_COUNT}) - ignoring."
+        )
+        return None, False
+
     current_datetime = datetime.datetime.now()
-    buffer_water_level_data = sensor_reading_string.split(',')[-5:-1]
-    # print("buffer:", '')
-    # print(buffer_water_level_data)
-    hasChange = sum([ 1 for i in range(4) if buffer_water_level_data[i] != water_level_data[i]]) > 0
-    # print("has Change")
+    buffer_water_level_data = [f.strip() for f in parts[WLVL_START:WLVL_END]]
+
+    hasChange = any(
+        buffer_water_level_data[i] != water_level_data[i]
+        for i in range(TOTAL_SLOTS)
+    )
     if hasChange:
         data = []
-        for i in range(4):
+        for i in range(TOTAL_SLOTS):
             water_level_data[i] = buffer_water_level_data[i]
             data.append({
                 "machineId":machineId,
@@ -74,14 +96,20 @@ def send_data_to_api(sensor_reading_string):
     """
     # logging.info(f"[API Sender] Simulating API call with data: '{sensor_reading_string}'")
     try:
-        api_payload, isValid = preprocess_data(sensor_reading_string)
-        # print(api_payload)
-        if isValid:
-            if api_payload:
-                logging.info(f"  [API Sender] Data prepared for API:\n{json.dumps(api_payload, indent=2)}")
-                send_machine_status_api(BASE_URL, api_payload)
-            else:
-                logging.warning(f"  [API Sender] Could not parse sensor data string. Sending raw data.")
+        # A single recv() can carry several STATUS lines, or none - handle
+        # each line on its own so a batched read is not silently dropped.
+        for line in sensor_reading_string.splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            api_payload, isValid = preprocess_data(line)
+            # print(api_payload)
+            if isValid:
+                if api_payload:
+                    logging.info(f"  [API Sender] Data prepared for API:\n{json.dumps(api_payload, indent=2)}")
+                    send_machine_status_api(BASE_URL, api_payload)
+                else:
+                    logging.warning(f"  [API Sender] Could not parse sensor data string. Sending raw data.")
     except Exception as e:
         logging.error(f"  [API Sender ERROR] An unexpected error occurred during API sending simulation: {e}")
 

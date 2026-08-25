@@ -20,14 +20,14 @@ enum class TxnPhase {
 };
 
 struct AppState {
-    // Per-slot armed quantity (indices 1-4)
-    volatile int armedQty[7] = {0};
+    // Per-slot armed quantity (indices 1..TOTAL_SLOTS)
+    volatile int armedQty[TOTAL_SLOTS + 1] = {0};
 
     // Per-slot busy flag — true while a slot is mid-dispense
-    bool slotBusy[7] = {false};
+    bool slotBusy[TOTAL_SLOTS + 1] = {false};
 
     // Per-slot pending queue — ARM requests waiting while slot is busy
-    std::queue<PendingArm> pendingQueue[7];
+    std::queue<PendingArm> pendingQueue[TOTAL_SLOTS + 1];
 
     // Transaction-level phase
     TxnPhase phase = TxnPhase::IDLE;
@@ -42,8 +42,8 @@ struct AppState {
     int serverPort = 8080;
     std::string transactionDir = "../transaction";
 
-    long long remaining_time[7] = {0};  // index 1-6
-    bool WLVL_PRESSED[7] = {false};     // index 1-6
+    long long remaining_time[TOTAL_SLOTS + 1] = {0};  // index 1-6
+    bool WLVL_PRESSED[TOTAL_SLOTS + 1] = {false};     // index 1-6
     bool state_pause = false;
 
     // Returns true if any slot is armed (armedQty > 0 or busy)

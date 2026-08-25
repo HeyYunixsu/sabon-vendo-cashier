@@ -49,9 +49,12 @@ button has two separate groups of terminals:
 | 3    | 25 | 4  | 6  |
 | 4    | 10 | 22 | 17 |
 | 5    | 13 | 19 | 18 |
+| 6    | 23 | 7  | 12 |
 
 - `PUMP_TRIGGER_HIGH = 0`, `PUMP_TRIGGER_LOW = 1` (pumps are **active-low relays**).
-- `TOTAL_SLOTS = 5`.
+- `TOTAL_SLOTS = 6`.
+- ⚠️ **BTN6 = GPIO 23 needs `gpio=23=ip,pu` in `/boot/firmware/config.txt` + reboot**,
+  same as the other five. Without it the input floats and fires false presses.
 - ⚠️ **BTN1 = GPIO 14 is UART0 TXD** (GPIO 15 = RXD). May conflict if serial console is enabled.
 
 ---

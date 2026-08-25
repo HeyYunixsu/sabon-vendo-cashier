@@ -28,7 +28,7 @@ void test_product4_id_is_4() { CHECK_EQ(productMap[4].id, 4); }
 
 void test_all_products_cost_5_coins()
 {
-    for (int i = 1; i <= 4; i++)
+    for (int i = 1; i <= TOTAL_SLOTS; i++)
         CHECK_EQ(productMap[i].coins, 5);
 }
 
@@ -93,7 +93,7 @@ void test_product4_ms_extension_is_2000()
 
 void test_product_id_matches_map_key()
 {
-    for (int i = 1; i <= 4; i++)
+    for (int i = 1; i <= TOTAL_SLOTS; i++)
         CHECK_EQ(productMap[i].id, i);
 }
 

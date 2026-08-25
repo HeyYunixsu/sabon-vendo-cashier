@@ -67,21 +67,21 @@ void test_transaction_module_links()
 void test_armedQty_defaults_to_zero()
 {
     AppState s;
-    for (int i = 1; i <= 4; i++)
+    for (int i = 1; i <= TOTAL_SLOTS; i++)
         CHECK_EQ(s.armedQty[i], 0);
 }
 
 void test_pendingQueue_starts_empty()
 {
     AppState s;
-    for (int i = 1; i <= 4; i++)
+    for (int i = 1; i <= TOTAL_SLOTS; i++)
         CHECK(s.pendingQueue[i].empty());
 }
 
 void test_slotBusy_defaults_false()
 {
     AppState s;
-    for (int i = 1; i <= 4; i++)
+    for (int i = 1; i <= TOTAL_SLOTS; i++)
         CHECK(!s.slotBusy[i]);
 }
 

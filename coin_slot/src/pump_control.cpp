@@ -49,7 +49,7 @@ struct PumpState {
 };
 
 static std::mutex     g_pump_mutex;
-static PumpState      pumps[7];          // index 1-6
+static PumpState      pumps[TOTAL_SLOTS + 1];   // index 1..TOTAL_SLOTS
 static AppState      *g_state_ptr = nullptr;
 static int            g_pump_start_cooldown_ms = 200;
 static std::chrono::time_point<std::chrono::steady_clock> g_last_pump_start =
@@ -191,14 +191,18 @@ void pump_setup(AppState &state) {
     else state.transactionDir = binDir + "/../transaction";
     if (config.count("PUMP_START_COOLDOWN_MS")) g_pump_start_cooldown_ms = std::stoi(config["PUMP_START_COOLDOWN_MS"]);
 
+    // Apply config.env pin/calibration overrides BEFORE logging the map,
+    // otherwise the startup log reports compiled-in defaults, not real pins.
+    init_hardware_config(config);
+
     log_info("pump", "6-Slot Independent Logic v4.0");
     for (int i = 1; i <= TOTAL_SLOTS; i++) {
         log_info("pump", "Slot " + std::to_string(i)
             + ": BTN=" + std::to_string(pin_button[i])
             + " PUMP=" + std::to_string(pin_pump[i])
-            + " LED=" + std::to_string(pin_led[i]));
+            + " LED=" + std::to_string(pin_led[i])
+            + " RUN_MS=" + std::to_string((int)(productMap[i].durationSeconds * 1000)));
     }
-    init_hardware_config(config);
     wiringPiSetupGpio();
 
     // Buttons: INPUT only — active-low (button wired GPIO -> GND).
@@ -235,8 +239,8 @@ void pump_loop(AppState &state) {
     //    GPIO conflict (BTN2/LED5 both on GPIO24) was the root cause of
     //    false triggers, not rail sag. Conflict fixed (LED5 → GPIO26).
     //    4 samples is sufficient with 5ms LED stagger.
-    static int   sampleBuf[7][4] = {{0}};
-    static int   sampleIdx[7]   = {0};
+    static int   sampleBuf[TOTAL_SLOTS + 1][4] = {{0}};
+    static int   sampleIdx[TOTAL_SLOTS + 1]   = {0};
 
     for (int i = 1; i <= TOTAL_SLOTS; i++) {
         int raw = (digitalRead(pin_button[i]) == LOW) ? 1 : 0;
@@ -266,7 +270,7 @@ void pump_loop(AppState &state) {
     }
 
     // 1b. Track ARM timestamps + first-press flag
-    static int prevArmedQty[7] = {0};
+    static int prevArmedQty[TOTAL_SLOTS + 1] = {0};
     for (int i = 1; i <= TOTAL_SLOTS; i++) {
         if (state.armedQty[i] > prevArmedQty[i]) {
             pumps[i].armTimestamp = current_time;

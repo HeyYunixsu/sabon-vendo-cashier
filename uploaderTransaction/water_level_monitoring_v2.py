@@ -11,14 +11,17 @@ env_path = current_dir / ".." / "CONFIG" / "config.env"
 load_dotenv(dotenv_path=env_path)
 
 # --- RPi GPIO Configuration (BCM Numbering) ---
-# Pins are loaded from CONFIG/config.env (WATER_GPIO_PIN_1 .. _4).
-GPIO_PIN_1 = int(os.getenv("WATER_GPIO_PIN_1", 26))
-GPIO_PIN_2 = int(os.getenv("WATER_GPIO_PIN_2", 20))
-GPIO_PIN_3 = int(os.getenv("WATER_GPIO_PIN_3", 21))
-GPIO_PIN_4 = int(os.getenv("WATER_GPIO_PIN_4", 11))
+# Pins are loaded from CONFIG/config.env (WATER_GPIO_PIN_1 .. _6), one per
+# dispenser slot. TOTAL_SLOTS must match TOTAL_SLOTS in
+# coin_slot/includes/hardware_config.h.
+TOTAL_SLOTS = 6
+DEFAULT_WATER_PINS = [26, 20, 21, 11, 8, 9]
 
-# List of GPIO pins to read
-INPUT_PINS = [GPIO_PIN_1, GPIO_PIN_2, GPIO_PIN_3, GPIO_PIN_4]
+# List of GPIO pins to read, index 0 = slot 1
+INPUT_PINS = [
+    int(os.getenv(f"WATER_GPIO_PIN_{i + 1}", DEFAULT_WATER_PINS[i]))
+    for i in range(TOTAL_SLOTS)
+]
 
 # --- Socket Communication Configuration ---
 SOCKET_SERVER_HOST = os.getenv("SOCKET_IP", "127.0.0.1")
@@ -45,26 +48,22 @@ except Exception as e:
 
 # --- Removed I2C Functions: send_command and I2C initialization code ---
 
-def read_gpio_states(): 
+def read_gpio_states():
     """
-    Reads the state of the four configured RPi GPIO input pins.
+    Reads the state of every configured RPi GPIO input pin.
 
     Returns:
-        tuple: A tuple of 4 integer values (0 or 1) representing the pin states.
+        list: TOTAL_SLOTS integer values (0 or 1) representing the pin states,
+              index 0 = slot 1.
     """
     try:
-        # GPIO.input() returns GPIO.HIGH (1) or GPIO.LOW (0)
-        gpio1_state = GPIO.input(GPIO_PIN_1)
-        gpio2_state = GPIO.input(GPIO_PIN_2)
-        gpio3_state = GPIO.input(GPIO_PIN_3)
-        gpio4_state = GPIO.input(GPIO_PIN_4)
-
-        # The states are already 0 or 1, which is perfect for the data format.
-        return gpio1_state, gpio2_state, gpio3_state, gpio4_state
+        # GPIO.input() returns GPIO.HIGH (1) or GPIO.LOW (0),
+        # which is already the 0/1 the wire format needs.
+        return [GPIO.input(pin) for pin in INPUT_PINS]
 
     except Exception as e:
         print(f"An error occurred while reading RPi GPIO data: {e}", file=sys.stderr)
-        return 0, 0, 0, 0 # Return default values on error
+        return [0] * TOTAL_SLOTS # Return default values on error
 
 
 def connect_to_socket_server():
@@ -154,11 +153,9 @@ if __name__ == "__main__":
             # Read and parse GPIO states from RPi
             gpio_states = read_gpio_states()
 
-            # Format the data into a string to send over the socket
-            # Example format: "WTRLVL,1,0,1,0\n"
-            data_to_send = (
-                f"WTRLVL,{gpio_states[0]},{gpio_states[1]},{gpio_states[2]},{gpio_states[3]}\n"
-            )
+            # Format the data into a string to send over the socket.
+            # Example format (6 slots): "WTRLVL,1,0,1,0,0,1\n"
+            data_to_send = "WTRLVL," + ",".join(str(v) for v in gpio_states) + "\n"
             
             # Send the processed data to the socket server
             send_data_to_socket(data_to_send)

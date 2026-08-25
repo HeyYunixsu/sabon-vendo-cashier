@@ -32,7 +32,7 @@ void test_durationSeconds_field_accessible()
 void test_durationSeconds_drives_correct_ms()
 {
     // processTimer casts durationSeconds * 1000 to int for chrono::milliseconds
-    for (int i = 1; i <= 4; i++)
+    for (int i = 1; i <= TOTAL_SLOTS; i++)
     {
         int ms = (int)(productMap[i].durationSeconds * 1000);
         CHECK(ms > 0);
