@@ -14,6 +14,8 @@ int LED1 =  5, LED2 = 27, LED3 =  4, LED4 = 22, LED5 = 19, LED6 =  7;
 int PUMP_TRIGGER_HIGH = 0;
 int PUMP_TRIGGER_LOW  = 1;
 
+int WATER_SENSOR_EMPTY_HIGH = 1;
+
 std::map<int, int> pin_pump {
     {1, PUMP1}, {2, PUMP2}, {3, PUMP3}, {4, PUMP4}, {5, PUMP5}, {6, PUMP6}
 };
@@ -58,6 +60,7 @@ void init_hardware_config(const std::map<std::string, std::string> &config)
     load_int("LED4", LED4); load_int("LED5", LED5); load_int("LED6", LED6);
     load_int("PUMP_TRIGGER_HIGH", PUMP_TRIGGER_HIGH);
     load_int("PUMP_TRIGGER_LOW",  PUMP_TRIGGER_LOW);
+    load_int("WATER_SENSOR_EMPTY_HIGH", WATER_SENSOR_EMPTY_HIGH);
 
     pin_pump   = {{1, PUMP1}, {2, PUMP2}, {3, PUMP3}, {4, PUMP4}, {5, PUMP5}, {6, PUMP6}};
     pin_led    = {{1, LED1},  {2, LED2},  {3, LED3},  {4, LED4},  {5, LED5},  {6, LED6}};

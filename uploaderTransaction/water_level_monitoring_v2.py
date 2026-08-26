@@ -35,10 +35,20 @@ try:
     # Set the GPIO mode to BCM (Broadcom chip-specific pin numbers)
     GPIO.setmode(GPIO.BCM)
     
-    # Configure each pin as an input.
-    # We do NOT use pull_up_down=GPIO.PUD_UP/DOWN since you have external resistors.
+    # Configure each pin as an input with an internal pull-up.
+    #
+    # Every sensor is wired GPIO -> GND, so the pin needs to be pulled high
+    # to have a defined level while the float switch is open. Slots 1-4 also
+    # have a pull-up resistor on the custom board; the internal one simply
+    # parallels it and is harmless. Slots 5-6 have no board resistor and rely
+    # on this entirely.
+    #
+    # PUD_UP must be set here rather than via gpio=N=ip,pu in
+    # /boot/firmware/config.txt: RPi.GPIO defaults to PUD_OFF and actively
+    # writes it, so GPIO.setup() would undo the boot-time pull a moment after
+    # startup and leave the pin floating.
     for pin in INPUT_PINS:
-        GPIO.setup(pin, GPIO.IN)
+        GPIO.setup(pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
         print(f"Successfully configured BCM pin {pin} as input.")
 
 except Exception as e:

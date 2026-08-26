@@ -387,6 +387,36 @@ void test_integration_wtrlvl_six_sensors()
     CLOSE_CLIENT(sock);
 }
 
+void test_integration_wtrlvl_respects_inverted_polarity()
+{
+    // With WATER_SENSOR_EMPTY_HIGH=0 a LOW reading is the empty one, which is
+    // what sensors wired the other way round produce. Every slot's meaning
+    // flips; nothing else about the parse changes.
+    const int saved = WATER_SENSOR_EMPTY_HIGH;
+    WATER_SENSOR_EMPTY_HIGH = 0;
+
+    for (int i = 1; i <= TOTAL_SLOTS; i++) g_test_state.WLVL_PRESSED[i] = false;
+    ClientSock sock = connect_test_client();
+    CHECK(sock != INVALID_CLIENT_SOCK);
+    if (sock == INVALID_CLIENT_SOCK) { WATER_SENSOR_EMPTY_HIGH = saved; return; }
+
+    std::string msg = "WTRLVL,0,1,0,1,0,1";
+    send(sock, msg.c_str(), (int)msg.length(), 0);
+    yield_to_server();
+
+    // Inverted: the zeros are the empty slots now, not the ones.
+    CHECK( g_test_state.WLVL_PRESSED[1]);
+    CHECK(!g_test_state.WLVL_PRESSED[2]);
+    CHECK( g_test_state.WLVL_PRESSED[3]);
+    CHECK(!g_test_state.WLVL_PRESSED[4]);
+    CHECK( g_test_state.WLVL_PRESSED[5]);
+    CHECK(!g_test_state.WLVL_PRESSED[6]);
+
+    for (int i = 1; i <= TOTAL_SLOTS; i++) g_test_state.WLVL_PRESSED[i] = false;
+    CLOSE_CLIENT(sock);
+    WATER_SENSOR_EMPTY_HIGH = saved;
+}
+
 void test_integration_wtrlvl_all_clear()
 {
     for (int i = 1; i <= TOTAL_SLOTS; i++) g_test_state.WLVL_PRESSED[i] = true;
@@ -486,6 +516,7 @@ void run_socket_integration_tests()
     RUN_TEST(test_integration_arm_queues_when_slot_busy);
     RUN_TEST(test_integration_wtrlvl_sets_flags);
     RUN_TEST(test_integration_wtrlvl_six_sensors);
+    RUN_TEST(test_integration_wtrlvl_respects_inverted_polarity);
     RUN_TEST(test_integration_wtrlvl_all_clear);
     RUN_TEST(test_integration_malformed_wtrlvl_is_ignored);
     RUN_TEST(test_integration_two_clients_independent);

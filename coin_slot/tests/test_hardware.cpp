@@ -84,6 +84,31 @@ void test_pump_trigger_low_is_HIGH() {
     CHECK_EQ(PUMP_TRIGGER_LOW, HIGH);
 }
 
+// -------------------------------------------- water sensor polarity ---
+// Sensors are wired GPIO -> GND with a pull-up, so a disconnected one reads
+// HIGH. The default must therefore treat HIGH as empty: a dead sensor then
+// blocks its pump instead of letting it run dry.
+
+void test_water_sensor_empty_high_defaults_to_1() {
+    CHECK_EQ(WATER_SENSOR_EMPTY_HIGH, 1);
+}
+
+// The only test here that calls init_hardware_config(). It restores the value
+// it changes, so the rest of the suite still sees the compiled-in defaults.
+void test_water_sensor_empty_high_loads_from_config() {
+    const int saved = WATER_SENSOR_EMPTY_HIGH;
+
+    std::map<std::string, std::string> config{{"WATER_SENSOR_EMPTY_HIGH", "0"}};
+    init_hardware_config(config);
+    CHECK_EQ(WATER_SENSOR_EMPTY_HIGH, 0);
+
+    config["WATER_SENSOR_EMPTY_HIGH"] = "1";
+    init_hardware_config(config);
+    CHECK_EQ(WATER_SENSOR_EMPTY_HIGH, 1);
+
+    WATER_SENSOR_EMPTY_HIGH = saved;
+}
+
 // --------------------------------------------------------- button pins ---
 
 void test_btn1_pin_is_14() { CHECK_EQ(BTN1, 14); }
@@ -117,6 +142,8 @@ void run_hardware_tests() {
     RUN_TEST(test_no_gpio_pin_is_used_twice);
     RUN_TEST(test_pump_trigger_high_is_LOW);
     RUN_TEST(test_pump_trigger_low_is_HIGH);
+    RUN_TEST(test_water_sensor_empty_high_defaults_to_1);
+    RUN_TEST(test_water_sensor_empty_high_loads_from_config);
     RUN_TEST(test_btn1_pin_is_14);
     RUN_TEST(test_btn2_pin_is_24);
     RUN_TEST(test_btn3_pin_is_25);

@@ -17,6 +17,15 @@ extern int LED1, LED2, LED3, LED4, LED5, LED6;
 extern int PUMP_TRIGGER_HIGH;  // Active-low relay: LOW (0) turns pump ON
 extern int PUMP_TRIGGER_LOW;   // HIGH (1) turns pump OFF
 
+// Which level a water level sensor reports when its slot is EMPTY.
+//   1 (default) — empty reads HIGH
+//   0           — empty reads LOW
+// Sensors are wired GPIO -> GND with a pull-up, so a disconnected or broken
+// sensor reads HIGH. The default therefore fails safe: a dead sensor looks
+// empty and the pump is blocked rather than allowed to run dry. Flip this only
+// if a full slot reports empty on real hardware.
+extern int WATER_SENSOR_EMPTY_HIGH;
+
 struct Product {
     int id;
     int coins;

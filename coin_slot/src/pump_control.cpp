@@ -203,6 +203,9 @@ void pump_setup(AppState &state) {
             + " LED=" + std::to_string(pin_led[i])
             + " RUN_MS=" + std::to_string((int)(productMap[i].durationSeconds * 1000)));
     }
+    log_info("pump", std::string("Water sensor: empty reads ")
+        + (WATER_SENSOR_EMPTY_HIGH ? "HIGH" : "LOW")
+        + " (WATER_SENSOR_EMPTY_HIGH=" + std::to_string(WATER_SENSOR_EMPTY_HIGH) + ")");
     wiringPiSetupGpio();
 
     // Buttons: INPUT only — active-low (button wired GPIO -> GND).

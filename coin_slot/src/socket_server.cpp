@@ -357,13 +357,18 @@ void manage_connected_clients(AppState &state)
           size_t start = input_str.find(',') + 1;
           std::string summary;
 
+          // water_level_monitoring_v2.py forwards the raw GPIO reading, so
+          // which level means "empty" depends on how the sensors are wired.
+          // WATER_SENSOR_EMPTY_HIGH (config.env) selects it without a rebuild.
+          const std::string emptyLevel = WATER_SENSOR_EMPTY_HIGH ? "1" : "0";
+
           for (int slot = 1; slot <= TOTAL_SLOTS; slot++) {
             if (slot <= sensorCount) {
               size_t end = input_str.find(',', start);
               std::string field = trim(end == std::string::npos
                   ? input_str.substr(start)
                   : input_str.substr(start, end - start));
-              state.WLVL_PRESSED[slot] = (field == "1");
+              state.WLVL_PRESSED[slot] = (field == emptyLevel);
               start = (end == std::string::npos) ? input_str.size() : end + 1;
             } else {
               state.WLVL_PRESSED[slot] = false;  // no sensor wired for this slot
