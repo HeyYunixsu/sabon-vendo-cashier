@@ -26,12 +26,30 @@ static std::string read_file(const std::string &path)
     return buf.str();
 }
 
-// Find a file in ../transaction/ whose name contains needle.
+// These tests must never write into ../transaction. The Makefile runs the
+// runner from coin_slot/, so that path resolves to the machine's live
+// transaction directory -- the one uploader.py watches. A test transaction
+// landing there is POSTed to the cloud API as a real sale and then deleted.
+// Everything below goes into a directory only this suite touches.
+static const std::string TEST_TXN_DIR = "tests/tmp_transaction";
+
+// An AppState pointed at the isolated directory, which is created on demand.
+// AppState defaults transactionDir to the live directory, so every test must
+// override it explicitly rather than rely on that default.
+static AppState test_state()
+{
+    fs::create_directories(TEST_TXN_DIR);
+    AppState s;
+    s.transactionDir = TEST_TXN_DIR;
+    return s;
+}
+
+// Find a file in TEST_TXN_DIR whose name contains needle.
 // Returns the full path, or "" if not found.
 static std::string find_transaction_file(const std::string &needle)
 {
-    if (!fs::exists("../transaction")) return "";
-    for (auto &entry : fs::directory_iterator("../transaction"))
+    if (!fs::exists(TEST_TXN_DIR)) return "";
+    for (auto &entry : fs::directory_iterator(TEST_TXN_DIR))
     {
         if (entry.path().string().find(needle) != std::string::npos)
             return entry.path().string();
@@ -43,8 +61,7 @@ static std::string find_transaction_file(const std::string &needle)
 
 void test_processSaving_creates_file()
 {
-    fs::create_directories("../transaction");
-    AppState state;
+    AppState state = test_state();
     state.machineId = "M_CREATE";
     state.vendorId  = "V_CREATE";
 
@@ -59,8 +76,7 @@ void test_processSaving_creates_file()
 
 void test_processSaving_machineId_from_AppState()
 {
-    fs::create_directories("../transaction");
-    AppState state;
+    AppState state = test_state();
     state.machineId = "MACHINE_PHASE5";
     state.vendorId  = "VENDOR_PHASE5";
 
@@ -78,8 +94,7 @@ void test_processSaving_machineId_from_AppState()
 
 void test_processSaving_vendorId_from_AppState()
 {
-    fs::create_directories("../transaction");
-    AppState state;
+    AppState state = test_state();
     state.machineId = "M_VND";
     state.vendorId  = "VENDOR_PHASE5_CHECK";
 
@@ -99,14 +114,12 @@ void test_processSaving_vendorId_from_AppState()
 // proves the function reads state at call time, not a cached global.
 void test_processSaving_respects_different_AppState_instances()
 {
-    fs::create_directories("../transaction");
-
-    AppState s1;
+    AppState s1 = test_state();
     s1.machineId = "MACHINE_AAA";
     s1.vendorId  = "VENDOR_AAA";
     processSaving(s1, 1, 5.0, "", 1004);
 
-    AppState s2;
+    AppState s2 = test_state();
     s2.machineId = "MACHINE_BBB";
     s2.vendorId  = "VENDOR_BBB";
     processSaving(s2, 1, 5.0, "", 1005);
@@ -136,8 +149,7 @@ void test_processSaving_respects_different_AppState_instances()
 
 void test_processSaving_voucherId_present_when_given()
 {
-    fs::create_directories("../transaction");
-    AppState state;
+    AppState state = test_state();
     state.machineId = "M_V";
     state.vendorId  = "V_V";
 
@@ -155,8 +167,7 @@ void test_processSaving_voucherId_present_when_given()
 
 void test_processSaving_empty_voucherId_for_coin_only()
 {
-    fs::create_directories("../transaction");
-    AppState state;
+    AppState state = test_state();
     state.machineId = "M_COIN";
     state.vendorId  = "V_COIN";
 
@@ -172,8 +183,7 @@ void test_processSaving_empty_voucherId_for_coin_only()
 
 void test_processSaving_slot_appears_in_filename()
 {
-    fs::create_directories("../transaction");
-    AppState state;
+    AppState state = test_state();
     state.machineId = "M_SL"; state.vendorId = "V_SL";
 
     processSaving(state, 3, 5.0, "", 1008);

@@ -12,9 +12,9 @@
 
 // ------------------------------------------- map completeness ---
 
-void test_productMap_has_4_entries()
+void test_productMap_has_an_entry_per_slot()
 {
-    CHECK_EQ((int)productMap.size(), 4);
+    CHECK_EQ((int)productMap.size(), TOTAL_SLOTS);
 }
 
 // -------------------------------------------------- id fields ---
@@ -102,7 +102,7 @@ void test_product_id_matches_map_key()
 void run_phase4_tests()
 {
     SUITE("phase4 (product config drives pump timing)");
-    RUN_TEST(test_productMap_has_4_entries);
+    RUN_TEST(test_productMap_has_an_entry_per_slot);
     RUN_TEST(test_product1_id_is_1);
     RUN_TEST(test_product2_id_is_2);
     RUN_TEST(test_product3_id_is_3);

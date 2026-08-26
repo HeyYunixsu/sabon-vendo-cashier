@@ -28,3 +28,5 @@ iot_dispenser_v2/main_gui
 *.o
 *.pyc
 .superdesign
+coin_slot/tests/tmp_transaction/
+coin_slot/tests/test_runner

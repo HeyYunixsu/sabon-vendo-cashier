@@ -45,8 +45,8 @@ void test_utils_module_links()
 
 void test_hardware_module_links()
 {
-    CHECK_EQ((int)pin_pump.size(), 4);
-    CHECK_EQ((int)pin_led.size(), 4);
+    CHECK_EQ((int)pin_pump.size(), TOTAL_SLOTS);
+    CHECK_EQ((int)pin_led.size(), TOTAL_SLOTS);
 }
 
 void test_socket_module_links()
