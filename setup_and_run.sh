@@ -268,24 +268,27 @@ npm install --production
 popd > /dev/null
 log "Dashboard npm dependencies installed"
 
-pm2_start_binary \
-  "08_Cashier_Dashboard" \
-  "$(command -v node)" \
-  "$SCRIPT_DIR/cashier_dashboard" \
-  "NODE_ENV=production"
-
-# Override: use node to run server.js instead of the node binary directly
+# Register server.js directly. An earlier revision called pm2_start_binary with
+# "$(command -v node)" here and then tried to "override" it below, but the
+# override branch tested pm2_process_exists() — which the call above had just
+# made true — so it only ever restarted the bare `node` binary and never
+# launched server.js. PM2 reported the process online while nothing bound the
+# HTTP port.
+#
+# Delete any existing entry rather than restarting it: a Pi provisioned by the
+# old script still has `node` registered under this name, and a restart would
+# keep it broken. The dashboard holds no state, so re-registering costs nothing.
 if pm2_process_exists "08_Cashier_Dashboard"; then
-  log "[08_Cashier_Dashboard] Already registered — restarting"
-  sudo pm2 restart "08_Cashier_Dashboard"
-else
-  log "[08_Cashier_Dashboard] New process — starting for the first time"
-  sudo env NODE_ENV=production pm2 start "$SCRIPT_DIR/cashier_dashboard/server.js" \
-    --name "08_Cashier_Dashboard" \
-    --cwd "$SCRIPT_DIR/cashier_dashboard" \
-    --log "$SCRIPT_DIR/cashier_dashboard/pm2_08_Cashier_Dashboard.log" \
-    --time
+  log "[08_Cashier_Dashboard] Removing existing PM2 entry so it is re-registered against server.js"
+  sudo pm2 delete "08_Cashier_Dashboard"
 fi
+
+log "[08_Cashier_Dashboard] Starting server.js"
+sudo env NODE_ENV=production pm2 start "$SCRIPT_DIR/cashier_dashboard/server.js" \
+  --name "08_Cashier_Dashboard" \
+  --cwd "$SCRIPT_DIR/cashier_dashboard" \
+  --log "$SCRIPT_DIR/cashier_dashboard/pm2_08_Cashier_Dashboard.log" \
+  --time
 
 # Register PM2 as a systemd service so it auto-starts on every reboot.
 # This must run BEFORE pm2 save — the save writes the process list that the
