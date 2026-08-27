@@ -67,7 +67,6 @@ coin_slot/
 │       └── test.env          — Fixture env file for utils tests
 ├── CONFIG/
 │   └── config.env            — Runtime configuration (gitignored; see config.env.sample)
-├── vendo.service             — systemd service unit (managed by setup_and_run.sh)
 └── Makefile                  — OS-aware build (Windows mock vs Linux wiringPi)
 ```
 
@@ -164,12 +163,8 @@ To set up manually:
    # Produces: main  (no .exe on Linux)
    ```
 
-3. **Install the systemd service** (handled automatically by `setup_and_run.sh`)
-   ```bash
-   sudo cp vendo.service /etc/systemd/system/
-   sudo systemctl daemon-reload
-   sudo systemctl enable vendo
-   ```
+   `setup_and_run.sh` registers the binary with PM2 as `01_Main`; there is no
+   systemd unit to install.
 
 ### On Windows (development)
 
@@ -209,14 +204,14 @@ cd /home/dgsi/Desktop/dispenser/coin_slot
 ./main
 ```
 
-The process reads `CONFIG/config.env` on startup, binds TCP on the configured port (default `8080`), sets up GPIO interrupt handlers for all 4 pumps, then enters the main loop.
+The process reads `CONFIG/config.env` on startup, binds TCP on the configured port (default `8080`), sets up GPIO interrupt handlers for all 6 pumps, then enters the main loop.
 
-### Raspberry Pi — systemd service (legacy)
+### Raspberry Pi — PM2
 
 ```bash
-sudo systemctl start vendo
-sudo systemctl stop vendo         # sends SIGTERM; all pumps turn OFF before exit
-journalctl -u vendo -f            # follow logs
+sudo pm2 restart 01_Main          # restart the controller
+sudo pm2 logs 01_Main             # follow logs
+sudo pm2 stop 01_Main             # SIGTERM; all pumps turn OFF before exit
 ```
 
 ### Windows — quick run

@@ -6,7 +6,6 @@ CONFIG/config.env
 .env
 .vscode
 transaction/*.json
-CONFIG/config.env
 .claude/
 *.gch
 copy_paste_log_from_rpi.txt
@@ -17,16 +16,11 @@ copy_paste_log_from_rpi.txt
 *.cpp.save
 *.h.save
 *.pyc
-iot_dispenser_v2/main_gui
-sabon_express_dispenser-main/
 bin/
 coin_slot/main
-iot_dispenser_v2/main_gui
 **/__pycache__/
 **/venv/
 **/node_modules/
-*.o
-*.pyc
 .superdesign
 coin_slot/tests/tmp_transaction/
 coin_slot/tests/test_runner

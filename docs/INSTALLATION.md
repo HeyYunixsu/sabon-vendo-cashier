@@ -87,18 +87,8 @@ venv/bin/pip install --upgrade pip --quiet
 venv/bin/pip install -r requirement.txt
 ```
 
-### 3c. usb_to_coin_module
-
-```bash
-cd "$PROJECT_DIR/usb_to_coin_module"
-python3 -m venv venv
-venv/bin/pip install --upgrade pip --quiet
-venv/bin/pip install -r requirement.txt
-```
-
----
-
-## 4. Register Processes with PM2
+> `usb_to_coin_module` was removed: it contained no code, and the coin-acceptor
+> and street-light processes it described are not part of the dashboard model.
 
 ### Check if processes already exist before starting
 
@@ -128,24 +118,10 @@ sudo pm2 start "$PROJECT_DIR/coin_slot/main" \
 ### 4b. 02_Coin_Acceptor — USB coin acceptor serial reader
 
 ```bash
-sudo pm2 start "$PROJECT_DIR/usb_to_coin_module/coin_counter.py" \
-  --name        "02_Coin_Acceptor" \
-  --interpreter "$PROJECT_DIR/usb_to_coin_module/venv/bin/python3" \
-  --cwd         "$PROJECT_DIR/usb_to_coin_module" \
-  --log         "$PROJECT_DIR/usb_to_coin_module/pm2_02_Coin_Acceptor.log" \
-  --time
-```
 
 ### 4c. 03_Street_Light — LED relay schedule
 
 ```bash
-sudo pm2 start "$PROJECT_DIR/usb_to_coin_module/simple_on_off_led_relay.py" \
-  --name        "03_Street_Light" \
-  --interpreter "$PROJECT_DIR/usb_to_coin_module/venv/bin/python3" \
-  --cwd         "$PROJECT_DIR/usb_to_coin_module" \
-  --log         "$PROJECT_DIR/usb_to_coin_module/pm2_03_Street_Light.log" \
-  --time
-```
 
 ### 4d. 04_QR_Scanner — QR code keyboard monitor
 

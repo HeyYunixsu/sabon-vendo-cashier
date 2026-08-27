@@ -26,7 +26,7 @@ browser ──SSE──> cashier_dashboard/server.js ──TCP──> coin_slot 
 
 - Firmware default socket port: **8080** (`coin_slot/includes/app_state.h` line 42: `int serverPort = 8080;`).
 - Dashboard connects to `127.0.0.1:8080` by default (`cashier_dashboard/server.js` line 47).
-- Firmware is deployed on the Raspberry Pi via `coin_slot/vendo.service`:
+- Firmware runs on the Raspberry Pi under PM2 as `01_Main`:
   `ExecStart=/home/dgsi/Desktop/dispenser/coin_slot/main` (user `dgsi`).
 
 ---
@@ -210,7 +210,7 @@ And the result of the bare-pin test (section 6).
 - `coin_slot/src/hardware_config.cpp` + `coin_slot/includes/hardware_config.h` — pin map, `PUMP_TRIGGER_*`, `TOTAL_SLOTS`.
 - `coin_slot/includes/app_state.h` — `serverPort = 8080`.
 - `coin_slot/Makefile` — Windows→mock/`main.exe`; Linux→real wiringPi/`main`; `make run` target.
-- `coin_slot/vendo.service` — systemd unit (deploy path `/home/dgsi/Desktop/dispenser/coin_slot/main`).
+- Deployed via PM2 (`sudo pm2 restart 01_Main`); the old systemd unit was removed.
 - `CONFIG/config.env.sample` — template (no `config.env` exists yet).
 - `cashier_dashboard/server.js` — TCP proxy to firmware, SSE broadcaster.
 - `cashier_dashboard/public/index.html` — dashboard UI (single file).

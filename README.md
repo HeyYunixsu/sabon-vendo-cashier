@@ -44,7 +44,7 @@ The system is a set of cooperating processes on a Raspberry Pi (or local network
 ## Components
 
 ### `coin_slot` — Core Controller (C++)
-The main application. Manages 4 pumps, per-slot armed quantities, per-slot pending queues, and a TCP socket server. Each button press only dispenses from its own armed slot. Slot-empty protection prevents pump activation when the water level sensor reports empty. LED GPIO pins indicate which slots are armed.
+The main application. Manages 6 pumps, per-slot armed quantities, per-slot pending queues, and a TCP socket server. Each button press only dispenses from its own armed slot. Slot-empty protection prevents pump activation when the water level sensor reports empty. LED GPIO pins indicate which slots are armed.
 - Runs via PM2 as **`01_Main`**
 - See [coin_slot/README.md](coin_slot/README.md) for full architecture and protocol docs
 
@@ -55,13 +55,12 @@ A local web app that acts as a TCP client to `coin_slot` over the LAN. The cashi
 ### `uploaderTransaction` — Data Sync & Sensor Bridge (Python)
 Three background scripts:
 - **`uploader.py`** — watches `../transaction/` for JSON files written by `coin_slot` and POSTs them to the cloud API. Deletes files on successful upload.
-- **`water_level_monitoring_v2.py`** — reads 4 GPIO water level sensor pins and continuously sends `WTRLVL,<p1>,<p2>,<p3>,<p4>` to the socket server.
+- **`water_level_monitoring_v2.py`** — reads 6 GPIO water level sensor pins and continuously sends `WTRLVL,<p1>..<p6>` to the socket server.
 - **`status_uploader.py`** — subscribes to the socket server's `STATUS` responses and uploads machine/slot status changes to the cloud API.
 
 Runs via PM2 as **`05_Water_Level`**, **`06_Transaction_Upload`**, **`07_Status_Upload`**.
 See [uploaderTransaction/README.md](uploaderTransaction/README.md)
 
-### `usb_to_coin_module` — Hardware Interfaces (Python)
 ### `CONFIG` — Centralized Configuration
 `CONFIG/config.env` (gitignored) is the single config file shared by all components. Copy `CONFIG/config.env.sample` to create it. See [CONFIG/README.md](CONFIG/README.md) for all available keys.
 
@@ -110,6 +109,21 @@ This script:
 3. Creates Python virtual environments and installs requirements for Python modules
 4. Registers and starts all 6 PM2 processes
 5. Persists the PM2 process list for auto-start on reboot
+
+---
+
+## Documentation
+
+| Document | Covers |
+|----------|--------|
+| [docs/SYSTEM_REFERENCE.md](docs/SYSTEM_REFERENCE.md) | Full system reference: protocol, wire formats, every component |
+| [docs/INSTALLATION.md](docs/INSTALLATION.md) | Manual install steps, for when the scripts are not usable |
+| [docs/DASHBOARD_DESIGN.md](docs/DASHBOARD_DESIGN.md) | Cashier dashboard UI design and layout |
+| [docs/BUTTON_WIRING_DEBUG.md](docs/BUTTON_WIRING_DEBUG.md) | Button/LED/pump wiring, pin map, active-low notes |
+| [CONFIG/README.md](CONFIG/README.md) | Every `config.env` key |
+| [coin_slot/README.md](coin_slot/README.md) | C++ controller architecture and socket protocol |
+
+Superseded planning documents are kept in [docs/archive/](docs/archive/).
 
 ---
 

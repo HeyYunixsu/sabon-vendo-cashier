@@ -1,4 +1,0 @@
-
-sudo pm2 start /home/jomar/Desktop/dispenser/usb_to_coin_module/simple_on_off_led_relay.py --name 'scheduled_led' --interpreter /home/jomar/Desktop/dispenser/usb_to_coin_module/env/bin/python
-
-sudo pm2 start /home/jomar/Desktop/dispenser/usb_to_coin_module/coin_counter.py --name 'coin_module_process' --interpreter /home/jomar/Desktop/dispenser/usb_to_coin_module/env/bin/python

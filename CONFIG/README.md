@@ -39,12 +39,29 @@ cp config.env.sample config.env
 | `TRANSACTION_DIR` | `../transaction` | Directory where `coin_slot` writes JSON transaction files |
 | `MAX_COIN_CREDIT` | `1000` | Maximum credit a customer can accumulate |
 
-### GUI slot display (`iot_dispenser_v2`)
+### Cashier dashboard
+
+| Key | Default | Description |
+|-----|---------|-------------|
+| `DASHBOARD_PORT` | `80` | HTTP port for the dashboard. 80 needs root, which is why PM2 runs it via sudo |
+
+### Slot hardware (BCM pin numbers)
+
+One button, one LED and one pump relay per slot, all independent.
+
+| Key | Default | Description |
+|-----|---------|-------------|
+| `BTN1`-`BTN6` | `14 24 25 10 13 23` | Button input per slot. Wired to GND, so each needs `gpio=N=ip,pu` in `/boot/firmware/config.txt` |
+| `PUMP1`-`PUMP6` | `15 16 6 17 18 12` | Pump relay output per slot |
+| `LED1`-`LED6` | `5 27 4 22 19 7` | Slot LED output |
+| `PUMP_TRIGGER_HIGH` | `0` | Level that switches a pump ON (the relays are active-low) |
+| `PUMP_TRIGGER_LOW` | `1` | Level that switches a pump OFF |
+
+### Product calibration
 
 | Key | Example | Description |
 |-----|---------|-------------|
-| `slotName1`–`slotName4` | `Deesh\nPremium` | Display name for each pump slot (`\n` for line break) |
-| `slotColor1`–`slotColor4` | `(100, 224, 25)` | RGB color for each slot button |
+| `calibrateProduct1`-`calibrateProduct6` | `(5, 2.777778)` | `(coins, seconds)` - how long that slot's pump runs per unit |
 
 ### Water level sensors (`uploaderTransaction`)
 
@@ -54,13 +71,13 @@ cp config.env.sample config.env
 | `WATER_GPIO_PIN_2` | `20` | BCM GPIO pin for slot 2 water sensor |
 | `WATER_GPIO_PIN_3` | `21` | BCM GPIO pin for slot 3 water sensor |
 | `WATER_GPIO_PIN_4` | `11` | BCM GPIO pin for slot 4 water sensor |
+| `WATER_GPIO_PIN_5` | `8` | BCM GPIO pin for slot 5 water sensor |
+| `WATER_GPIO_PIN_6` | `9` | BCM GPIO pin for slot 6 water sensor |
+| `WATER_SENSOR_EMPTY_HIGH` | `1` | Which level means empty. `1` = empty reads HIGH, `0` = empty reads LOW. Sensors are wired to GND with a pull-up, so a disconnected one reads HIGH; the default therefore treats a dead sensor as empty and blocks the pump rather than letting it run dry |
 
-### USB coin acceptor (`usb_to_coin_module`)
-
-| Key | Default | Description |
-|-----|---------|-------------|
-| `SERIAL_PORT` | `/dev/ttyACM0` | USB serial port for the Arduino coin acceptor |
-| `BAUD_RATE` | `9600` | Serial communication baud rate |
+Sensor pins are read only by `water_level_monitoring_v2.py`, which pulls them
+up internally and forwards the raw levels. `WATER_SENSOR_EMPTY_HIGH` is what
+`coin_slot` uses to interpret those levels.
 
 ---
 
