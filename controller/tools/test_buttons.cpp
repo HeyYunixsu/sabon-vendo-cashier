@@ -1,4 +1,4 @@
-// test_buttons.cpp — standalone button tester for Sabon Express coin_slot
+// test_buttons.cpp — standalone button tester for Sabon Express controller
 //
 // Reads all 6 buttons (BCM GPIO, active-low: button wired GPIO -> GND).
 // The pull-up is set at boot via /boot/firmware/config.txt (gpio=X=ip,pu) —

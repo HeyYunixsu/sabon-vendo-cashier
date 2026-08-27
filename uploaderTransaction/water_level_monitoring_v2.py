@@ -13,7 +13,7 @@ load_dotenv(dotenv_path=env_path)
 # --- RPi GPIO Configuration (BCM Numbering) ---
 # Pins are loaded from CONFIG/config.env (WATER_GPIO_PIN_1 .. _6), one per
 # dispenser slot. TOTAL_SLOTS must match TOTAL_SLOTS in
-# coin_slot/includes/hardware_config.h.
+# controller/includes/hardware_config.h.
 TOTAL_SLOTS = 6
 DEFAULT_WATER_PINS = [26, 20, 21, 11, 8, 9]
 

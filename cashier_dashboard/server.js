@@ -2,7 +2,7 @@
  * Sabon Vendo — Cashier Dashboard Server (v2)
  *
  * - Serves the tap-based dashboard UI
- * - TCP proxy to coin_slot with auto-reconnect
+ * - TCP proxy to controller with auto-reconnect
  * - SSE for live STATUS pushes to the browser
  * - Sale IDs + double-click guard
  * - Local ARM queue (retry on reconnect)
@@ -78,17 +78,17 @@ function saveUnclaimed() {
 }
 
 // ---------------------------------------------------------------------------
-// TCP client to coin_slot
+// TCP client to controller
 // ---------------------------------------------------------------------------
 
 function connectToCoinSlot() {
   if (coinSocket) { try { coinSocket.destroy(); } catch (_) {} }
 
-  console.log(`[dashboard] Connecting to coin_slot at ${SOCKET_IP}:${SOCKET_PORT}...`);
+  console.log(`[dashboard] Connecting to controller at ${SOCKET_IP}:${SOCKET_PORT}...`);
   coinSocket = new net.Socket();
 
   coinSocket.connect(SOCKET_PORT, SOCKET_IP, () => {
-    console.log(`[dashboard] Connected to coin_slot`);
+    console.log(`[dashboard] Connected to controller`);
     // Flush any locally queued ARM commands
     flushLocalQueue();
   });
@@ -109,11 +109,11 @@ function connectToCoinSlot() {
   });
 
   coinSocket.on('error', (err) => {
-    console.error(`[dashboard] coin_slot error: ${err.message}`);
+    console.error(`[dashboard] controller error: ${err.message}`);
   });
 
   coinSocket.on('close', () => {
-    console.log('[dashboard] coin_slot disconnected — reconnecting in 3s...');
+    console.log('[dashboard] controller disconnected — reconnecting in 3s...');
     coinSocket = null;
     setTimeout(connectToCoinSlot, 3000);
   });
@@ -330,6 +330,6 @@ app.listen(HTTP_PORT, () => {
   const lanUrl = getLanUrl();
   console.log(`[dashboard] Cashier Dashboard running on ${lanUrl}`);
   console.log(`[dashboard] QR code: ${lanUrl}/qr`);
-  console.log(`[dashboard] Config: coin_slot at ${SOCKET_IP}:${SOCKET_PORT}`);
+  console.log(`[dashboard] Config: controller at ${SOCKET_IP}:${SOCKET_PORT}`);
   connectToCoinSlot();
 });

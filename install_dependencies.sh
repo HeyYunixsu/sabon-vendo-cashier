@@ -80,7 +80,7 @@ log "apt update — OK"
 # --------------------------------------------------------------------------- #
 # The apt package for WiringPi is outdated / removed from Raspbian repos.
 # We build the .deb from the official GitHub source and install it locally.
-# Reference: coin_slot/basic_command.txt
+# Reference: controller/basic_command.txt
 # --------------------------------------------------------------------------- #
 section "2. Installing WiringPi (from source)"
 

@@ -38,10 +38,10 @@ logging.basicConfig(
     ]
 )
 
-# Must match TOTAL_SLOTS in coin_slot/includes/hardware_config.h.
+# Must match TOTAL_SLOTS in controller/includes/hardware_config.h.
 TOTAL_SLOTS = 6
 
-# STATUS layout (see build_status_response in coin_slot/src/socket_server.cpp):
+# STATUS layout (see build_status_response in controller/src/socket_server.cpp):
 #   [0]="STATUS", then armedQty, remaining, wlvl, busy, queueDepth
 #   (TOTAL_SLOTS values each), then paused, phase, bundleComplete.
 WLVL_START = 1 + 2 * TOTAL_SLOTS          # first water-level field index
@@ -51,7 +51,7 @@ STATUS_FIELD_COUNT = 5 * TOTAL_SLOTS + 4  # total fields in a well-formed line
 water_level_data = ["-1"] * TOTAL_SLOTS
 
 def preprocess_data(sensor_reading_string):
-    # coin_slot sends "STATUS,<fields...>" — index by position rather than by
+    # controller sends "STATUS,<fields...>" — index by position rather than by
     # a negative slice, so adding fields to the tail cannot silently shift
     # which values get read as water levels.
     if not sensor_reading_string.startswith("STATUS,"):

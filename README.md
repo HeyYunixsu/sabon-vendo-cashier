@@ -4,7 +4,7 @@ An IoT-based liquid soap dispensing machine running on a Raspberry Pi. A cashier
 
 ## Architecture Overview
 
-The system is a set of cooperating processes on a Raspberry Pi (or local network), all centered around the `coin_slot` TCP socket server.
+The system is a set of cooperating processes on a Raspberry Pi (or local network), all centered around the `controller` TCP socket server.
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
@@ -12,14 +12,14 @@ The system is a set of cooperating processes on a Raspberry Pi (or local network
 │                                                                  │
 │  ┌──────────────┐   WTRLVL                    ┌─────────────┐   │
 │  │ water_level_ │ ──────────────────────────► │             │   │
-│  │ monitoring   │                             │  coin_slot  │   │
+│  │ monitoring   │                             │  controller  │   │
 │  └──────────────┘                             │  C++ server │   │
-│  ┌──────────────┐   STATUS (poll)             │  (01_Main)  │   │
+│  ┌──────────────┐   STATUS (poll)             │  (01_Dispenser_Controller)  │   │
 │  │status_upload │ ◄────────────────────────── │             │   │
 │  └──────────────┘                             │  TCP :8080  │   │
 │  ┌──────────────┐                             │             │◄──┤
 │  │  uploader.py │   watches ../transaction    │             │   │
-│  │  (JSON sync) │ ◄── written by coin_slot    └──────┬──────┘   │
+│  │  (JSON sync) │ ◄── written by controller    └──────┬──────┘   │
 │  └──────────────┘                                    │          │
 │                                                      │          │
 │  ┌──────────────┐   ARM,<productId>,<qty>            │          │
@@ -36,29 +36,29 @@ The system is a set of cooperating processes on a Raspberry Pi (or local network
 
 **Flow:**
 1. Customer pays the cashier directly (GCash, QR, or cash)
-2. Cashier clicks the product(s) on the dashboard → sends `ARM,<productId>,<qty>` to `coin_slot`
+2. Cashier clicks the product(s) on the dashboard → sends `ARM,<productId>,<qty>` to `controller`
 3. Armed product slots' LEDs light up; unarmed slots stay dark and unresponsive
 4. Customer presses the lit button(s) to dispense — each button only affects its own slot
 5. Per-slot queue handles overlapping requests on the same product
 
 ## Components
 
-### `coin_slot` — Core Controller (C++)
+### `controller` — Core Controller (C++)
 The main application. Manages 6 pumps, per-slot armed quantities, per-slot pending queues, and a TCP socket server. Each button press only dispenses from its own armed slot. Slot-empty protection prevents pump activation when the water level sensor reports empty. LED GPIO pins indicate which slots are armed.
-- Runs via PM2 as **`01_Main`**
-- See [coin_slot/README.md](coin_slot/README.md) for full architecture and protocol docs
+- Runs via PM2 as **`01_Dispenser_Controller`**
+- See [controller/README.md](controller/README.md) for full architecture and protocol docs
 
 ### `cashier_dashboard` — Cashier Dashboard (Node.js / HTML)
-A local web app that acts as a TCP client to `coin_slot` over the LAN. The cashier selects product(s), enters the amount paid, and the dashboard sends one `ARM,<productId>,<qty>` per product in the sale. Live status shows armed slots, remaining quantities, queue depth, water level, and alerts.
-- Runs via PM2 as **`08_Cashier_Dashboard`**
+A local web app that acts as a TCP client to `controller` over the LAN. The cashier selects product(s), enters the amount paid, and the dashboard sends one `ARM,<productId>,<qty>` per product in the sale. Live status shows armed slots, remaining quantities, queue depth, water level, and alerts.
+- Runs via PM2 as **`05_Cashier_Dashboard`**
 
 ### `uploaderTransaction` — Data Sync & Sensor Bridge (Python)
 Three background scripts:
-- **`uploader.py`** — watches `../transaction/` for JSON files written by `coin_slot` and POSTs them to the cloud API. Deletes files on successful upload.
+- **`uploader.py`** — watches `../transaction/` for JSON files written by `controller` and POSTs them to the cloud API. Deletes files on successful upload.
 - **`water_level_monitoring_v2.py`** — reads 6 GPIO water level sensor pins and continuously sends `WTRLVL,<p1>..<p6>` to the socket server.
 - **`status_uploader.py`** — subscribes to the socket server's `STATUS` responses and uploads machine/slot status changes to the cloud API.
 
-Runs via PM2 as **`05_Water_Level`**, **`06_Transaction_Upload`**, **`07_Status_Upload`**.
+Runs via PM2 as **`02_Water_Sensors`**, **`03_Transaction_Uploader`**, **`04_Status_Uploader`**.
 See [uploaderTransaction/README.md](uploaderTransaction/README.md)
 
 ### `CONFIG` — Centralized Configuration
@@ -70,11 +70,11 @@ See [uploaderTransaction/README.md](uploaderTransaction/README.md)
 
 | PM2 Name | Script / Binary | Purpose |
 |----------|----------------|---------|
-| `01_Main` | `coin_slot/main` | Core C++ controller |
-| `05_Water_Level` | `uploaderTransaction/water_level_monitoring_v2.py` | GPIO water sensors → socket |
-| `06_Transaction_Upload` | `uploaderTransaction/uploader.py` | JSON transaction uploader |
-| `07_Status_Upload` | `uploaderTransaction/status_uploader.py` | Machine status uploader |
-| `08_Cashier_Dashboard` | `cashier_dashboard/server.js` | Cashier web dashboard |
+| `01_Dispenser_Controller` | `controller/main` | Core C++ controller |
+| `02_Water_Sensors` | `uploaderTransaction/water_level_monitoring_v2.py` | GPIO water sensors → socket |
+| `03_Transaction_Uploader` | `uploaderTransaction/uploader.py` | JSON transaction uploader |
+| `04_Status_Uploader` | `uploaderTransaction/status_uploader.py` | Machine status uploader |
+| `05_Cashier_Dashboard` | `cashier_dashboard/server.js` | Cashier web dashboard |
 
 ---
 
@@ -104,7 +104,7 @@ chmod +x setup_and_run.sh
 ```
 
 This script:
-1. Builds `coin_slot` with `make`
+1. Builds `controller` with `make`
 2. Installs `cashier_dashboard` npm dependencies
 3. Creates Python virtual environments and installs requirements for Python modules
 4. Registers and starts all 6 PM2 processes
@@ -121,7 +121,7 @@ This script:
 | [docs/DASHBOARD_DESIGN.md](docs/DASHBOARD_DESIGN.md) | Cashier dashboard UI design and layout |
 | [docs/BUTTON_WIRING_DEBUG.md](docs/BUTTON_WIRING_DEBUG.md) | Button/LED/pump wiring, pin map, active-low notes |
 | [CONFIG/README.md](CONFIG/README.md) | Every `config.env` key |
-| [coin_slot/README.md](coin_slot/README.md) | C++ controller architecture and socket protocol |
+| [controller/README.md](controller/README.md) | C++ controller architecture and socket protocol |
 
 Superseded planning documents are kept in [docs/archive/](docs/archive/).
 
@@ -133,11 +133,11 @@ Superseded planning documents are kept in [docs/archive/](docs/archive/).
 # PM2
 sudo pm2 list                          # all process status
 sudo pm2 logs                          # tail all PM2 logs
-sudo pm2 logs 01_Main                  # tail coin_slot logs
-sudo pm2 logs 08_Cashier_Dashboard     # tail dashboard logs
+sudo pm2 logs 01_Dispenser_Controller                  # tail controller logs
+sudo pm2 logs 05_Cashier_Dashboard     # tail dashboard logs
 sudo pm2 monit                         # live CPU/memory dashboard
-sudo pm2 restart 01_Main               # restart the core controller
+sudo pm2 restart 01_Dispenser_Controller               # restart the core controller
 
 # Network
-nc -zv <pi-ip> 8080                    # check if coin_slot socket is reachable
+nc -zv <pi-ip> 8080                    # check if controller socket is reachable
 ```

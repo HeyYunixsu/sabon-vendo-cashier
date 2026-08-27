@@ -7,11 +7,11 @@
 
 ## 1. Overview
 
-The cashier dashboard is a **single-page web app** that a cashier uses to sell soap products. Each product has a fixed, pre-calibrated ml volume per press — there is no pricing anywhere in the system. The cashier selects one or more products, sets a press quantity for each, and arms them via a TCP connection to the **C++ `coin_slot` server** (the dispenser machine). Customers then press physical buttons on the vendo machine to dispense — each press consumes one unit of armed credit on that slot and triggers one calibrated pour; the machine pauses after each dispense completes before it accepts the next press.
+The cashier dashboard is a **single-page web app** that a cashier uses to sell soap products. Each product has a fixed, pre-calibrated ml volume per press — there is no pricing anywhere in the system. The cashier selects one or more products, sets a press quantity for each, and arms them via a TCP connection to the **C++ `controller` server** (the dispenser machine). Customers then press physical buttons on the vendo machine to dispense — each press consumes one unit of armed credit on that slot and triggers one calibrated pour; the machine pauses after each dispense completes before it accepts the next press.
 
 **Two-machine architecture:**
 - **Cashier machine** — serves the dashboard (Node.js + Express on port 80). Browser accessible on LAN.
-- **Vendo machine** — runs the C++ `coin_slot` binary (TCP server on port 8080). Controls GPIO pins for buttons, pumps, and LEDs.
+- **Vendo machine** — runs the C++ `controller` binary (TCP server on port 8080). Controls GPIO pins for buttons, pumps, and LEDs.
 
 Both are on the same LAN. The dashboard is the **bridge** between the cashier's browser and the vendo machine.
 
@@ -55,13 +55,13 @@ Reads from `CONFIG/config.env` in the parent directory. Key vars:
 
 | Variable | Default | Description |
 |---|---|---|
-| `SOCKET_IP` | `127.0.0.1` | coin_slot TCP server host |
-| `SOCKET_PORT` | `8080` | coin_slot TCP server port |
+| `SOCKET_IP` | `127.0.0.1` | controller TCP server host |
+| `SOCKET_PORT` | `8080` | controller TCP server port |
 | `DASHBOARD_PORT` | `80` | HTTP port to serve dashboard |
 
 ### 3.2 TCP Proxy
 
-The server maintains a persistent TCP connection to `coin_slot`. It acts as a **proxy** — all ARM/CANCEL commands from the browser go through Node.js → TCP → coin_slot.
+The server maintains a persistent TCP connection to `controller`. It acts as a **proxy** — all ARM/CANCEL commands from the browser go through Node.js → TCP → controller.
 
 **Connection lifecycle:**
 1. On startup, `connectToCoinSlot()` opens a TCP socket to `SOCKET_IP:SOCKET_PORT`
@@ -69,7 +69,7 @@ The server maintains a persistent TCP connection to `coin_slot`. It acts as a **
 3. On disconnect, waits 3 seconds, then reconnects
 4. On data received, parses lines — STATUS lines are broadcast to all SSE clients
 
-**Offline queue:** If coin_slot is unreachable when the cashier clicks "Arm", the command is queued in `localArmQueue[]` and automatically flushed on reconnect.
+**Offline queue:** If controller is unreachable when the cashier clicks "Arm", the command is queued in `localArmQueue[]` and automatically flushed on reconnect.
 
 ### 3.3 SSE (Server-Sent Events)
 
@@ -79,7 +79,7 @@ Every connected browser gets a persistent SSE stream. On first connect:
 1. Sends `data: connected\n\n` (triggers a full client-side state reset)
 2. Pushes any existing unclaimed sales
 
-Thereafter, every `STATUS` line from coin_slot is forwarded verbatim to all SSE clients.
+Thereafter, every `STATUS` line from controller is forwarded verbatim to all SSE clients.
 
 ### 3.4 API Endpoints
 
@@ -93,7 +93,7 @@ Thereafter, every `STATUS` line from coin_slot is forwarded verbatim to all SSE 
 | `GET` | `/qr` | — | Redirects to a QR code of the LAN URL |
 | `GET` | `/api/status/stream` | — | SSE stream for live STATUS |
 
-**ARM batch mode (preferred):** `{saleId: "SALE-...", batch: "1:3,2:1,3:5"}` → sends `ARM_BATCH,1:3,2:1,3:5` to coin_slot. All slots are armed atomically.
+**ARM batch mode (preferred):** `{saleId: "SALE-...", batch: "1:3,2:1,3:5"}` → sends `ARM_BATCH,1:3,2:1,3:5` to controller. All slots are armed atomically.
 
 **ARM legacy mode:** `{saleId: "SALE-...", items: [{productId:1,qty:3}, ...]}` → sends individual `ARM,1,3` commands. Still supported but batch is preferred.
 
@@ -214,11 +214,11 @@ Each product card (6 total, slot 6 is always inactive) has these visual states:
 ### 4.6 Sale Flow
 
 1. **Select product** — Click a product card (only active, non-empty slots are clickable)
-2. **Set quantity** — Use the qty stepper (±1 step, min 1, max `MAX_QTY`) to choose how many presses to arm. Each press dispenses that product's fixed calibrated ml. The stepper shows a read-only computed total (e.g. "3× · 120ml") so the cashier can see the total volume, but the underlying value sent to coin_slot is always the press count, never a ml or peso figure
+2. **Set quantity** — Use the qty stepper (±1 step, min 1, max `MAX_QTY`) to choose how many presses to arm. Each press dispenses that product's fixed calibrated ml. The stepper shows a read-only computed total (e.g. "3× · 120ml") so the cashier can see the total volume, but the underlying value sent to controller is always the press count, never a ml or peso figure
 3. **Item staged** — Click "Stage" to add a card to the sale strip with product name and qty (e.g. "3×"), plus × remove button
 4. **Add more products** — Repeat steps 1-3 for different products
 5. **"Select All" button** — Selects all active non-empty slots at once (multi-select mode). Setting a quantity and staging then applies that same qty to ALL selected products simultaneously
-6. **Arm** — Sends `ARM_BATCH,<slot1>:<qty1>,<slot2>:<qty2>,...` via the server to coin_slot (wire format unchanged — `qty` is now entered directly rather than derived from a peso amount)
+6. **Arm** — Sends `ARM_BATCH,<slot1>:<qty1>,<slot2>:<qty2>,...` via the server to controller (wire format unchanged — `qty` is now entered directly rather than derived from a peso amount)
 7. **Customer dispenses** — Presses physical buttons on the vendo machine; each press consumes one unit of armed credit and triggers one calibrated pour. The machine pauses after each pour completes before the next press is accepted (reflected in the existing `busy` state — see §5.1)
 
 ### 4.7 Multi-Select Mode
@@ -301,7 +301,7 @@ const S = {
 
 ### 5.3 SSE `parse()` Function
 
-Parses STATUS responses from coin_slot. Expects **28 comma-separated fields**:
+Parses STATUS responses from controller. Expects **28 comma-separated fields**:
 
 ```
 Field  | Content           | Index in array
@@ -322,7 +322,7 @@ Field  | Content           | Index in array
 
 - `wlvl[s] === true` means the slot is **empty** (water level sensor triggered)
 - `wlvl[s] === false` means the slot has liquid (normal state)
-- Slot 5 always has `wlvl[5] = false` set by coin_slot (no physical sensor for slot 5)
+- Slot 5 always has `wlvl[5] = false` set by controller (no physical sensor for slot 5)
 - "In Stock" KPI counts slots where `!S.wlvl[s]`
 - Empty slots show red border + "Empty" status on product card
 - Alerts section lists empty slots
@@ -344,7 +344,7 @@ If no connection after 4 seconds (`setTimeout`), the page populates dummy data s
 
 Standard JSON POST requests. See Section 3.4 for all endpoints.
 
-### 6.2 Server → coin_slot (TCP)
+### 6.2 Server → controller (TCP)
 
 Commands sent as plain text over TCP:
 
@@ -356,9 +356,9 @@ Commands sent as plain text over TCP:
 | `CANCEL_ALL` | `CANCEL_ALL` | Clear ALL armed credits + all queues |
 | `CANCEL_QUEUE` | `CANCEL_QUEUE,<productId>` | Clear pending queue for one slot |
 
-### 6.3 coin_slot → Server → Browser (SSE)
+### 6.3 controller → Server → Browser (SSE)
 
-coin_slot broadcasts STATUS every 500ms and on any state change. The dashboard server parses these lines and forwards them via SSE to all browser clients. The format is `STATUS,<28 fields>` (see Section 5.3).
+controller broadcasts STATUS every 500ms and on any state change. The dashboard server parses these lines and forwards them via SSE to all browser clients. The format is `STATUS,<28 fields>` (see Section 5.3).
 
 ---
 
@@ -421,9 +421,9 @@ const MAX_QTY = 10;  // max presses per staged item — placeholder, adjust to f
 
 **Product 6 stays the inactive placeholder slot** (per §4.5, `.inactive`, 30% opacity, no pointer events) — the physical unit for Zonrox 2 isn't wired up yet.
 
-**No unit conversion:** `qty` is now a direct press count typed/stepped by the cashier — there is no amount-to-unit math anymore. `PRODUCT_ML` is used only to compute the read-only "total ml" hint shown on staged items (`qty × PRODUCT_ML[productId]`); it is never sent to coin_slot. The wire-level `qty` sent in `ARM`/`ARM_BATCH` is exactly the press count the cashier chose.
+**No unit conversion:** `qty` is now a direct press count typed/stepped by the cashier — there is no amount-to-unit math anymore. `PRODUCT_ML` is used only to compute the read-only "total ml" hint shown on staged items (`qty × PRODUCT_ML[productId]`); it is never sent to controller. The wire-level `qty` sent in `ARM`/`ARM_BATCH` is exactly the press count the cashier chose.
 
-**Important — ml values are labels, not the control mechanism:** actual pour volume is governed by pump run-time (seconds) calibrated on the coin_slot/firmware side, not by anything in this dashboard. `PRODUCT_ML` exists purely so the cashier/customer sees an informational ml figure on the staged item — it has no effect on dispensing. Whenever the pump timing calibration changes, `PRODUCT_ML` must be updated by hand to keep the displayed figure accurate; the dashboard has no way to detect a mismatch.
+**Important — ml values are labels, not the control mechanism:** actual pour volume is governed by pump run-time (seconds) calibrated on the controller/firmware side, not by anything in this dashboard. `PRODUCT_ML` exists purely so the cashier/customer sees an informational ml figure on the staged item — it has no effect on dispensing. Whenever the pump timing calibration changes, `PRODUCT_ML` must be updated by hand to keep the displayed figure accurate; the dashboard has no way to detect a mismatch.
 
 ---
 
@@ -450,7 +450,7 @@ const MAX_QTY = 10;  // max presses per staged item — placeholder, adjust to f
 1. **Install dependencies:** `cd cashier_dashboard && npm install`
 2. **Configure:** Edit `CONFIG/config.env` — set `SOCKET_IP` to the vendo machine's LAN IP
 3. **Verify fonts:** All 8 `.woff2` files must exist in `public/fonts/`
-4. **Start:** `sudo pm2 restart 08_Cashier_Dashboard` (or `node server.js` for testing)
+4. **Start:** `sudo pm2 restart 05_Cashier_Dashboard` (or `node server.js` for testing)
 5. **Access:** Open browser to `http://<cashier-lan-ip>:80`
 6. **Phone access:** Open browser to `http://<cashier-lan-ip>:80` or scan QR at `/qr`
 
@@ -466,7 +466,7 @@ const MAX_QTY = 10;  // max presses per staged item — placeholder, adjust to f
 
 4. **Sale strip wrap:** On narrow screens, the staged items grid wraps — but `grid-template-rows: repeat(2, auto)` means only 2 rows are defined. If more than 6 items are staged (3 per row × 2 rows), layout may break.
 
-5. **Slot 5 water sensor:** Hardcoded to `false` in coin_slot — slot 5 never shows as empty regardless of actual state.
+5. **Slot 5 water sensor:** Hardcoded to `false` in controller — slot 5 never shows as empty regardless of actual state.
 
 6. **Demo mode clears on SSE:** The 4-second demo timeout populates dummy data, but it's immediately overwritten when the real SSE connection arrives. This is fine — the demo only shows if the machine is truly unreachable.
 
@@ -482,7 +482,7 @@ Edit the `:root` block for dark theme, `[data-theme="light"]` block for light th
 
 ### Adding a new API endpoint
 1. Add the route handler in `server.js`
-2. If it needs to reach coin_slot, use `sendToCoinSlot(command)` 
+2. If it needs to reach controller, use `sendToCoinSlot(command)` 
 3. If it needs to push to browsers, use `broadcastSSE(data)`
 
 ### Changing the quantity stepper

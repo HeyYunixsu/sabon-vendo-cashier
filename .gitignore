@@ -17,10 +17,10 @@ copy_paste_log_from_rpi.txt
 *.h.save
 *.pyc
 bin/
-coin_slot/main
+controller/main
 **/__pycache__/
 **/venv/
 **/node_modules/
 .superdesign
-coin_slot/tests/tmp_transaction/
-coin_slot/tests/test_runner
+controller/tests/tmp_transaction/
+controller/tests/test_runner

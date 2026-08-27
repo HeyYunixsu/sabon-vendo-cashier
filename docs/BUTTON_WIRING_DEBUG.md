@@ -16,18 +16,18 @@ pick it up without re-reading everything.
 | Component | Path | What it is |
 |-----------|------|------------|
 | Dashboard | `cashier_dashboard/` | Node.js Express server (`server.js`) + single-file HTML UI (`public/index.html`), SSE for live status. Runs on the same machine as the firmware. |
-| Firmware  | `coin_slot/` | C++17 firmware using **wiringPi** (Raspberry Pi GPIO). Runs on the Pi. |
+| Firmware  | `controller/` | C++17 firmware using **wiringPi** (Raspberry Pi GPIO). Runs on the Pi. |
 
 Data flow:
 
 ```
-browser ──SSE──> cashier_dashboard/server.js ──TCP──> coin_slot firmware (port 8080)
+browser ──SSE──> cashier_dashboard/server.js ──TCP──> controller firmware (port 8080)
 ```
 
-- Firmware default socket port: **8080** (`coin_slot/includes/app_state.h` line 42: `int serverPort = 8080;`).
+- Firmware default socket port: **8080** (`controller/includes/app_state.h` line 42: `int serverPort = 8080;`).
 - Dashboard connects to `127.0.0.1:8080` by default (`cashier_dashboard/server.js` line 47).
-- Firmware runs on the Raspberry Pi under PM2 as `01_Main`:
-  `ExecStart=/home/dgsi/Desktop/dispenser/coin_slot/main` (user `dgsi`).
+- Firmware runs on the Raspberry Pi under PM2 as `01_Dispenser_Controller`:
+  `ExecStart=/home/dgsi/Desktop/dispenser/controller/main` (user `dgsi`).
 
 ---
 
@@ -40,7 +40,7 @@ button has two separate groups of terminals:
 - **Switch terminals** (the press): used for the button input.
 - **LED terminals** (the light): separate; unrelated to button presses.
 
-### Pin map (BCM numbering) — `coin_slot/src/hardware_config.cpp`
+### Pin map (BCM numbering) — `controller/src/hardware_config.cpp`
 
 | Slot | Button (BTN) | LED | Pump |
 |------|-------------|-----|------|
@@ -67,7 +67,7 @@ button has two separate groups of terminals:
 
 ### Code changes already made (committed)
 
-In `coin_slot/src/pump_control.cpp`:
+In `controller/src/pump_control.cpp`:
 
 1. Line 207 — pull-up instead of pull-down:
    ```cpp
@@ -206,11 +206,11 @@ And the result of the bare-pin test (section 6).
 
 ## 10. Key files
 
-- `coin_slot/src/pump_control.cpp` — button scan, debounce, LED/pump state machine (button changes at lines 207 & 241).
-- `coin_slot/src/hardware_config.cpp` + `coin_slot/includes/hardware_config.h` — pin map, `PUMP_TRIGGER_*`, `TOTAL_SLOTS`.
-- `coin_slot/includes/app_state.h` — `serverPort = 8080`.
-- `coin_slot/Makefile` — Windows→mock/`main.exe`; Linux→real wiringPi/`main`; `make run` target.
-- Deployed via PM2 (`sudo pm2 restart 01_Main`); the old systemd unit was removed.
+- `controller/src/pump_control.cpp` — button scan, debounce, LED/pump state machine (button changes at lines 207 & 241).
+- `controller/src/hardware_config.cpp` + `controller/includes/hardware_config.h` — pin map, `PUMP_TRIGGER_*`, `TOTAL_SLOTS`.
+- `controller/includes/app_state.h` — `serverPort = 8080`.
+- `controller/Makefile` — Windows→mock/`main.exe`; Linux→real wiringPi/`main`; `make run` target.
+- Deployed via PM2 (`sudo pm2 restart 01_Dispenser_Controller`); the old systemd unit was removed.
 - `CONFIG/config.env.sample` — template (no `config.env` exists yet).
 - `cashier_dashboard/server.js` — TCP proxy to firmware, SSE broadcaster.
 - `cashier_dashboard/public/index.html` — dashboard UI (single file).

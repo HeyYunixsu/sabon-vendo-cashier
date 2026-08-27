@@ -2,7 +2,7 @@
 
 > **Audience:** Developers and Claude instances picking up this codebase with zero prior context.
 > **Last updated:** 2026-08-25
-> **Covers:** Cashier dashboard (web UI + Node.js server), coin_slot (C++ dispenser), water-level monitoring (Python), PM2 process management.
+> **Covers:** Cashier dashboard (web UI + Node.js server), controller (C++ dispenser), water-level monitoring (Python), PM2 process management.
 
 ---
 
@@ -12,7 +12,7 @@
 ┌─────────────────────────┐     TCP (port 8080)     ┌──────────────────────┐
 │   VENDO MACHINE (RPi)   │ ◄──────────────────────► │  CASHIER MACHINE      │
 │                         │                          │                       │
-│  coin_slot (C++ binary) │                          │  dashboard server     │
+│  controller (C++ binary) │                          │  dashboard server     │
 │  - GPIO: buttons, pumps │                          │  (Node.js :80)        │
 │  - GPIO: LEDs, sensors  │                          │  - HTTP API           │
 │  - TCP server :8080     │                          │  - SSE stream         │
@@ -28,10 +28,10 @@
 
 | Machine | Role | Software |
 |---------|------|----------|
-| **Vendo (Raspberry Pi)** | Physical dispenser | `coin_slot` C++ binary (TCP :8080), `water_level_monitoring_v2.py` |
+| **Vendo (Raspberry Pi)** | Physical dispenser | `controller` C++ binary (TCP :8080), `water_level_monitoring_v2.py` |
 | **Cashier (RPi or any machine)** | Sales terminal | Node.js Express server (:80), browser-based dashboard |
 
-The dashboard server is the **bridge**: browsers connect to it via HTTP/SSE, and it proxies commands to `coin_slot` over TCP. The browser never talks directly to the vendo machine.
+The dashboard server is the **bridge**: browsers connect to it via HTTP/SSE, and it proxies commands to `controller` over TCP. The browser never talks directly to the vendo machine.
 
 ---
 
@@ -44,7 +44,7 @@ sabon-vendo-cashier/
 ├── CONFIG/
 │   └── config.env.sample            # Pin mappings, calibration, IP/port config
 │
-├── coin_slot/                       # C++ dispenser controller
+├── controller/                       # C++ dispenser controller
 │   └── main                         # Compiled binary (TCP server :8080)
 │
 ├── cashier_dashboard/
@@ -90,20 +90,20 @@ Loaded by `server.js` at startup. Format is `KEY = VALUE` (or `KEY=VALUE`). Valu
 
 | Variable | Default | Used By | Description |
 |----------|---------|---------|-------------|
-| `SOCKET_IP` | `127.0.0.1` | server.js | coin_slot TCP host |
-| `SOCKET_PORT` | `8080` | server.js | coin_slot TCP port |
+| `SOCKET_IP` | `127.0.0.1` | server.js | controller TCP host |
+| `SOCKET_PORT` | `8080` | server.js | controller TCP port |
 | `DASHBOARD_PORT` | `80` | server.js | HTTP port for dashboard |
-| `vendorId` | — | coin_slot | Vendor identifier |
-| `machineId` | `1` | coin_slot | Machine identifier |
-| `BTN1`–`BTN6` | 14,24,25,10,13,23 | coin_slot | Button GPIO pins (BCM) |
-| `PUMP1`–`PUMP6` | 15,16,6,17,18,12 | coin_slot | Pump GPIO pins (BCM) |
-| `LED1`–`LED6` | 5,27,4,22,19,7 | coin_slot | LED GPIO pins (BCM) |
-| `PUMP_TRIGGER_HIGH` | `0` | coin_slot | Pump active-high/low |
+| `vendorId` | — | controller | Vendor identifier |
+| `machineId` | `1` | controller | Machine identifier |
+| `BTN1`–`BTN6` | 14,24,25,10,13,23 | controller | Button GPIO pins (BCM) |
+| `PUMP1`–`PUMP6` | 15,16,6,17,18,12 | controller | Pump GPIO pins (BCM) |
+| `LED1`–`LED6` | 5,27,4,22,19,7 | controller | LED GPIO pins (BCM) |
+| `PUMP_TRIGGER_HIGH` | `0` | controller | Pump active-high/low |
 | `WATER_GPIO_PIN_1`–`_6` | 26,20,21,11,8,9 | water_level | Water sensor GPIO pins (BCM), one per slot |
-| `calibrateProduct1`–`6` | compiled defaults (5, 2.77), (5, 1.36), (5, 1.25), (5, 2.0), (5, 2.0), (5, 2.0) | coin_slot | Pump calibration (units, ml-per-sec). Slot 6 mirrors slot 5. |
-| `TRANSACTION_DIR` | — | coin_slot | Transaction log directory |
-| `API_BASE_URL` | — | coin_slot | Cloud API endpoint |
-| `PUMP_START_COOLDOWN_MS` | `200` | coin_slot | Delay between pump starts |
+| `calibrateProduct1`–`6` | compiled defaults (5, 2.77), (5, 1.36), (5, 1.25), (5, 2.0), (5, 2.0), (5, 2.0) | controller | Pump calibration (units, ml-per-sec). Slot 6 mirrors slot 5. |
+| `TRANSACTION_DIR` | — | controller | Transaction log directory |
+| `API_BASE_URL` | — | controller | Cloud API endpoint |
+| `PUMP_START_COOLDOWN_MS` | `200` | controller | Delay between pump starts |
 
 ---
 
@@ -115,11 +115,11 @@ the list so the systemd hook resurrects it on boot.
 
 | PM2 name | Runs |
 |----------|------|
-| `01_Main` | `coin_slot/main` |
-| `05_Water_Level` | `uploaderTransaction/water_level_monitoring_v2.py` |
-| `06_Transaction_Upload` | `uploaderTransaction/uploader.py` |
-| `07_Status_Upload` | `uploaderTransaction/status_uploader.py` |
-| `08_Cashier_Dashboard` | `cashier_dashboard/server.js` |
+| `01_Dispenser_Controller` | `controller/main` |
+| `02_Water_Sensors` | `uploaderTransaction/water_level_monitoring_v2.py` |
+| `03_Transaction_Uploader` | `uploaderTransaction/uploader.py` |
+| `04_Status_Uploader` | `uploaderTransaction/status_uploader.py` |
+| `05_Cashier_Dashboard` | `cashier_dashboard/server.js` |
 
 Python processes run under `uploaderTransaction/venv/bin/python3`. The
 dashboard binds `DASHBOARD_PORT` (default 80), which is why it needs root.
@@ -132,16 +132,16 @@ dashboard binds `DASHBOARD_PORT` (default 80), which is why it needs root.
 
 A Node.js Express server (port 80) that:
 - Serves the static dashboard UI from `public/`
-- Maintains a persistent TCP connection to `coin_slot` (port 8080)
-- Proxies ARM/CANCEL commands from browser → coin_slot over TCP
-- Broadcasts coin_slot STATUS lines to all browsers via SSE
+- Maintains a persistent TCP connection to `controller` (port 8080)
+- Proxies ARM/CANCEL commands from browser → controller over TCP
+- Broadcasts controller STATUS lines to all browsers via SSE
 - Tracks unclaimed sales (persisted to disk)
 - Provides a QR code endpoint for phone access
 
-### 5.2 TCP Proxy to coin_slot
+### 5.2 TCP Proxy to controller
 
 ```
-Browser ──HTTP POST──► server.js ──TCP write──► coin_slot (:8080)
+Browser ──HTTP POST──► server.js ──TCP write──► controller (:8080)
 ```
 
 **Connection lifecycle:**
@@ -151,7 +151,7 @@ Browser ──HTTP POST──► server.js ──TCP write──► coin_slot (:
 4. On error: logs and continues
 5. On close: waits 3 seconds, then reconnects
 
-**Offline queue:** If `coin_slot` is unreachable when a command is sent, the command is pushed to `localArmQueue[]` and automatically flushed when the connection is re-established.
+**Offline queue:** If `controller` is unreachable when a command is sent, the command is pushed to `localArmQueue[]` and automatically flushed when the connection is re-established.
 
 ### 5.3 SSE (Server-Sent Events)
 
@@ -163,7 +163,7 @@ On client connect:
 3. Starts a 15-second keep-alive heartbeat (`:keepalive\n\n`) to prevent browser timeout
 4. On `req.on('close')`: clears the keep-alive interval, removes client from `sseClients` Set
 
-Thereafter, every `STATUS` line from coin_slot is forwarded verbatim to all connected SSE clients.
+Thereafter, every `STATUS` line from controller is forwarded verbatim to all connected SSE clients.
 
 `broadcastSSE(data)` writes to every response object in `sseClients`. Failed writes are silently caught.
 
@@ -183,7 +183,7 @@ Thereafter, every `STATUS` line from coin_slot is forwarded verbatim to all conn
 ```json
 // Request
 { "saleId": "SALE-1692000000000-1", "batch": "1:3,2:1,3:5" }
-// Sends to coin_slot: ARM_BATCH,1:3,2:1,3:5
+// Sends to controller: ARM_BATCH,1:3,2:1,3:5
 // Response
 { "success": true, "saleId": "SALE-1692000000000-1" }
 ```
@@ -192,7 +192,7 @@ Thereafter, every `STATUS` line from coin_slot is forwarded verbatim to all conn
 ```json
 // Request
 { "saleId": "...", "items": [{ "productId": 1, "qty": 3 }] }
-// Sends to coin_slot: ARM,1,3
+// Sends to controller: ARM,1,3
 // Response
 { "saleId": "...", "results": [{ "productId": 1, "qty": 3, "success": true }] }
 ```
@@ -374,7 +374,7 @@ const S = {
 
 ### 6.7 SSE `parse()` — STATUS Format
 
-Parses comma-separated STATUS lines from coin_slot. Expects **at least 34 fields**
+Parses comma-separated STATUS lines from controller. Expects **at least 34 fields**
 (`5 * TOTAL_SLOTS + 4`, with `TOTAL_SLOTS = 6`):
 
 ```
@@ -401,7 +401,7 @@ Lines with fewer than 34 fields are silently ignored
 (`if (p.length < STATUS_FIELDS) return`, where `STATUS_FIELDS = 5 * ACTIVE + 4`).
 
 **Three parsers share this layout** and must change together: `build_status_response()`
-in `coin_slot/src/socket_server.cpp`, `parse()` in `public/index.html`, and
+in `controller/src/socket_server.cpp`, `parse()` in `public/index.html`, and
 `preprocess_data()` in `uploaderTransaction/status_uploader.py`.
 
 ### 6.8 UNCLAIMED Format (SSE)
@@ -436,7 +436,7 @@ If no STATUS data arrives after **4 seconds** (`!S.lastUpdate`), the dashboard p
 | 5 | Idle |
 | 6 | Armed (qty=3) + busy |
 
-**Trigger changed from `!S.connected` to `!S.lastUpdate`** (2026-08-12) because the SSE connection succeeds immediately even without a coin_slot — it's the absence of STATUS data that indicates nothing is running.
+**Trigger changed from `!S.connected` to `!S.lastUpdate`** (2026-08-12) because the SSE connection succeeds immediately even without a controller — it's the absence of STATUS data that indicates nothing is running.
 
 ### 6.11 Sale Flow
 
@@ -527,7 +527,7 @@ const PRODUCT_INITIAL = { 1:'D1', 2:'D2', 3:'F1', 4:'F2', 5:'Z1', 6:'Z2' };
 // (the circular badge was removed). Kept for potential future use.
 
 const PRODUCT_ML = { 1: 75, 2: 75, 3: 60, 4: 60, 5: 100, 6: 100 };
-// Milliliters per press — shown in staged item cards (display only, not sent to coin_slot)
+// Milliliters per press — shown in staged item cards (display only, not sent to controller)
 
 const PRODUCT_BG = {
   1: '#C7B3E5',  // lavender
@@ -555,7 +555,7 @@ const STATUS_FIELDS = 5 * ACTIVE + 4;  // 34
 
 All POSTs to `/api/*` with `Content-Type: application/json`. See Section 5.4 for full endpoint specs.
 
-### 8.2 Server → coin_slot (TCP Plain Text)
+### 8.2 Server → controller (TCP Plain Text)
 
 | Command | Format | Effect |
 |---------|--------|--------|
@@ -567,14 +567,14 @@ All POSTs to `/api/*` with `Content-Type: application/json`. See Section 5.4 for
 
 Qty values represent **press count** (not peso amount).
 
-### 8.3 coin_slot → Server (TCP, STATUS broadcast)
+### 8.3 controller → Server (TCP, STATUS broadcast)
 
-coin_slot sends `STATUS,...` lines every ~500ms and on state changes. Format documented in Section 6.7.
+controller sends `STATUS,...` lines every ~500ms and on state changes. Format documented in Section 6.7.
 
 ### 8.4 Server → Browser (SSE)
 
 - `data: connected\n\n` — sent once on SSE connect
-- `data: STATUS,...\n\n` — forwarded from coin_slot
+- `data: STATUS,...\n\n` — forwarded from controller
 - `data: UNCLAIMED:slot,qty,time\n\n` — unclaimed sale notification
 - `:keepalive\n\n` — heartbeat every 15s (SSE comment, ignored by browser)
 
@@ -582,20 +582,20 @@ coin_slot sends `STATUS,...` lines every ~500ms and on state changes. Format doc
 
 ## 9. Water Level Monitoring
 
-A separate Python script (`water_level_monitoring_v2.py`) runs on the Pi, reads 6 GPIO pins (BCM 26, 20, 21, 11, 8, 9 per config), and outputs `WTRLVL,v1,...,v6` values. The coin_slot C++ binary reads these and maps them to `WLVL_PRESSED[1..6]` which become the `wlvl[1..6]` fields in the STATUS broadcast.
+A separate Python script (`water_level_monitoring_v2.py`) runs on the Pi, reads 6 GPIO pins (BCM 26, 20, 21, 11, 8, 9 per config), and outputs `WTRLVL,v1,...,v6` values. The controller C++ binary reads these and maps them to `WLVL_PRESSED[1..6]` which become the `wlvl[1..6]` fields in the STATUS broadcast.
 
-**Sensor count is negotiated by field count.** `coin_slot` accepts either 6 values (one per slot, current wiring) or the legacy 4. With 4, slots 5 and 6 fall back to "has liquid" so they are never blocked from dispensing. Any other count is logged as malformed and ignored.
+**Sensor count is negotiated by field count.** `controller` accepts either 6 values (one per slot, current wiring) or the legacy 4. With 4, slots 5 and 6 fall back to "has liquid" so they are never blocked from dispensing. Any other count is logged as malformed and ignored.
 
 ---
 
-## 10. coin_slot — C++ Core Controller
+## 10. controller — C++ Core Controller
 
 The central dispenser controller. A C++ TCP server (port 8080) that manages all hardware and dispense logic.
 
 ### 10.1 Source Structure
 
 ```
-coin_slot/
+controller/
 ├── main.cpp                    # Entry point: signal handlers, main loop (1ms tick)
 ├── Makefile                    # OS-aware build (Linux wiringPi / Windows mock)
 ├── main                        # Compiled binary
@@ -654,7 +654,7 @@ All 18 button/pump/LED pins are distinct; `test_no_gpio_pin_is_used_twice` in `t
 
 ### 10.5 Crash Persistence
 
-coin_slot saves `armedQty` + `pendingQueue` to `transaction/state.json` and reloads on startup.
+controller saves `armedQty` + `pendingQueue` to `transaction/state.json` and reloads on startup.
 
 ---
 
@@ -664,9 +664,9 @@ Three Python scripts running on the Pi, managed by PM2:
 
 | Script | PM2 Name | Purpose |
 |--------|----------|---------|
-| `water_level_monitoring_v2.py` | 05_Water_Level | Reads 6 GPIO water level sensor pins, sends `WTRLVL,v1,...,v6` to coin_slot TCP every 1s |
-| `uploader.py` | 06_Transaction_Upload | Watches `transaction/` for JSON files written by coin_slot, batches up to 20, POSTs to cloud API, deletes on confirmed success |
-| `status_uploader.py` | 07_Status_Upload | Persistent TCP client to coin_slot, parses STATUS lines, posts water-level changes to cloud API |
+| `water_level_monitoring_v2.py` | 02_Water_Sensors | Reads 6 GPIO water level sensor pins, sends `WTRLVL,v1,...,v6` to controller TCP every 1s |
+| `uploader.py` | 03_Transaction_Uploader | Watches `transaction/` for JSON files written by controller, batches up to 20, POSTs to cloud API, deletes on confirmed success |
+| `status_uploader.py` | 04_Status_Uploader | Persistent TCP client to controller, parses STATUS lines, posts water-level changes to cloud API |
 
 ### Cloud API Endpoints
 
@@ -685,11 +685,11 @@ The deployment script `setup_and_run.sh` registers **5 PM2 processes**:
 
 | PM2 Name | Script | Language | Restart |
 |----------|--------|----------|---------|
-| 01_Main | `coin_slot/main` | C++ binary | 2s delay |
-| 05_Water_Level | `uploaderTransaction/water_level_monitoring_v2.py` | Python (venv) | 5s delay |
-| 06_Transaction_Upload | `uploaderTransaction/uploader.py` | Python (venv) | — |
-| 07_Status_Upload | `uploaderTransaction/status_uploader.py` | Python (venv) | — |
-| 08_Cashier_Dashboard | `cashier_dashboard/server.js` | Node.js | 3s delay |
+| 01_Dispenser_Controller | `controller/main` | C++ binary | 2s delay |
+| 02_Water_Sensors | `uploaderTransaction/water_level_monitoring_v2.py` | Python (venv) | 5s delay |
+| 03_Transaction_Uploader | `uploaderTransaction/uploader.py` | Python (venv) | — |
+| 04_Status_Uploader | `uploaderTransaction/status_uploader.py` | Python (venv) | — |
+| 05_Cashier_Dashboard | `cashier_dashboard/server.js` | Node.js | 3s delay |
 
 **Note:** all five processes are registered by `setup_and_run.sh` via the PM2 CLI and persisted with `sudo pm2 save`. Legacy processes 02_Coin_Acceptor, 03_Street_Light and 04_QR_Scanner were removed from the active deployment.
 
@@ -706,7 +706,7 @@ The deployment script `setup_and_run.sh` registers **5 PM2 processes**:
 
 ### Automated Setup
 1. `./install_dependencies.sh` — Installs WiringPi (from source), Node.js v20.x (NodeSource), PM2, journalctl with persistent storage
-2. `./setup_and_run.sh` — Builds coin_slot (`make`), sets up Python venv + pip deps, installs npm deps for dashboard, registers all 5 PM2 processes, saves PM2 list for auto-start on boot
+2. `./setup_and_run.sh` — Builds controller (`make`), sets up Python venv + pip deps, installs npm deps for dashboard, registers all 5 PM2 processes, saves PM2 list for auto-start on boot
 
 ### Manual Steps
 1. **Install dashboard dependencies:** `cd cashier_dashboard && npm install`
@@ -727,7 +727,7 @@ A nested `sabon_express_dispenser-main/` directory inside the project root conta
 
 | Module | Purpose | Why Removed |
 |--------|---------|-------------|
-| `arduino_firmware/` | Arduino coin acceptor firmware (2 sketches: `coin_slot_vendo.ino`, `coin_acceptor.ino`) | Coin model replaced by dashboard |
+| `arduino_firmware/` | Arduino coin acceptor firmware (2 sketches: `controller_vendo.ino`, `coin_acceptor.ino`) | Coin model replaced by dashboard |
 | `usb_to_coin_module/` | USB-serial coin bridge + LED relay control | Coin model replaced by dashboard |
 | `keyboard_monitoring/` | QR code scanner via `pynput` global keyboard listener | Voucher system removed |
 | `iot_dispenser_v2/` | FLTK C++ touchscreen GUI for customers (~1359 lines) | Replaced by browser dashboard |
@@ -740,13 +740,13 @@ The root-level active project contains only what's needed for the current cashie
 
 ## 11. Known Issues & Gotchas
 
-1. **Demo mode timeout:** Changed from `!S.connected` to `!S.lastUpdate` (2026-08-12). The SSE "connected" event fires immediately even without a coin_slot, so checking connection state alone doesn't work for demo triggering.
+1. **Demo mode timeout:** Changed from `!S.connected` to `!S.lastUpdate` (2026-08-12). The SSE "connected" event fires immediately even without a controller, so checking connection state alone doesn't work for demo triggering.
 
 2. **SSE reconnection resets everything:** When the SSE receives `data: connected`, the entire client state resets — staged items, selected products, armed counts all zero. This is by design (fresh state on reconnect) but can be jarring if the connection blips.
 
 3. **Water level sensor mapping:** Python reads pins in config order. C++ maps them internally. If the physical sensor-to-slot wiring doesn't match the pin order in `config.env`, the wrong slot shows as empty.
 
-4. **Water level sensor count is negotiated:** coin_slot accepts a `WTRLVL` line with 6 values (current wiring) or 4 (legacy). Under the legacy form, slots 5 and 6 report "has liquid" and are never blocked. If the Pi is running an old `water_level_monitoring_v2.py`, those two slots will dispense even when actually empty.
+4. **Water level sensor count is negotiated:** controller accepts a `WTRLVL` line with 6 values (current wiring) or 4 (legacy). Under the legacy form, slots 5 and 6 report "has liquid" and are never blocked. If the Pi is running an old `water_level_monitoring_v2.py`, those two slots will dispense even when actually empty.
 
 5. **All 6 slots are active:** `ACTIVE = TOTAL = 6`. The `.inactive` CSS class in `index.html` is now unused — it is kept only for the case where a slot is taken out of service.
 
@@ -771,16 +771,16 @@ Edit the `PRODUCT` object in `index.html` (~line 629). Update `PRODUCT_ML` if vo
 Edit `PRODUCT_ML` in `index.html` (~line 634). This is display-only — actual pump duration is calibrated in `config.env` (`calibrateProduct1`–`5`).
 
 ### Adding/removing product slots
-1. Update `TOTAL_SLOTS` in `coin_slot/includes/hardware_config.h` — every C++ loop,
+1. Update `TOTAL_SLOTS` in `controller/includes/hardware_config.h` — every C++ loop,
    array bound and the STATUS field count derive from it
 2. Add the `BTNn`/`PUMPn`/`LEDn` globals, `pin_*` map entries, `load_int()` calls and
-   the `defaults[]` row in `coin_slot/src/hardware_config.cpp`
+   the `defaults[]` row in `controller/src/hardware_config.cpp`
 3. Update `ACTIVE` and `TOTAL` in `index.html` (`STATUS_FIELDS` follows automatically)
 4. Update `PRODUCT`, `PRODUCT_ML`, `PRODUCT_ICON` objects
 5. Update `TOTAL_SLOTS` in `uploaderTransaction/water_level_monitoring_v2.py` and
    `uploaderTransaction/status_uploader.py`
 6. Update `config.env`: `BTNn`, `PUMPn`, `LEDn`, `WATER_GPIO_PIN_n`, `calibrateProductn`
-7. Rebuild coin_slot (`cd coin_slot && make`) and restart PM2
+7. Rebuild controller (`cd controller && make`) and restart PM2
 
 ### Adding a product photo
 1. Place a 1024×1024 PNG in `public/images/` named `slotN.png`
@@ -792,7 +792,7 @@ Edit the `:root` block for dark theme, `[data-theme="light"]` block for light th
 
 ### Adding an API endpoint
 1. Add route handler in `server.js`
-2. If it needs to reach coin_slot, use `sendToCoinSlot(command)`
+2. If it needs to reach controller, use `sendToCoinSlot(command)`
 3. If it needs to push to browsers, use `broadcastSSE(data)`
 
 ### Changing fonts

@@ -2,7 +2,7 @@
 //
 // Protocol Integration / Behavioral Tests (updated for cashier-dashboard model)
 // ---------------------------------------------------------------------------
-// These tests exercise the full TCP communication path between the coin_slot
+// These tests exercise the full TCP communication path between the controller
 // server and a simulated client.  A real OS socket is bound on a test port
 // (9901) and a test-client connects to it, sends protocol messages, and
 // verifies both the AppState mutations and the STATUS response payload.

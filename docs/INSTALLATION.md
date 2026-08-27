@@ -34,10 +34,10 @@ If anything is missing, run `install_dependencies.sh` first (requires internet).
 
 ## 2. Build C++ Projects
 
-### 2a. coin_slot
+### 2a. controller
 
 ```bash
-cd "$PROJECT_DIR/coin_slot"
+cd "$PROJECT_DIR/controller"
 make clean
 make
 ```
@@ -46,7 +46,7 @@ Expected output ends with: `make — BUILD SUCCESSFUL` (or similar). Confirm the
 binary exists:
 
 ```bash
-ls -lh "$PROJECT_DIR/coin_slot/main"
+ls -lh "$PROJECT_DIR/controller/main"
 ```
 
 ### 2b. iot_dispenser_v2
@@ -105,13 +105,13 @@ Otherwise register each one fresh with the commands below.
 
 ---
 
-### 4a. 01_Main — coin_slot C++ binary
+### 4a. 01_Dispenser_Controller — controller C++ binary
 
 ```bash
-sudo pm2 start "$PROJECT_DIR/coin_slot/main" \
-  --name "01_Main" \
-  --cwd  "$PROJECT_DIR/coin_slot" \
-  --log  "$PROJECT_DIR/coin_slot/pm2_01_Main.log" \
+sudo pm2 start "$PROJECT_DIR/controller/main" \
+  --name "01_Dispenser_Controller" \
+  --cwd  "$PROJECT_DIR/controller" \
+  --log  "$PROJECT_DIR/controller/pm2_01_Dispenser_Controller.log" \
   --time
 ```
 
@@ -137,36 +137,36 @@ sudo env DISPLAY=:0 XAUTHORITY=/home/${DISPLAY_USER}/.Xauthority \
   --time
 ```
 
-### 4e. 05_Water_Level — GPIO water sensor reader
+### 4e. 02_Water_Sensors — GPIO water sensor reader
 
 ```bash
 sudo pm2 start "$PROJECT_DIR/uploaderTransaction/water_level_monitoring_v2.py" \
-  --name        "05_Water_Level" \
+  --name        "02_Water_Sensors" \
   --interpreter "$PROJECT_DIR/uploaderTransaction/venv/bin/python3" \
   --cwd         "$PROJECT_DIR/uploaderTransaction" \
-  --log         "$PROJECT_DIR/uploaderTransaction/pm2_05_Water_Level.log" \
+  --log         "$PROJECT_DIR/uploaderTransaction/pm2_02_Water_Sensors.log" \
   --time
 ```
 
-### 4f. 06_Transaction_Upload — JSON transaction cloud uploader
+### 4f. 03_Transaction_Uploader — JSON transaction cloud uploader
 
 ```bash
 sudo pm2 start "$PROJECT_DIR/uploaderTransaction/uploader.py" \
-  --name        "06_Transaction_Upload" \
+  --name        "03_Transaction_Uploader" \
   --interpreter "$PROJECT_DIR/uploaderTransaction/venv/bin/python3" \
   --cwd         "$PROJECT_DIR/uploaderTransaction" \
-  --log         "$PROJECT_DIR/uploaderTransaction/pm2_06_Transaction_Upload.log" \
+  --log         "$PROJECT_DIR/uploaderTransaction/pm2_03_Transaction_Uploader.log" \
   --time
 ```
 
-### 4g. 07_Status_Upload — Machine status cloud sync
+### 4g. 04_Status_Uploader — Machine status cloud sync
 
 ```bash
 sudo pm2 start "$PROJECT_DIR/uploaderTransaction/status_uploader.py" \
-  --name        "07_Status_Upload" \
+  --name        "04_Status_Uploader" \
   --interpreter "$PROJECT_DIR/uploaderTransaction/venv/bin/python3" \
   --cwd         "$PROJECT_DIR/uploaderTransaction" \
-  --log         "$PROJECT_DIR/uploaderTransaction/pm2_07_Status_Upload.log" \
+  --log         "$PROJECT_DIR/uploaderTransaction/pm2_04_Status_Uploader.log" \
   --time
 ```
 
@@ -245,7 +245,7 @@ sudo journalctl -u vendo_gui.service -n 50 --no-pager
 sudo pm2 list
 
 # Tail logs for a specific process
-sudo pm2 logs 0 --lines 30   # 01_Main (coin_slot)
+sudo pm2 logs 0 --lines 30   # 01_Dispenser_Controller (controller)
 sudo pm2 logs 1 --lines 30   # 02_Coin_Acceptor
 
 # GUI service
@@ -256,13 +256,13 @@ Expected PM2 list — all processes should show `online`:
 
 | Name | ID | Status |
 |------|----|--------|
-| 01_Main | 0 | online |
+| 01_Dispenser_Controller | 0 | online |
 | 02_Coin_Acceptor | 1 | online |
 | 03_Street_Light | 2 | online |
 | 04_QR_Scanner | 3 | online |
-| 05_Water_Level | 4 | online |
-| 06_Transaction_Upload | 5 | online |
-| 07_Status_Upload | 6 | online |
+| 02_Water_Sensors | 4 | online |
+| 03_Transaction_Uploader | 5 | online |
+| 04_Status_Uploader | 6 | online |
 
 ---
 
@@ -273,6 +273,6 @@ Expected PM2 list — all processes should show `online`:
 | Process keeps restarting | `sudo pm2 logs <name> --lines 50` |
 | GUI not fullscreen on boot | `sudo systemctl restart vendo_gui.service` |
 | `config.env` not found | `ls $PROJECT_DIR/CONFIG/config.env` — copy from `config.env.sample` if missing |
-| coin_slot won't start | `$PROJECT_DIR/coin_slot/main` — run manually to see raw error |
+| controller won't start | `$PROJECT_DIR/controller/main` — run manually to see raw error |
 | PM2 processes lost after reboot | `sudo pm2 save` was not run — repeat step 5 |
 | Serial port not found (coin acceptor) | `ls /dev/ttyACM* /dev/ttyUSB*` — check Arduino is plugged in |

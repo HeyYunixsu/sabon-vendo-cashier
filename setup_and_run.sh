@@ -94,7 +94,7 @@ build_cpp() {
   popd > /dev/null
 }
 
-build_cpp "coin_slot"
+build_cpp "controller"
 
 # --------------------------------------------------------------------------- #
 # 2. Create virtual-envs and install requirements
@@ -150,7 +150,7 @@ DISPLAY_USER_HOME="/home/${DISPLAY_USER}"
 log "Display user: $DISPLAY_USER  (home: $DISPLAY_USER_HOME)"
 
 # On Linux the Makefile produces 'main' (no .exe extension)
-COIN_SLOT_BIN="$SCRIPT_DIR/coin_slot/main"
+CONTROLLER_BIN="$SCRIPT_DIR/controller/main"
 
 pm2_process_exists() {
   # Returns 0 (true) if a PM2 process with this name is already registered
@@ -234,34 +234,34 @@ pm2_start_python() {
   log "[$pm2_name] PM2 entry registered/restarted"
 }
 
-# 01_Main — coin_slot C++ binary
+# 01_Dispenser_Controller — controller C++ binary
 pm2_start_binary \
-  "01_Main" \
-  "$COIN_SLOT_BIN" \
-  "$SCRIPT_DIR/coin_slot"
+  "01_Dispenser_Controller" \
+  "$CONTROLLER_BIN" \
+  "$SCRIPT_DIR/controller"
 
-# 05_Water_Level — uploaderTransaction/water_level_monitoring_v2.py
+# 02_Water_Sensors — uploaderTransaction/water_level_monitoring_v2.py
 pm2_start_python \
-  "05_Water_Level" \
+  "02_Water_Sensors" \
   "$SCRIPT_DIR/uploaderTransaction/water_level_monitoring_v2.py" \
   "$SCRIPT_DIR/uploaderTransaction" \
   "$SCRIPT_DIR/uploaderTransaction"
 
-# 06_Transaction_Upload — uploaderTransaction/uploader.py
+# 03_Transaction_Uploader — uploaderTransaction/uploader.py
 pm2_start_python \
-  "06_Transaction_Upload" \
+  "03_Transaction_Uploader" \
   "$SCRIPT_DIR/uploaderTransaction/uploader.py" \
   "$SCRIPT_DIR/uploaderTransaction" \
   "$SCRIPT_DIR/uploaderTransaction"
 
-# 07_Status_Upload — uploaderTransaction/status_uploader.py
+# 04_Status_Uploader — uploaderTransaction/status_uploader.py
 pm2_start_python \
-  "07_Status_Upload" \
+  "04_Status_Uploader" \
   "$SCRIPT_DIR/uploaderTransaction/status_uploader.py" \
   "$SCRIPT_DIR/uploaderTransaction" \
   "$SCRIPT_DIR/uploaderTransaction"
 
-# 08_Cashier_Dashboard — cashier_dashboard Node.js server
+# 05_Cashier_Dashboard — cashier_dashboard Node.js server
 log "Installing cashier_dashboard npm dependencies..."
 pushd "$SCRIPT_DIR/cashier_dashboard" > /dev/null
 npm install --production
@@ -278,16 +278,16 @@ log "Dashboard npm dependencies installed"
 # Delete any existing entry rather than restarting it: a Pi provisioned by the
 # old script still has `node` registered under this name, and a restart would
 # keep it broken. The dashboard holds no state, so re-registering costs nothing.
-if pm2_process_exists "08_Cashier_Dashboard"; then
-  log "[08_Cashier_Dashboard] Removing existing PM2 entry so it is re-registered against server.js"
-  sudo pm2 delete "08_Cashier_Dashboard"
+if pm2_process_exists "05_Cashier_Dashboard"; then
+  log "[05_Cashier_Dashboard] Removing existing PM2 entry so it is re-registered against server.js"
+  sudo pm2 delete "05_Cashier_Dashboard"
 fi
 
-log "[08_Cashier_Dashboard] Starting server.js"
+log "[05_Cashier_Dashboard] Starting server.js"
 sudo env NODE_ENV=production pm2 start "$SCRIPT_DIR/cashier_dashboard/server.js" \
-  --name "08_Cashier_Dashboard" \
+  --name "05_Cashier_Dashboard" \
   --cwd "$SCRIPT_DIR/cashier_dashboard" \
-  --log "$SCRIPT_DIR/cashier_dashboard/pm2_08_Cashier_Dashboard.log" \
+  --log "$SCRIPT_DIR/cashier_dashboard/pm2_05_Cashier_Dashboard.log" \
   --time
 
 # Register PM2 as a systemd service so it auto-starts on every reboot.

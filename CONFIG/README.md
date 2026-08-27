@@ -24,19 +24,19 @@ cp config.env.sample config.env
 |-----|---------|-------------|
 | `API_BASE_URL` | `https://office.dynamicglobalsoft.com:1232` | Base URL for all cloud API calls |
 
-### Socket server (`coin_slot`)
+### Socket server (`controller`)
 
 | Key | Default | Description |
 |-----|---------|-------------|
-| `SOCKET_IP` | `127.0.0.1` | IP address that clients use to reach `coin_slot` |
-| `SOCKET_PORT` | `8080` | TCP port for the `coin_slot` server |
+| `SOCKET_IP` | `127.0.0.1` | IP address that clients use to reach `controller` |
+| `SOCKET_PORT` | `8080` | TCP port for the `controller` server |
 
-### coin_slot runtime
+### controller runtime
 
 | Key | Default | Description |
 |-----|---------|-------------|
-| `SERVER_PORT` | `8080` | Port `coin_slot` binds to (should match `SOCKET_PORT`) |
-| `TRANSACTION_DIR` | `../transaction` | Directory where `coin_slot` writes JSON transaction files |
+| `SERVER_PORT` | `8080` | Port `controller` binds to (should match `SOCKET_PORT`) |
+| `TRANSACTION_DIR` | `../transaction` | Directory where `controller` writes JSON transaction files |
 | `MAX_COIN_CREDIT` | `1000` | Maximum credit a customer can accumulate |
 
 ### Cashier dashboard
@@ -77,7 +77,7 @@ One button, one LED and one pump relay per slot, all independent.
 
 Sensor pins are read only by `water_level_monitoring_v2.py`, which pulls them
 up internally and forwards the raw levels. `WATER_SENSOR_EMPTY_HIGH` is what
-`coin_slot` uses to interpret those levels.
+`controller` uses to interpret those levels.
 
 ---
 
@@ -90,4 +90,4 @@ from dotenv import load_dotenv
 load_dotenv(Path(__file__).parent / ".." / "CONFIG" / "config.env")
 ```
 
-The `coin_slot` C++ binary loads it via `utils::loadEnv("../CONFIG/config.env")` at startup.
+The `controller` C++ binary loads it via `utils::loadEnv("../CONFIG/config.env")` at startup.

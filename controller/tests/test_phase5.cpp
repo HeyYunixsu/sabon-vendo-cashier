@@ -27,7 +27,7 @@ static std::string read_file(const std::string &path)
 }
 
 // These tests must never write into ../transaction. The Makefile runs the
-// runner from coin_slot/, so that path resolves to the machine's live
+// runner from controller/, so that path resolves to the machine's live
 // transaction directory -- the one uploader.py watches. A test transaction
 // landing there is POSTed to the cloud API as a real sale and then deleted.
 // Everything below goes into a directory only this suite touches.

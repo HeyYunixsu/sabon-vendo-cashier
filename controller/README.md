@@ -25,7 +25,7 @@ The codebase was systematically refactored across 11 phases:
 ## Overall Architecture
 
 ```
-coin_slot/
+controller/
 ├── main.cpp                  — Entry point: signal handlers, setup, main loop
 ├── includes/
 │   ├── app_state.h           — AppState struct (single shared state, passed by reference)
@@ -163,7 +163,7 @@ To set up manually:
    # Produces: main  (no .exe on Linux)
    ```
 
-   `setup_and_run.sh` registers the binary with PM2 as `01_Main`; there is no
+   `setup_and_run.sh` registers the binary with PM2 as `01_Dispenser_Controller`; there is no
    systemd unit to install.
 
 ### On Windows (development)
@@ -175,7 +175,7 @@ To set up manually:
    pacman -S mingw-w64-x86_64-gcc make
    ```
 
-3. **Clone the repository** and navigate to `coin_slot/`
+3. **Clone the repository** and navigate to `controller/`
 
 4. **Build** (mock layer is used automatically):
    ```bash
@@ -189,18 +189,18 @@ To set up manually:
 
 ### Raspberry Pi — PM2 (via setup_and_run.sh)
 
-The `coin_slot` binary is registered as PM2 process **`01_Main`**. To manage it:
+The `controller` binary is registered as PM2 process **`01_Dispenser_Controller`**. To manage it:
 
 ```bash
 sudo pm2 status                   # show all processes
-sudo pm2 restart 01_Main          # restart
-sudo pm2 logs 01_Main             # tail logs
+sudo pm2 restart 01_Dispenser_Controller          # restart
+sudo pm2 logs 01_Dispenser_Controller             # tail logs
 ```
 
 ### Raspberry Pi — manual run
 
 ```bash
-cd /home/dgsi/Desktop/dispenser/coin_slot
+cd /home/dgsi/Desktop/dispenser/controller
 ./main
 ```
 
@@ -209,9 +209,9 @@ The process reads `CONFIG/config.env` on startup, binds TCP on the configured po
 ### Raspberry Pi — PM2
 
 ```bash
-sudo pm2 restart 01_Main          # restart the controller
-sudo pm2 logs 01_Main             # follow logs
-sudo pm2 stop 01_Main             # SIGTERM; all pumps turn OFF before exit
+sudo pm2 restart 01_Dispenser_Controller          # restart the controller
+sudo pm2 logs 01_Dispenser_Controller             # follow logs
+sudo pm2 stop 01_Dispenser_Controller             # SIGTERM; all pumps turn OFF before exit
 ```
 
 ### Windows — quick run
@@ -231,7 +231,7 @@ Tests run on Windows using the mock WiringPi layer. They do **not** require a Ra
 ### Run all tests
 
 ```bash
-# From MinGW64 terminal inside coin_slot/
+# From MinGW64 terminal inside controller/
 make test
 ```
 
