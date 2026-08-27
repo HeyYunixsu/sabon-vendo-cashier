@@ -1,8 +1,10 @@
-# Coin Slot Dispenser — Embedded Controller
+# Dispenser Controller
 
 ## Executive Summary
 
-The coin slot dispenser controller is a C++17 application that runs on a Raspberry Pi and manages a 4-pump liquid dispensing machine. Customers insert coins, the system accumulates credit, and each pump runs for a precisely timed duration per 5-coin insert. A GUI (`/iot_dispenser_v2`) communicates with the controller over TCP sockets, and all completed transactions are saved as JSON files for upstream processing.
+The dispenser controller is a C++17 application that runs on a Raspberry Pi and drives a 6-slot liquid dispensing machine. A cashier arms slots from the [cashier dashboard](../cashier_dashboard/), which connects over TCP; the customer then presses the lit button on an armed slot and that slot's pump runs for a calibrated duration. Completed transactions are written as JSON for upload to the cloud API.
+
+There is no coin acceptor and no voucher system. Both were removed when the cashier model replaced them; the `coin_slot` name survived until the directory was renamed to `controller`.
 
 The codebase was systematically refactored across 11 phases:
 
@@ -14,11 +16,11 @@ The codebase was systematically refactored across 11 phases:
 | 4 | Collapsed 4× copy-pasted pump blocks into one `handlePump()` + `PumpState` loop |
 | 5 | Moved `Product` config to `hardware_config`, moved transaction saving to `transaction` |
 | 6 | Build system polish: Linux EXE name, `.PHONY`, `-Wextra`, `make run` target |
-| 7 | Input validation, `remaining_time` clamping, SIGTERM graceful shutdown |
+| 7 | Input validation, `remainingTime` clamping, SIGTERM graceful shutdown |
 | 8 | Extracted hardcoded config to `config.env`, renamed misleading symbols |
 | 9 | Moved `voucherQueue` into `AppState`, removed last debug `cout`, `maxCoinCredit` configurable |
 | 10 | Structured logging via `log_info()` / `log_error()` with timestamp and module tag |
-| 11 | Slot-empty protection: pump ignores coin credit if the water level sensor is triggered |
+| 11 | Slot-empty protection: a pump will not run when its water level sensor reports empty |
 
 ---
 
@@ -31,14 +33,14 @@ controller/
 │   ├── app_state.h           — AppState struct (single shared state, passed by reference)
 │   ├── hardware_config.h     — Pin map, relay polarity, Product struct, productMap
 │   ├── pump_control.h        — PumpState struct, pump_setup/loop/shutdown declarations
-│   ├── transaction.h         — Transaction struct + processSaving() declaration
+│   ├── transaction.h         — Transaction struct + writeTransaction() declaration
 │   ├── voucher_manager.h     — Voucher queue (enqueue, dequeue, total)
 │   ├── socket_server.h       — TCP server setup/loop, socket_count_commas()
 │   └── utils.h               — loadEnv(), trim(), format_current_time(), ensureDirectoryExists(), log_info/error()
 ├── src/
 │   ├── hardware_config.cpp   — pin_pump map, productMap (pump timing per 5-coin insert)
 │   ├── pump_control.cpp      — PumpState machine, processTimer(), handlePump(), interrupt handlers
-│   ├── transaction.cpp       — saveClassToJsonFileGeneric(), processSaving()
+│   ├── transaction.cpp       — writeTransactionJson(), writeTransaction()
 │   ├── voucher_manager.cpp   — Voucher queue implementation
 │   ├── socket_server.cpp     — Non-blocking multi-client TCP server, command parser
 │   └── utils.cpp             — env file loader, filesystem helpers, time formatter, structured logger
@@ -56,11 +58,11 @@ controller/
 │   ├── test_phase2.cpp       — JSON transaction writing
 │   ├── test_phase3.cpp       — AppState defaults and mutation
 │   ├── test_phase4.cpp       — productMap values and pump timing
-│   ├── test_phase5.cpp       — processSaving reads from AppState
+│   ├── test_phase5.cpp       — writeTransaction reads from AppState
 │   ├── test_phase6.cpp       — Build layout and module linkage sentinels
-│   ├── test_phase7.cpp       — Input validation, credit cap, remaining_time clamp
+│   ├── test_phase7.cpp       — Input validation, credit cap, remainingTime clamp
 │   ├── test_phase8.cpp       — Config extraction, ensureDirectoryExists, no debug stdout
-│   ├── test_phase9.cpp       — voucherQueue in AppState, maxCoinCredit default/override
+│   ├── test_phase9.cpp       — Per-slot armed state and pending queues
 │   ├── test_phase10.cpp      — log_info/log_error stream routing, timestamp format
 │   └── test_socket_integration.cpp — Full TCP server integration tests (18 cases)
 │   fixtures/
@@ -73,40 +75,47 @@ controller/
 ### Data flow
 
 ```
-Coin inserted
-    → GPIO interrupt → processTimer(pumpIdx)           [pump_control.cpp]
-    → checks: coinCredit >= cost AND pump slot not empty (WLVL_PRESSED)
-    → PumpState.timer set, pump GPIO driven HIGH
+Cashier arms a slot from the dashboard
+    -> ARM / ARM_BATCH over TCP                     [socket_server.cpp]
+    -> state.armedQty[slot] += qty, slot LED lit
 
-pump_loop() [called every 1 ms in main while-loop]
-    → handlePump() for each of 4 pumps                 [pump_control.cpp]
-    → turns GPIO pin ON/OFF based on timer and pause state
-    → calls processSaving() when pump finishes
+Customer presses that slot's button
+    -> button scan (80ms debounce) -> processTimer(slot)   [pump_control.cpp]
+    -> checks: armedQty[slot] > 0 AND !slotEmpty[slot] AND !paused
+    -> PumpState.timer set, pump relay driven ON
 
-server_app_loop() [called every 1 ms alongside pump_loop]
-    → parses commands from connected TCP clients:       [socket_server.cpp]
-        COIN,<n>             — adds credit to AppState.coinCredit
-        VOUCHER,<id>,<n>     — enqueues voucher, adds credit
-        WTRLVL,<p1..p4>      — updates WLVL_PRESSED flags (slot-empty protection)
-        STATUS (or any other) — returns current machine state
+pump_loop() [every 1 ms from the main loop]
+    -> handlePump() for each of the 6 slots         [pump_control.cpp]
+    -> drives the relay from the timer, stops early if the slot runs empty
+    -> calls writeTransaction() when the pump finishes
+
+server_app_loop() [every 1 ms alongside pump_loop]
+    -> parses commands from connected TCP clients:  [socket_server.cpp]
+        ARM / ARM_BATCH        - arm one slot or a whole sale
+        CANCEL / CANCEL_ALL / CANCEL_QUEUE
+        WTRLVL,<v1..v6>        - per-slot water level from the sensor script
+        STATUS (or anything unrecognised) - returns current machine state
 ```
 
 ### Socket protocol
 
 | Command | Format | Effect |
 |---------|--------|--------|
-| Add coins | `COIN,<amount>` | Increments `coinCredit` (capped at `maxCoinCredit`) |
-| Redeem voucher | `VOUCHER,<id>,<amount>` | Enqueues voucher + adds credit |
-| Water level | `WTRLVL,<p1>,<p2>,<p3>,<p4>` | Sets water-level-empty flags per pump (1 = empty) |
-| Status poll | `STATUS` | Returns `STATUS:<credit>,<t1>,<t2>,<t3>,<t4>,<wl1>,<wl2>,<wl3>,<wl4>,<pause>` |
+| Arm one slot | `ARM,<slot>,<qty>` | Adds `qty` units to that slot and lights its LED |
+| Arm a sale | `ARM_BATCH,<slot>,<qty>,...` | Arms several slots as one transaction |
+| Cancel a slot | `CANCEL,<slot>` | Clears that slot's armed quantity |
+| Cancel everything | `CANCEL_ALL` | Clears every slot |
+| Cancel queued | `CANCEL_QUEUE,<slot>` | Drops that slot's pending queue only |
+| Water level | `WTRLVL,<v1>..<v6>` | Sets the per-slot empty flag. Which level means empty is set by `WATER_SENSOR_EMPTY_HIGH`; a legacy 4-value form is still accepted |
+| Status poll | `STATUS` | Returns the 34-field `STATUS,...` line (5 x TOTAL_SLOTS + 4) |
 
 All commands are validated (comma count checked) before parsing; malformed messages are logged and dropped.
 
-### Slot-empty protection (Phase 11)
+### Slot-empty protection
 
-Before triggering a pump, `processTimer()` checks `state.WLVL_PRESSED[pumpIdx]`. If the water level sensor for that slot reports empty (`true`), the pump is not activated even if the customer has sufficient credit. Credit is not deducted. This prevents the machine from dispensing air when a soap container runs out.
+Before triggering a pump, `processTimer()` checks `state.slotEmpty[pumpIdx]`. If the water level sensor for that slot reports empty (`true`), the pump is not activated even if the slot is armed, and the armed quantity is not consumed. This prevents the machine from dispensing air when a soap container runs out.
 
-The `WLVL_PRESSED` flags are set by `water_level_monitoring_v2.py` (in `/uploaderTransaction`) via the `WTRLVL` socket command, and reflected back to clients in the `STATUS` response.
+The `slotEmpty` flags are set by `water_level_monitoring_v2.py` (in `/uploaderTransaction`) via the `WTRLVL` socket command, and reflected back to clients in the `STATUS` response.
 
 ---
 
@@ -262,11 +271,11 @@ A non-zero exit code means at least one test failed.
 | `phase2` | `test_phase2.cpp` | JSON transaction file writing |
 | `phase3` | `test_phase3.cpp` | `AppState` defaults, field mutation, independence |
 | `phase4` | `test_phase4.cpp` | `productMap` values and millisecond timing derived from `durationSeconds` |
-| `phase5` | `test_phase5.cpp` | `processSaving()` reads `machineId`/`vendorId` from `AppState`, not externs |
+| `phase5` | `test_phase5.cpp` | `writeTransaction()` reads `machineId`/`vendorId` from `AppState`, not externs |
 | `phase6` | `test_phase6.cpp` | Build layout: `tests/fixtures` exists, required headers present |
-| `phase7` | `test_phase7.cpp` | Input validation (comma count), credit cap, `remaining_time` clamp math |
+| `phase7` | `test_phase7.cpp` | Input validation (comma count), credit cap, `remainingTime` clamp math |
 | `phase8` | `test_phase8.cpp` | `durationSeconds` field, `serverPort`/`transactionDir` defaults, no debug stdout |
-| `phase9` | `test_phase9.cpp` | `voucherQueue` in AppState, FIFO order, `maxCoinCredit` default/override |
+| `phase9` | `test_phase9.cpp` | Per-slot armed state, pending queue FIFO order |
 | `phase10` | `test_phase10.cpp` | `log_info`/`log_error` stream routing, module tag format, timestamp structure |
 | `socket_integration` | `test_socket_integration.cpp` | Full TCP server integration: 18 end-to-end cases |
 

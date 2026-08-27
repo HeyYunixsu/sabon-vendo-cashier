@@ -77,8 +77,8 @@ static void executeDispenseTrigger(int pumpIdx) {
 
     bool atleast2PumpOn = (activePumps >= 2);
     bool pumpAlreadyOn  = (pump.timer > current_time);
-    bool isSlotEmpty    = state.WLVL_PRESSED[pumpIdx];
-    bool isMachinePaused = state.state_pause;
+    bool isSlotEmpty    = state.slotEmpty[pumpIdx];
+    bool isMachinePaused = state.paused;
 
     if (state.armedQty[pumpIdx] > 0 && (!atleast2PumpOn || pumpAlreadyOn) &&
         !isSlotEmpty && !isMachinePaused) {
@@ -123,11 +123,11 @@ static void executeDispenseTrigger(int pumpIdx) {
 // Per-pump state machine
 // ------------------------------------------------------------------------------
 static void handlePump(PumpState &pump, AppState &state) {
-    if (state.WLVL_PRESSED[pump.id]) {
+    if (state.slotEmpty[pump.id]) {
         if (pump.isPumping)
             log_info("pump", "Pump " + std::to_string(pump.id) + ": STOPPED  reason=empty");
         digitalWrite(pin_pump[pump.id], PUMP_TRIGGER_LOW);
-    } else if (state.remaining_time[pump.id] > 0) {
+    } else if (state.remainingTime[pump.id] > 0) {
         if (pump.isPaused) {
             pump.isPumping = false;
             digitalWrite(pin_pump[pump.id], PUMP_TRIGGER_LOW);
@@ -143,7 +143,7 @@ static void handlePump(PumpState &pump, AppState &state) {
             log_info("pump", "Pump " + std::to_string(pump.id) + ": DONE  amount="
                       + std::to_string(pump.amount));
             if (pump.armedUnitsReserved > 0) pump.armedUnitsReserved--;
-            processSaving(state, pump.id, pump.amount, "");
+            writeTransaction(state, pump.id, pump.amount, "");
             pump.amount = 0;
             pump.isPumping = false;
             pump.postPressDeadline = std::chrono::steady_clock::time_point{};
@@ -322,7 +322,7 @@ void pump_loop(AppState &state) {
     for (int i = 1; i <= TOTAL_SLOTS; i++) {
         auto diff = std::chrono::duration_cast<std::chrono::milliseconds>(
             pumps[i].timer - current_time).count();
-        state.remaining_time[i] = std::max(0LL, (long long)diff);
+        state.remainingTime[i] = std::max(0LL, (long long)diff);
     }
 
     // 4. Pump state machines
@@ -347,7 +347,7 @@ void pump_loop(AppState &state) {
     }
 
     // 6. Software pause toggle — no physical stop button.
-    //    state.state_pause can be set via socket command or dashboard.
+    //    state.paused can be set via socket command or dashboard.
     std::this_thread::sleep_for(std::chrono::milliseconds(20));
 }
 

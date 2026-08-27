@@ -582,7 +582,7 @@ controller sends `STATUS,...` lines every ~500ms and on state changes. Format do
 
 ## 9. Water Level Monitoring
 
-A separate Python script (`water_level_monitoring_v2.py`) runs on the Pi, reads 6 GPIO pins (BCM 26, 20, 21, 11, 8, 9 per config), and outputs `WTRLVL,v1,...,v6` values. The controller C++ binary reads these and maps them to `WLVL_PRESSED[1..6]` which become the `wlvl[1..6]` fields in the STATUS broadcast.
+A separate Python script (`water_level_monitoring_v2.py`) runs on the Pi, reads 6 GPIO pins (BCM 26, 20, 21, 11, 8, 9 per config), and outputs `WTRLVL,v1,...,v6` values. The controller C++ binary reads these and maps them to `slotEmpty[1..6]` which become the `wlvl[1..6]` fields in the STATUS broadcast.
 
 **Sensor count is negotiated by field count.** `controller` accepts either 6 values (one per slot, current wiring) or the legacy 4. With 4, slots 5 and 6 fall back to "has liquid" so they are never blocked from dispensing. Any other count is logged as malformed and ignored.
 
@@ -622,8 +622,8 @@ struct AppState {
     std::queue<PendingArm> pendingQueue[TOTAL_SLOTS + 1]; // per-slot pending ARM queue
     TxnPhase phase;            // IDLE, ARMED, DISPENSING, COMPLETE
     bool bundleComplete;       // all armed slots reached 0 after batch ARM
-    bool WLVL_PRESSED[TOTAL_SLOTS + 1];      // [1..6] water level empty sensors
-    int remaining_time[TOTAL_SLOTS + 1];     // [1..6] remaining pump ms
+    bool slotEmpty[TOTAL_SLOTS + 1];      // [1..6] water level empty sensors
+    int remainingTime[TOTAL_SLOTS + 1];     // [1..6] remaining pump ms
     // ... plus persistent state save/load
 };
 ```
@@ -650,7 +650,7 @@ STATUS is broadcast every ~500ms and on any state change (34 comma-separated fie
 
 All 18 button/pump/LED pins are distinct; `test_no_gpio_pin_is_used_twice` in `tests/test_hardware.cpp` enforces this.
 
-**Slot-empty protection:** Pump activation is blocked when `WLVL_PRESSED[pumpIdx]` is true.
+**Slot-empty protection:** Pump activation is blocked when `slotEmpty[pumpIdx]` is true.
 
 ### 10.5 Crash Persistence
 

@@ -42,9 +42,12 @@ struct AppState {
     int serverPort = 8080;
     std::string transactionDir = "../transaction";
 
-    long long remaining_time[TOTAL_SLOTS + 1] = {0};  // index 1-6
-    bool WLVL_PRESSED[TOTAL_SLOTS + 1] = {false};     // index 1-6
-    bool state_pause = false;
+    long long remainingTime[TOTAL_SLOTS + 1] = {0};  // index 1-6
+    // true = that slot's tank is empty, which blocks arming and stops a
+    // running pump. Set from WTRLVL; which GPIO level counts as empty is
+    // configurable via WATER_SENSOR_EMPTY_HIGH.
+    bool slotEmpty[TOTAL_SLOTS + 1] = {false};        // index 1-6
+    bool paused = false;
 
     // Returns true if any slot is armed (armedQty > 0 or busy)
     bool anyArmed() const {

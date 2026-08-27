@@ -8,7 +8,7 @@
 // Changes tested here:
 //   1. socket_count_commas() — counts commas for pre-parse validation
 //   2. Comma-count guard — malformed commands are rejected before stoi()
-//   3. remaining_time clamp — std::max(0LL, ...) keeps values >= 0
+//   3. remainingTime clamp — std::max(0LL, ...) keeps values >= 0
 
 // ---------------------------------------- socket_count_commas ---
 
@@ -66,30 +66,30 @@ void test_malformed_wtrlvl_has_wrong_comma_count()
     CHECK(socket_count_commas("WTRLVL,0,1") != 4);
 }
 
-// --------------------------------- remaining_time clamp math ---
+// --------------------------------- remainingTime clamp math ---
 
-void test_remaining_time_negative_value_clamps_to_zero()
+void test_remainingTime_negative_value_clamps_to_zero()
 {
     long long raw = -2500LL;
     long long clamped = std::max(0LL, raw);
     CHECK_EQ(clamped, 0LL);
 }
 
-void test_remaining_time_zero_stays_zero()
+void test_remainingTime_zero_stays_zero()
 {
     long long raw = 0LL;
     long long clamped = std::max(0LL, raw);
     CHECK_EQ(clamped, 0LL);
 }
 
-void test_remaining_time_positive_value_passes_through()
+void test_remainingTime_positive_value_passes_through()
 {
     long long raw = 3000LL;
     long long clamped = std::max(0LL, raw);
     CHECK_EQ(clamped, 3000LL);
 }
 
-void test_remaining_time_large_positive_unchanged()
+void test_remainingTime_large_positive_unchanged()
 {
     long long raw = 999999LL;
     long long clamped = std::max(0LL, raw);
@@ -111,8 +111,8 @@ void run_phase7_tests()
     RUN_TEST(test_wtrlvl_command_requires_4_commas);
     RUN_TEST(test_malformed_arm_has_wrong_comma_count);
     RUN_TEST(test_malformed_wtrlvl_has_wrong_comma_count);
-    RUN_TEST(test_remaining_time_negative_value_clamps_to_zero);
-    RUN_TEST(test_remaining_time_zero_stays_zero);
-    RUN_TEST(test_remaining_time_positive_value_passes_through);
-    RUN_TEST(test_remaining_time_large_positive_unchanged);
+    RUN_TEST(test_remainingTime_negative_value_clamps_to_zero);
+    RUN_TEST(test_remainingTime_zero_stays_zero);
+    RUN_TEST(test_remainingTime_positive_value_passes_through);
+    RUN_TEST(test_remainingTime_large_positive_unchanged);
 }

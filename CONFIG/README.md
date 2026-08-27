@@ -37,7 +37,6 @@ cp config.env.sample config.env
 |-----|---------|-------------|
 | `SERVER_PORT` | `8080` | Port `controller` binds to (should match `SOCKET_PORT`) |
 | `TRANSACTION_DIR` | `../transaction` | Directory where `controller` writes JSON transaction files |
-| `MAX_COIN_CREDIT` | `1000` | Maximum credit a customer can accumulate |
 
 ### Cashier dashboard
 

@@ -7,7 +7,7 @@ struct AppState; // forward declaration — full definition in app_state.h
 
 class Transaction {
 public:
-    std::string machine_id;
+    std::string machineId;
     std::string vendorId;
     std::string voucherId;
     double amount;
@@ -15,7 +15,7 @@ public:
     std::string dateCreated;
 };
 
-bool saveClassToJsonFileGeneric(const Transaction &obj, const std::string &filePath);
-void processSaving(AppState &state, int slot, double amount, std::string voucherId = "", int postfix = 0);
+bool writeTransactionJson(const Transaction &obj, const std::string &filePath);
+void writeTransaction(AppState &state, int slot, double amount, std::string voucherId = "", int postfix = 0);
 
 #endif // TRANSACTION_H

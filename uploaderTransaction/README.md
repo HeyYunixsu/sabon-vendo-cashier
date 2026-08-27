@@ -18,7 +18,7 @@ Three background Python scripts that keep the cloud API and the `controller` soc
 
 Reads 4 Raspberry Pi GPIO pins connected to water level sensors (one per soap slot). Every second, sends `WTRLVL,<p1>,<p2>,<p3>,<p4>` to the `controller` socket server, where each value is `1` (slot empty) or `0` (OK).
 
-This is the data source for the slot-empty protection feature in `controller`: when `WLVL_PRESSED[i]` is `true`, the pump will not activate even if the customer has credit.
+This is the data source for the slot-empty protection feature in `controller`: when `slotEmpty[i]` is `true`, the pump will not activate even if the customer has credit.
 
 **GPIO pin mapping (BCM numbering):**
 

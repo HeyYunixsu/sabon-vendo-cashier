@@ -5,7 +5,7 @@
 #include <chrono>
 #include <iostream>
 
-bool saveClassToJsonFileGeneric(const Transaction &obj, const std::string &filePath)
+bool writeTransactionJson(const Transaction &obj, const std::string &filePath)
 {
   std::ofstream file(filePath);
   if (!file.is_open())
@@ -15,7 +15,7 @@ bool saveClassToJsonFileGeneric(const Transaction &obj, const std::string &fileP
   }
 
   file << "{\n";
-  file << "  \"machine_id\": \"" << obj.machine_id << "\",\n";
+  file << "  \"machine_id\": \"" << obj.machineId << "\",\n";
   file << "  \"vendor_id\": \"" << obj.vendorId << "\",\n";
   file << "  \"voucher_id\": \"" << obj.voucherId << "\",\n";
   file << "  \"amount\": " << obj.amount << ",\n";
@@ -27,11 +27,11 @@ bool saveClassToJsonFileGeneric(const Transaction &obj, const std::string &fileP
   return true;
 }
 
-void processSaving(AppState &state, int slot, double amount, std::string voucherId, int postfix)
+void writeTransaction(AppState &state, int slot, double amount, std::string voucherId, int postfix)
 {
   auto now = std::chrono::system_clock::now();
   Transaction t1;
-  t1.machine_id = state.machineId;
+  t1.machineId = state.machineId;
   t1.vendorId = state.vendorId;
   t1.slot = std::to_string(slot);
   t1.amount = amount;
@@ -47,5 +47,5 @@ void processSaving(AppState &state, int slot, double amount, std::string voucher
   std::string filename = state.transactionDir + "/" + std::to_string(unixTimestamp)
                          + "_transaction_" + t1.slot + "_" + std::to_string(postfix) + ".json";
 
-  saveClassToJsonFileGeneric(t1, filename);
+  writeTransactionJson(t1, filename);
 }

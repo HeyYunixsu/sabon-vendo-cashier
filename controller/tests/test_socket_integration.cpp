@@ -348,7 +348,7 @@ void test_integration_arm_queues_when_slot_busy()
 void test_integration_wtrlvl_sets_flags()
 {
     // Legacy 4-value form: slots 5..TOTAL_SLOTS must fall back to "has liquid".
-    for (int i = 1; i <= TOTAL_SLOTS; i++) g_test_state.WLVL_PRESSED[i] = false;
+    for (int i = 1; i <= TOTAL_SLOTS; i++) g_test_state.slotEmpty[i] = false;
     ClientSock sock = connect_test_client();
     CHECK(sock != INVALID_CLIENT_SOCK);
     if (sock == INVALID_CLIENT_SOCK) return;
@@ -357,20 +357,20 @@ void test_integration_wtrlvl_sets_flags()
     send(sock, msg.c_str(), (int)msg.length(), 0);
     yield_to_server();
 
-    CHECK(!g_test_state.WLVL_PRESSED[1]);
-    CHECK( g_test_state.WLVL_PRESSED[2]);
-    CHECK(!g_test_state.WLVL_PRESSED[3]);
-    CHECK( g_test_state.WLVL_PRESSED[4]);
-    for (int i = 5; i <= TOTAL_SLOTS; i++) CHECK(!g_test_state.WLVL_PRESSED[i]);
+    CHECK(!g_test_state.slotEmpty[1]);
+    CHECK( g_test_state.slotEmpty[2]);
+    CHECK(!g_test_state.slotEmpty[3]);
+    CHECK( g_test_state.slotEmpty[4]);
+    for (int i = 5; i <= TOTAL_SLOTS; i++) CHECK(!g_test_state.slotEmpty[i]);
 
-    for (int i = 1; i <= TOTAL_SLOTS; i++) g_test_state.WLVL_PRESSED[i] = false;
+    for (int i = 1; i <= TOTAL_SLOTS; i++) g_test_state.slotEmpty[i] = false;
     CLOSE_CLIENT(sock);
 }
 
 void test_integration_wtrlvl_six_sensors()
 {
     // Full per-slot form: every slot including 5 and 6 is driven by a sensor.
-    for (int i = 1; i <= TOTAL_SLOTS; i++) g_test_state.WLVL_PRESSED[i] = false;
+    for (int i = 1; i <= TOTAL_SLOTS; i++) g_test_state.slotEmpty[i] = false;
     ClientSock sock = connect_test_client();
     CHECK(sock != INVALID_CLIENT_SOCK);
     if (sock == INVALID_CLIENT_SOCK) return;
@@ -379,11 +379,11 @@ void test_integration_wtrlvl_six_sensors()
     send(sock, msg.c_str(), (int)msg.length(), 0);
     yield_to_server();
 
-    for (int i = 1; i <= 4; i++) CHECK(!g_test_state.WLVL_PRESSED[i]);
-    CHECK(g_test_state.WLVL_PRESSED[5]);
-    CHECK(g_test_state.WLVL_PRESSED[6]);
+    for (int i = 1; i <= 4; i++) CHECK(!g_test_state.slotEmpty[i]);
+    CHECK(g_test_state.slotEmpty[5]);
+    CHECK(g_test_state.slotEmpty[6]);
 
-    for (int i = 1; i <= TOTAL_SLOTS; i++) g_test_state.WLVL_PRESSED[i] = false;
+    for (int i = 1; i <= TOTAL_SLOTS; i++) g_test_state.slotEmpty[i] = false;
     CLOSE_CLIENT(sock);
 }
 
@@ -395,7 +395,7 @@ void test_integration_wtrlvl_respects_inverted_polarity()
     const int saved = WATER_SENSOR_EMPTY_HIGH;
     WATER_SENSOR_EMPTY_HIGH = 0;
 
-    for (int i = 1; i <= TOTAL_SLOTS; i++) g_test_state.WLVL_PRESSED[i] = false;
+    for (int i = 1; i <= TOTAL_SLOTS; i++) g_test_state.slotEmpty[i] = false;
     ClientSock sock = connect_test_client();
     CHECK(sock != INVALID_CLIENT_SOCK);
     if (sock == INVALID_CLIENT_SOCK) { WATER_SENSOR_EMPTY_HIGH = saved; return; }
@@ -405,21 +405,21 @@ void test_integration_wtrlvl_respects_inverted_polarity()
     yield_to_server();
 
     // Inverted: the zeros are the empty slots now, not the ones.
-    CHECK( g_test_state.WLVL_PRESSED[1]);
-    CHECK(!g_test_state.WLVL_PRESSED[2]);
-    CHECK( g_test_state.WLVL_PRESSED[3]);
-    CHECK(!g_test_state.WLVL_PRESSED[4]);
-    CHECK( g_test_state.WLVL_PRESSED[5]);
-    CHECK(!g_test_state.WLVL_PRESSED[6]);
+    CHECK( g_test_state.slotEmpty[1]);
+    CHECK(!g_test_state.slotEmpty[2]);
+    CHECK( g_test_state.slotEmpty[3]);
+    CHECK(!g_test_state.slotEmpty[4]);
+    CHECK( g_test_state.slotEmpty[5]);
+    CHECK(!g_test_state.slotEmpty[6]);
 
-    for (int i = 1; i <= TOTAL_SLOTS; i++) g_test_state.WLVL_PRESSED[i] = false;
+    for (int i = 1; i <= TOTAL_SLOTS; i++) g_test_state.slotEmpty[i] = false;
     CLOSE_CLIENT(sock);
     WATER_SENSOR_EMPTY_HIGH = saved;
 }
 
 void test_integration_wtrlvl_all_clear()
 {
-    for (int i = 1; i <= TOTAL_SLOTS; i++) g_test_state.WLVL_PRESSED[i] = true;
+    for (int i = 1; i <= TOTAL_SLOTS; i++) g_test_state.slotEmpty[i] = true;
     ClientSock sock = connect_test_client();
     CHECK(sock != INVALID_CLIENT_SOCK);
     if (sock == INVALID_CLIENT_SOCK) return;
@@ -428,13 +428,13 @@ void test_integration_wtrlvl_all_clear()
     send(sock, msg.c_str(), (int)msg.length(), 0);
     yield_to_server();
 
-    for (int i = 1; i <= TOTAL_SLOTS; i++) CHECK(!g_test_state.WLVL_PRESSED[i]);
+    for (int i = 1; i <= TOTAL_SLOTS; i++) CHECK(!g_test_state.slotEmpty[i]);
     CLOSE_CLIENT(sock);
 }
 
 void test_integration_malformed_wtrlvl_is_ignored()
 {
-    for (int i = 1; i <= TOTAL_SLOTS; i++) g_test_state.WLVL_PRESSED[i] = false;
+    for (int i = 1; i <= TOTAL_SLOTS; i++) g_test_state.slotEmpty[i] = false;
     ClientSock sock = connect_test_client();
     CHECK(sock != INVALID_CLIENT_SOCK);
     if (sock == INVALID_CLIENT_SOCK) return;
@@ -443,7 +443,7 @@ void test_integration_malformed_wtrlvl_is_ignored()
     send(sock, msg.c_str(), (int)msg.length(), 0);
     yield_to_server();
 
-    for (int i = 1; i <= TOTAL_SLOTS; i++) CHECK(!g_test_state.WLVL_PRESSED[i]);
+    for (int i = 1; i <= TOTAL_SLOTS; i++) CHECK(!g_test_state.slotEmpty[i]);
     CLOSE_CLIENT(sock);
 }
 

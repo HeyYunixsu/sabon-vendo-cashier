@@ -17,8 +17,8 @@ namespace fs = std::filesystem;
 //   3. AppState.transactionDir — configurable, defaults to "../transaction"
 //   4. ensureDirectoryExists  — renamed from createDirectoryIfNotExists,
 //                               return value fixed (true = ready to use)
-//   5. processSaving uses state.transactionDir, not a hardcoded path
-//   6. processSaving produces no debug stdout output
+//   5. writeTransaction uses state.transactionDir, not a hardcoded path
+//   6. writeTransaction produces no debug stdout output
 
 // ---------------------------------- Product.durationSeconds ---
 
@@ -94,7 +94,7 @@ void test_ensureDirectory_idempotent()
     fs::remove_all(path);
 }
 
-// ---------------------- processSaving uses state.transactionDir ---
+// ---------------------- writeTransaction uses state.transactionDir ---
 
 static std::string find_file(const std::string &dir, const std::string &needle)
 {
@@ -105,7 +105,7 @@ static std::string find_file(const std::string &dir, const std::string &needle)
     return "";
 }
 
-void test_processSaving_writes_to_transactionDir()
+void test_writeTransaction_writes_to_transactionDir()
 {
     std::string customDir = "tests/tmp_ph8_tx";
     fs::create_directories(customDir);
@@ -115,7 +115,7 @@ void test_processSaving_writes_to_transactionDir()
     state.vendorId       = "PH8_VENDOR";
     state.transactionDir = customDir;
 
-    processSaving(state, 1, 5.0, "PH8_VOUCHER", 2001);
+    writeTransaction(state, 1, 5.0, "PH8_VOUCHER", 2001);
 
     std::string found = find_file(customDir, "_transaction_1_2001.json");
     CHECK(found != "");
@@ -124,7 +124,7 @@ void test_processSaving_writes_to_transactionDir()
     fs::remove_all(customDir);
 }
 
-void test_processSaving_default_dir_path_not_used_when_overridden()
+void test_writeTransaction_default_dir_path_not_used_when_overridden()
 {
     // With a custom transactionDir, files must NOT appear in "../transaction"
     std::string customDir = "tests/tmp_ph8_nodft";
@@ -135,7 +135,7 @@ void test_processSaving_default_dir_path_not_used_when_overridden()
     state.vendorId       = "V";
     state.transactionDir = customDir;
 
-    processSaving(state, 2, 5.0, "", 2002);
+    writeTransaction(state, 2, 5.0, "", 2002);
 
     // Should be in custom dir
     std::string inCustom = find_file(customDir, "_transaction_2_2002.json");
@@ -152,12 +152,12 @@ void test_processSaving_default_dir_path_not_used_when_overridden()
     fs::remove_all(customDir);
 }
 
-// ---------------------- no debug stdout from processSaving ---
-// processSaving previously printed "Voucher : ..." and "Length : ..."
+// ---------------------- no debug stdout from writeTransaction ---
+// writeTransaction previously printed "Voucher : ..." and "Length : ..."
 // on every call. Phase 8 removed those lines.
 // We verify by redirecting stdout and checking no output is produced.
 
-void test_processSaving_produces_no_stdout()
+void test_writeTransaction_produces_no_stdout()
 {
     std::string customDir = "tests/tmp_ph8_stdout";
     fs::create_directories(customDir);
@@ -172,7 +172,7 @@ void test_processSaving_produces_no_stdout()
     std::ostringstream captured;
     std::cout.rdbuf(captured.rdbuf());
 
-    processSaving(state, 3, 5.0, "SOME_VOUCHER", 2003);
+    writeTransaction(state, 3, 5.0, "SOME_VOUCHER", 2003);
 
     std::cout.rdbuf(orig);  // restore
 
@@ -200,7 +200,7 @@ void run_phase8_tests()
     RUN_TEST(test_ensureDirectory_ready_when_exists);
     RUN_TEST(test_ensureDirectory_creates_and_returns_true);
     RUN_TEST(test_ensureDirectory_idempotent);
-    RUN_TEST(test_processSaving_writes_to_transactionDir);
-    RUN_TEST(test_processSaving_default_dir_path_not_used_when_overridden);
-    RUN_TEST(test_processSaving_produces_no_stdout);
+    RUN_TEST(test_writeTransaction_writes_to_transactionDir);
+    RUN_TEST(test_writeTransaction_default_dir_path_not_used_when_overridden);
+    RUN_TEST(test_writeTransaction_produces_no_stdout);
 }

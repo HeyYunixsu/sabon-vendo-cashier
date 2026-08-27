@@ -15,7 +15,6 @@ typedef int SocketHandle;
 
 // --- Constants ---
 extern const int MAX_BUFFER_SIZE;
-extern const int MAX_COIN_CREDIT;  // coinCredit is capped at this value
 
 // --- Server Functions ---
 bool initialize_socket_environment();

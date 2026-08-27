@@ -57,9 +57,9 @@ void test_socket_module_links()
 void test_transaction_module_links()
 {
     Transaction t;
-    t.machine_id = "smoke"; t.vendorId = ""; t.voucherId = "";
+    t.machineId = "smoke"; t.vendorId = ""; t.voucherId = "";
     t.amount = 0; t.slot = "1"; t.dateCreated = "2024-01-01 00:00:00";
-    CHECK(!saveClassToJsonFileGeneric(t, "/no_such_dir/smoke.json"));
+    CHECK(!writeTransactionJson(t, "/no_such_dir/smoke.json"));
 }
 
 // ------------------------------------------ armed state smoke checks ---

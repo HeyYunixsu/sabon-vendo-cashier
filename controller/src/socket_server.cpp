@@ -126,10 +126,10 @@ static std::string build_status_response(AppState &state)
     resp += "," + std::to_string(state.armedQty[i]);
   }
   for (int i = 1; i <= TOTAL_SLOTS; i++) {
-    resp += "," + std::to_string(state.remaining_time[i]);
+    resp += "," + std::to_string(state.remainingTime[i]);
   }
   for (int i = 1; i <= TOTAL_SLOTS; i++) {
-    resp += "," + std::to_string(state.WLVL_PRESSED[i] ? 1 : 0);
+    resp += "," + std::to_string(state.slotEmpty[i] ? 1 : 0);
   }
   for (int i = 1; i <= TOTAL_SLOTS; i++) {
     resp += "," + std::to_string(state.slotBusy[i] ? 1 : 0);
@@ -137,7 +137,7 @@ static std::string build_status_response(AppState &state)
   for (int i = 1; i <= TOTAL_SLOTS; i++) {
     resp += "," + std::to_string((int)state.pendingQueue[i].size());
   }
-  resp += "," + std::to_string(state.state_pause ? 1 : 0);
+  resp += "," + std::to_string(state.paused ? 1 : 0);
   resp += "," + std::to_string(static_cast<int>(state.phase));
   resp += "," + std::to_string(state.bundleComplete ? 1 : 0);
   return resp;
@@ -368,13 +368,13 @@ void manage_connected_clients(AppState &state)
               std::string field = trim(end == std::string::npos
                   ? input_str.substr(start)
                   : input_str.substr(start, end - start));
-              state.WLVL_PRESSED[slot] = (field == emptyLevel);
+              state.slotEmpty[slot] = (field == emptyLevel);
               start = (end == std::string::npos) ? input_str.size() : end + 1;
             } else {
-              state.WLVL_PRESSED[slot] = false;  // no sensor wired for this slot
+              state.slotEmpty[slot] = false;  // no sensor wired for this slot
             }
             summary += " s" + std::to_string(slot) + "="
-                     + (state.WLVL_PRESSED[slot] ? "E" : "ok");
+                     + (state.slotEmpty[slot] ? "E" : "ok");
           }
 
           log_info("socket", "Water level:" + summary);

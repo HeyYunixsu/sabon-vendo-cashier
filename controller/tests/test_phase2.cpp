@@ -6,9 +6,9 @@
 
 namespace fs = std::filesystem;
 
-// Phase 2 removed LCD + formatter and fixed the loop() bug so processSaving()
+// Phase 2 removed LCD + formatter and fixed the loop() bug so writeTransaction()
 // is now actually called when a pump finishes.  These tests exercise the
-// underlying JSON-writing path (saveClassToJsonFileGeneric) that processSaving
+// underlying JSON-writing path (writeTransactionJson) that writeTransaction
 // delegates to, confirming the pipeline produces well-formed output.
 
 // ------------------------------------------------ helper ---
@@ -21,12 +21,12 @@ static std::string read_file(const std::string &path)
     return buf.str();
 }
 
-// -------------------------------- saveClassToJsonFileGeneric ---
+// -------------------------------- writeTransactionJson ---
 
 void test_save_json_creates_file()
 {
     Transaction t;
-    t.machine_id  = "M1";
+    t.machineId  = "M1";
     t.vendorId    = "V1";
     t.voucherId   = "VOUCH001";
     t.amount      = 5.0;
@@ -36,7 +36,7 @@ void test_save_json_creates_file()
     std::string path = "tests/tmp_phase2_create.json";
     fs::remove(path);
 
-    bool ok = saveClassToJsonFileGeneric(t, path);
+    bool ok = writeTransactionJson(t, path);
 
     CHECK(ok);
     CHECK(fs::exists(path));
@@ -47,7 +47,7 @@ void test_save_json_creates_file()
 void test_save_json_all_fields_present()
 {
     Transaction t;
-    t.machine_id  = "machine_42";
+    t.machineId  = "machine_42";
     t.vendorId    = "vendor_XYZ";
     t.voucherId   = "V999";
     t.amount      = 10.0;
@@ -55,7 +55,7 @@ void test_save_json_all_fields_present()
     t.dateCreated = "2024-06-15 08:30:00";
 
     std::string path = "tests/tmp_phase2_fields.json";
-    saveClassToJsonFileGeneric(t, path);
+    writeTransactionJson(t, path);
     std::string content = read_file(path);
     fs::remove(path);
 
@@ -73,11 +73,11 @@ void test_save_json_all_fields_present()
 void test_save_json_amount_value_written()
 {
     Transaction t;
-    t.machine_id = "M"; t.vendorId = "V"; t.voucherId = "";
+    t.machineId = "M"; t.vendorId = "V"; t.voucherId = "";
     t.amount = 15.5; t.slot = "2"; t.dateCreated = "2024-01-01 00:00:00";
 
     std::string path = "tests/tmp_phase2_amount.json";
-    saveClassToJsonFileGeneric(t, path);
+    writeTransactionJson(t, path);
     std::string content = read_file(path);
     fs::remove(path);
 
@@ -87,9 +87,9 @@ void test_save_json_amount_value_written()
 void test_save_json_returns_false_for_bad_path()
 {
     Transaction t;
-    t.machine_id = "x"; t.vendorId = "x"; t.amount = 0; t.slot = "1";
+    t.machineId = "x"; t.vendorId = "x"; t.amount = 0; t.slot = "1";
 
-    bool ok = saveClassToJsonFileGeneric(t, "/no_such_dir/bad.json");
+    bool ok = writeTransactionJson(t, "/no_such_dir/bad.json");
 
     CHECK(!ok);
 }
@@ -99,14 +99,14 @@ void test_save_json_overwrites_existing_file()
     std::string path = "tests/tmp_phase2_overwrite.json";
 
     Transaction t1;
-    t1.machine_id = "FIRST"; t1.vendorId = "V"; t1.voucherId = "";
+    t1.machineId = "FIRST"; t1.vendorId = "V"; t1.voucherId = "";
     t1.amount = 1.0; t1.slot = "1"; t1.dateCreated = "2024-01-01 00:00:00";
-    saveClassToJsonFileGeneric(t1, path);
+    writeTransactionJson(t1, path);
 
     Transaction t2;
-    t2.machine_id = "SECOND"; t2.vendorId = "V"; t2.voucherId = "";
+    t2.machineId = "SECOND"; t2.vendorId = "V"; t2.voucherId = "";
     t2.amount = 2.0; t2.slot = "1"; t2.dateCreated = "2024-01-01 00:00:00";
-    saveClassToJsonFileGeneric(t2, path);
+    writeTransactionJson(t2, path);
 
     std::string content = read_file(path);
     fs::remove(path);

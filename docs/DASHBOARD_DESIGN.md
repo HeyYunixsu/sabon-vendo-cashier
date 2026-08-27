@@ -460,7 +460,7 @@ const MAX_QTY = 10;  // max presses per staged item — placeholder, adjust to f
 
 1. **Alert count inaccuracy:** The `renderAlerts()` function counts alerts using `issues.match(/list-row/g).length` — this counts `<div class="list-row">` occurrences in the HTML string. If the rendered HTML differs from what's in the string (e.g. due to DOM manipulation), the count is wrong.
 
-2. **Water level mapping:** The Python script reads pins in order (`WATER_GPIO_PIN_1..4` from `config.env`) and sends them as `WTRLVL,v1,v2,v3,v4`. The C++ server maps these to `WLVL_PRESSED[1..4]`. If the physical sensor-to-slot wiring doesn't match the pin order in config.env, the dashboard shows the wrong slot as empty.
+2. **Water level mapping:** The Python script reads pins in order (`WATER_GPIO_PIN_1..6` from `config.env`) and sends them as `WTRLVL,v1..v6`. The C++ server maps these to `slotEmpty[1..6]`. If the physical sensor-to-slot wiring doesn't match the pin order in config.env, the dashboard shows the wrong slot as empty.
 
 3. **SSE connection reset:** When the SSE reconnects (receives `data: connected`), the entire client state is reset — staged items, selected product, armed counts all go to zero. This is by design but can be jarring if the connection blips.
 

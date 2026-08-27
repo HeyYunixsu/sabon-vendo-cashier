@@ -28,24 +28,24 @@ void test_appstate_vendorId_default_empty()
     CHECK_EQ(s.vendorId, std::string(""));
 }
 
-void test_appstate_remaining_time_all_zero()
+void test_appstate_remainingTime_all_zero()
 {
     AppState s;
     for (int i = 1; i <= TOTAL_SLOTS; i++)
-        CHECK_EQ(s.remaining_time[i], 0LL);
+        CHECK_EQ(s.remainingTime[i], 0LL);
 }
 
-void test_appstate_WLVL_PRESSED_all_false()
+void test_appstate_slotEmpty_all_false()
 {
     AppState s;
     for (int i = 1; i <= TOTAL_SLOTS; i++)
-        CHECK(!s.WLVL_PRESSED[i]);
+        CHECK(!s.slotEmpty[i]);
 }
 
-void test_appstate_state_pause_default_false()
+void test_appstate_paused_default_false()
 {
     AppState s;
-    CHECK(!s.state_pause);
+    CHECK(!s.paused);
 }
 
 void test_appstate_slotBusy_default_false()
@@ -82,35 +82,35 @@ void test_appstate_machineId_and_vendorId_set()
     CHECK_EQ(s.vendorId,  std::string("vendor_ABC"));
 }
 
-void test_appstate_remaining_time_per_pump_independent()
+void test_appstate_remainingTime_per_pump_independent()
 {
     AppState s;
-    s.remaining_time[1] = 5000;
-    s.remaining_time[4] = 3000;
-    CHECK_EQ(s.remaining_time[1], 5000LL);
-    CHECK_EQ(s.remaining_time[2], 0LL);
-    CHECK_EQ(s.remaining_time[3], 0LL);
-    CHECK_EQ(s.remaining_time[4], 3000LL);
+    s.remainingTime[1] = 5000;
+    s.remainingTime[4] = 3000;
+    CHECK_EQ(s.remainingTime[1], 5000LL);
+    CHECK_EQ(s.remainingTime[2], 0LL);
+    CHECK_EQ(s.remainingTime[3], 0LL);
+    CHECK_EQ(s.remainingTime[4], 3000LL);
 }
 
-void test_appstate_WLVL_PRESSED_per_pump_independent()
+void test_appstate_slotEmpty_per_pump_independent()
 {
     AppState s;
-    s.WLVL_PRESSED[2] = true;
-    s.WLVL_PRESSED[3] = true;
-    CHECK(!s.WLVL_PRESSED[1]);
-    CHECK( s.WLVL_PRESSED[2]);
-    CHECK( s.WLVL_PRESSED[3]);
-    CHECK(!s.WLVL_PRESSED[4]);
+    s.slotEmpty[2] = true;
+    s.slotEmpty[3] = true;
+    CHECK(!s.slotEmpty[1]);
+    CHECK( s.slotEmpty[2]);
+    CHECK( s.slotEmpty[3]);
+    CHECK(!s.slotEmpty[4]);
 }
 
-void test_appstate_state_pause_toggle()
+void test_appstate_paused_toggle()
 {
     AppState s;
-    s.state_pause = true;
-    CHECK(s.state_pause);
-    s.state_pause = false;
-    CHECK(!s.state_pause);
+    s.paused = true;
+    CHECK(s.paused);
+    s.paused = false;
+    CHECK(!s.paused);
 }
 
 // ------------------- two AppState instances are independent ---
@@ -123,8 +123,8 @@ void test_appstate_two_instances_do_not_share_state()
     CHECK_EQ(a.armedQty[1], 50);
     CHECK_EQ(b.armedQty[1], 0);
 
-    b.state_pause = true;
-    CHECK(!a.state_pause);
+    b.paused = true;
+    CHECK(!a.paused);
 }
 
 // ---------------------------------------------------------- entry point ---
@@ -135,15 +135,15 @@ void run_phase3_tests()
     RUN_TEST(test_appstate_armedQty_default_zero);
     RUN_TEST(test_appstate_machineId_default_is_1);
     RUN_TEST(test_appstate_vendorId_default_empty);
-    RUN_TEST(test_appstate_remaining_time_all_zero);
-    RUN_TEST(test_appstate_WLVL_PRESSED_all_false);
-    RUN_TEST(test_appstate_state_pause_default_false);
+    RUN_TEST(test_appstate_remainingTime_all_zero);
+    RUN_TEST(test_appstate_slotEmpty_all_false);
+    RUN_TEST(test_appstate_paused_default_false);
     RUN_TEST(test_appstate_slotBusy_default_false);
     RUN_TEST(test_appstate_pendingQueue_default_empty);
     RUN_TEST(test_appstate_armedQty_add_subtract);
     RUN_TEST(test_appstate_machineId_and_vendorId_set);
-    RUN_TEST(test_appstate_remaining_time_per_pump_independent);
-    RUN_TEST(test_appstate_WLVL_PRESSED_per_pump_independent);
-    RUN_TEST(test_appstate_state_pause_toggle);
+    RUN_TEST(test_appstate_remainingTime_per_pump_independent);
+    RUN_TEST(test_appstate_slotEmpty_per_pump_independent);
+    RUN_TEST(test_appstate_paused_toggle);
     RUN_TEST(test_appstate_two_instances_do_not_share_state);
 }
