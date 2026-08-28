@@ -3,6 +3,17 @@
 
 #include <stdint.h>
 
+#ifdef _WIN32
+// windows.h declares `typedef struct tagINPUT { ... } INPUT, *LPINPUT;` and
+// socket_server.h pulls in <winsock2.h> AFTER this header. Defining INPUT as a
+// macro first corrupts that declaration, so the Windows/mock build failed to
+// compile at all. Let Windows declare its own types before the macros below;
+// nothing in this project uses INPUT as a Windows type afterwards.
+#define WIN32_LEAN_AND_MEAN
+#include <winsock2.h>
+#include <windows.h>
+#endif
+
 // Constants
 #define INPUT 0
 #define OUTPUT 1

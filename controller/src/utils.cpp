@@ -1,4 +1,5 @@
 #include "utils.h"
+#include "app_state.h"
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -120,8 +121,6 @@ void log_error(const std::string &module, const std::string &msg)
 // ---------------------------------------------------------------------------
 // Crash persistence — survive Pi restarts without losing in-progress sales
 // ---------------------------------------------------------------------------
-
-#include "app_state.h"
 
 bool saveStateToDisk(const AppState &state, const std::string &dir)
 {
