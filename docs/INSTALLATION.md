@@ -1,278 +1,442 @@
-# Manual Installation Guide
-## Sabon Express Dispenser
+# Installing on a New Raspberry Pi
 
-This guide mirrors every step that `setup_and_run.sh` performs, broken into
-copy-pasteable terminal blocks. Run each section in order.
+Copy-paste runbook for provisioning a fresh Pi from a blank OS image to a
+running machine. Every command is meant to be pasted as-is except where a
+`<placeholder>` appears.
 
----
+Read section 0 before pasting anything — two of the steps need a reboot, and
+doing them in the wrong order costs you a full rebuild.
 
-## 0. Set Your Variables First
+**Order matters:**
 
-Run these two lines **before anything else**. Every command below uses them.
-
-```bash
-PROJECT_DIR="/home/dgsi/Desktop/sabon_express_dispenser"
-DISPLAY_USER="dgsi"
 ```
-
-> **Change `dgsi`** to your actual Pi username if it differs.  
-> Verify with: `echo $USER`
-
----
-
-## 1. Sanity Check — Confirm Required Tools Exist
-
-```bash
-for cmd in make g++ python3 pm2 sudo systemctl; do
-  command -v "$cmd" && echo "$cmd OK" || echo "WARNING: $cmd not found"
-done
-```
-
-If anything is missing, run `install_dependencies.sh` first (requires internet).
-
----
-
-## 2. Build C++ Projects
-
-### 2a. controller
-
-```bash
-cd "$PROJECT_DIR/controller"
-make clean
-make
-```
-
-Expected output ends with: `make — BUILD SUCCESSFUL` (or similar). Confirm the
-binary exists:
-
-```bash
-ls -lh "$PROJECT_DIR/controller/main"
-```
-
-### 2b. iot_dispenser_v2
-
-```bash
-cd "$PROJECT_DIR/iot_dispenser_v2"
-make clean
-make
-```
-
-Confirm the binary:
-
-```bash
-ls -lh "$PROJECT_DIR/iot_dispenser_v2/main_gui"
+0. Prep          -> 1. Boot config (REBOOT)  -> 2. Get the code
+3. config.env    -> 4. Dependencies          -> 5. Build & launch
+6. Verify        -> 7. Calibrate sensors
 ```
 
 ---
 
-## 3. Set Up Python Virtual Environments
+## 0. Before you start
 
-Repeat for each Python module. Each block is self-contained.
+### Use a wired connection if you can
 
-### 3a. keyboard_monitoring
+You are about to pull ~100 MB of packages, build WiringPi from source, and run
+an npm install. On marginal WiFi these fail halfway and leave apt in a
+part-finished state. Ethernet avoids an entire class of problem.
 
-```bash
-cd "$PROJECT_DIR/keyboard_monitoring"
-python3 -m venv venv
-venv/bin/pip install --upgrade pip --quiet
-venv/bin/pip install -r requirement.txt
-```
-
-### 3b. uploaderTransaction
+Check the link quality if you must use WiFi:
 
 ```bash
-cd "$PROJECT_DIR/uploaderTransaction"
-python3 -m venv venv
-venv/bin/pip install --upgrade pip --quiet
-venv/bin/pip install -r requirement.txt
+iwgetid
+cat /proc/net/wireless      # link quality under ~40/70 is trouble
 ```
 
-> `usb_to_coin_module` was removed: it contained no code, and the coin-acceptor
-> and street-light processes it described are not part of the dashboard model.
+### Work inside tmux
 
-### Check if processes already exist before starting
+If SSH drops mid-install, tmux keeps the install running.
+
+```bash
+sudo apt install -y tmux
+tmux new -s setup
+```
+
+Reattach after a dropped connection with `tmux attach -t setup`.
+
+### Wait out the background updater
+
+Raspberry Pi OS runs `packagekitd` after boot and it holds the apt lock. If you
+see `Could not get lock /var/lib/apt/lists/lock`, that is what has it.
+
+```bash
+while sudo fuser /var/lib/apt/lists/lock >/dev/null 2>&1; do
+  echo "apt still locked, waiting..."; sleep 10
+done; echo "lock free"
+```
+
+### Force apt to IPv4
+
+Pi IPv6 is often half-configured, and apt burns minutes timing out on it.
+
+```bash
+echo 'Acquire::ForceIPv4 "true";' | sudo tee /etc/apt/apt.conf.d/99force-ipv4
+sudo apt update
+```
+
+---
+
+## 1. Boot configuration — GPIO pull-ups and safe pump states
+
+**Do this first. It needs a reboot, and skipping it causes phantom button
+presses and pumps that run dry during boot.**
+
+Two separate problems this solves.
+
+**Buttons** are wired GPIO to GND (active-low), so each input needs a pull-up to
+have a defined level when the button is not pressed. WiringPi's pull control is
+unreliable on current Debian, so it is set at firmware level instead.
+
+**Pump relays are active-low** — a LOW input switches the pump ON. On the Pi,
+GPIO 9–27 power up with a pull-DOWN, which means five of the six pump relays sit
+**energized from power-on until the controller starts**. That is 30+ seconds of
+a pump running dry on every boot. Driving them HIGH at firmware init fixes it.
+
+```bash
+sudo tee -a /boot/firmware/config.txt >/dev/null <<'EOF'
+
+# --- Sabon dispenser ---
+# Buttons: wired to GND, need pull-ups (wiringPi's pull control is unreliable)
+gpio=10,13,14,23,24,25=ip,pu
+# Pump relays are active-low: drive HIGH at boot so they are OFF before the
+# controller starts, otherwise they energize during boot and run pumps dry
+gpio=6,12,15,16,17,18=op,dh
+EOF
+
+sudo reboot
+```
+
+Verify after the reboot:
+
+```bash
+raspi-gpio get 10,13,14,23,24,25    # each: func=INPUT pull=UP
+raspi-gpio get 6,12,15,16,17,18     # each: func=OUTPUT level=1
+```
+
+> **Water sensor pins are deliberately absent from this list.** They are pulled
+> up in Python instead. `RPi.GPIO` defaults to `PUD_OFF` and *actively writes*
+> it, so `GPIO.setup()` would undo a boot-time pull seconds after startup.
+> `water_level_monitoring_v2.py` sets `PUD_UP` itself.
+
+### If SPI is enabled, turn it off
+
+GPIO 7, 8, 9, 10 and 11 are the SPI0 pins, and this project uses all five
+(LED6, water 5, water 6, BTN4, water 4). If SPI is on, the peripheral claims
+them and those channels die.
+
+```bash
+grep -nE "^dtparam=spi" /boot/firmware/config.txt
+```
+
+Comment out any `dtparam=spi=on` you find, then reboot. Nothing here uses SPI.
+
+---
+
+## 2. Get the code
+
+```bash
+cd ~/Desktop
+git clone https://github.com/HeyYunixsu/sabon-vendo-cashier.git
+cd sabon-vendo-cashier
+git checkout feat/enable-six-products
+git log --oneline -1
+```
+
+> **The six-slot work lives on `feat/enable-six-products`, not `master`.**
+> `master` is still the five-slot version with the broken dashboard
+> registration. Until the branch is merged, checking out `master` on this Pi
+> silently reverts you. Confirm the branch before continuing.
+
+---
+
+## 3. Create `config.env`
+
+`CONFIG/config.env` is **gitignored** — it will not arrive with the clone, and
+it is the one file you must create by hand on every machine.
+
+```bash
+cd ~/Desktop/sabon-vendo-cashier
+cp CONFIG/config.env.sample CONFIG/config.env
+nano CONFIG/config.env
+```
+
+Three values are machine-specific and must be set:
+
+| Key | What to put |
+|-----|-------------|
+| `vendorId` | The vendor UUID from the cloud dashboard |
+| `machineId` | This machine's number — **unique per Pi** |
+| `TRANSACTION_DIR` | Absolute path: `/home/<user>/Desktop/sabon-vendo-cashier/transaction` |
+
+`TRANSACTION_DIR` must be absolute and must match this clone's real location.
+If the username is not `dgsi`, change it. Get the correct value with:
+
+```bash
+echo "TRANSACTION_DIR=$HOME/Desktop/sabon-vendo-cashier/transaction"
+```
+
+Everything else in the sample has a working default. See
+[CONFIG/README.md](../CONFIG/README.md) for every key.
+
+If you are replacing a machine, copy `calibrateProduct1`–`calibrateProduct6`
+from the old Pi — those are physically measured per-pump flow rates and cannot
+be guessed.
+
+---
+
+## 4. Install system dependencies
+
+```bash
+cd ~/Desktop/sabon-vendo-cashier
+chmod +x install_dependencies.sh setup_and_run.sh
+./install_dependencies.sh 2>&1 | tee install_dependencies.log
+```
+
+Installs WiringPi (built from source), Node.js 20.x, PM2 and journalctl. Safe to
+re-run; it skips anything already present.
+
+> **If it fails on the Node.js version check**, see
+> [Node.js is too old](#nodejs-is-too-old-or-npm-is-missing) in troubleshooting.
+> Debian trixie ships 20.19.2, which is below the script's 20.19.5 minimum, and
+> its `nodejs` package does not include `npm`.
+
+---
+
+## 5. Build and launch
+
+```bash
+cd ~/Desktop/sabon-vendo-cashier
+./setup_and_run.sh 2>&1 | tee setup_run.log
+```
+
+This builds the controller, creates the Python venv, installs npm dependencies,
+registers all five processes with PM2, and persists them for auto-start on boot.
+
+Run the test suite too — it catches a bad build before the hardware does:
+
+```bash
+cd controller && make test
+```
+
+Expect **413 passed, 0 failed**.
+
+---
+
+## 6. Verify
 
 ```bash
 sudo pm2 list
 ```
 
-If a process already exists and just needs restarting, use:
+Five processes, all `online`:
+
+| PM2 name | Runs |
+|----------|------|
+| `01_Dispenser_Controller` | `controller/main` |
+| `02_Water_Sensors` | `uploaderTransaction/water_level_monitoring_v2.py` |
+| `03_Transaction_Uploader` | `uploaderTransaction/uploader.py` |
+| `04_Status_Uploader` | `uploaderTransaction/status_uploader.py` |
+| `05_Cashier_Dashboard` | `cashier_dashboard/server.js` |
+
+Then confirm both listeners are actually bound — `online` in PM2 is not proof a
+process is working:
+
 ```bash
-sudo pm2 restart <name>
+sudo ss -tlnp | grep -E ':80 |:8080 '
 ```
 
-Otherwise register each one fresh with the commands below.
+You want two lines: **:8080** owned by `main`, **:80** owned by `node`.
+
+Check the controller came up with the right pin map and sensor polarity:
+
+```bash
+sudo pm2 logs 01_Dispenser_Controller --lines 30 --nostream | grep -E "Slot |Water sensor"
+```
+
+Open the dashboard:
+
+```bash
+hostname -I          # the Pi's LAN address
+```
+
+Browse to `http://<pi-ip>/` — **port 80, no port suffix.**
 
 ---
 
-### 4a. 01_Dispenser_Controller — controller C++ binary
+## 7. Calibrate the water sensors
+
+The sensors report a raw GPIO level; which level means "empty" depends on how
+they are wired. Watch the decoded state:
 
 ```bash
-sudo pm2 start "$PROJECT_DIR/controller/main" \
-  --name "01_Dispenser_Controller" \
-  --cwd  "$PROJECT_DIR/controller" \
-  --log  "$PROJECT_DIR/controller/pm2_01_Dispenser_Controller.log" \
-  --time
+sudo pm2 logs 01_Dispenser_Controller --lines 0 | grep --line-buffered "Water level"
 ```
 
-### 4b. 02_Coin_Acceptor — USB coin acceptor serial reader
+One line per second: `Water level: s1=ok s2=ok s3=ok s4=ok s5=ok s6=ok`
+(`ok` = has liquid, `E` = empty).
+
+Move a float by hand. **Float up should read `ok`, float down should read `E`.**
+
+If every slot reads backwards, flip the polarity — no rebuild needed:
 
 ```bash
-
-### 4c. 03_Street_Light — LED relay schedule
-
-```bash
-
-### 4d. 04_QR_Scanner — QR code keyboard monitor
-
-> Requires `DISPLAY` and `XAUTHORITY` so pynput can reach the X server.
-
-```bash
-sudo env DISPLAY=:0 XAUTHORITY=/home/${DISPLAY_USER}/.Xauthority \
-  pm2 start "$PROJECT_DIR/keyboard_monitoring/qr_code_monitoring.py" \
-  --name        "04_QR_Scanner" \
-  --interpreter "$PROJECT_DIR/keyboard_monitoring/venv/bin/python3" \
-  --cwd         "$PROJECT_DIR/keyboard_monitoring" \
-  --log         "$PROJECT_DIR/keyboard_monitoring/pm2_04_QR_Scanner.log" \
-  --time
+nano CONFIG/config.env      # set WATER_SENSOR_EMPTY_HIGH to 0 (or back to 1)
+sudo pm2 restart 01_Dispenser_Controller
 ```
 
-### 4e. 02_Water_Sensors — GPIO water sensor reader
+If only *some* slots are backwards, that is wiring, not software — those sensors
+are wired opposite to the others. All six must be wired the same way.
 
-```bash
-sudo pm2 start "$PROJECT_DIR/uploaderTransaction/water_level_monitoring_v2.py" \
-  --name        "02_Water_Sensors" \
-  --interpreter "$PROJECT_DIR/uploaderTransaction/venv/bin/python3" \
-  --cwd         "$PROJECT_DIR/uploaderTransaction" \
-  --log         "$PROJECT_DIR/uploaderTransaction/pm2_02_Water_Sensors.log" \
-  --time
-```
-
-### 4f. 03_Transaction_Uploader — JSON transaction cloud uploader
-
-```bash
-sudo pm2 start "$PROJECT_DIR/uploaderTransaction/uploader.py" \
-  --name        "03_Transaction_Uploader" \
-  --interpreter "$PROJECT_DIR/uploaderTransaction/venv/bin/python3" \
-  --cwd         "$PROJECT_DIR/uploaderTransaction" \
-  --log         "$PROJECT_DIR/uploaderTransaction/pm2_03_Transaction_Uploader.log" \
-  --time
-```
-
-### 4g. 04_Status_Uploader — Machine status cloud sync
-
-```bash
-sudo pm2 start "$PROJECT_DIR/uploaderTransaction/status_uploader.py" \
-  --name        "04_Status_Uploader" \
-  --interpreter "$PROJECT_DIR/uploaderTransaction/venv/bin/python3" \
-  --cwd         "$PROJECT_DIR/uploaderTransaction" \
-  --log         "$PROJECT_DIR/uploaderTransaction/pm2_04_Status_Uploader.log" \
-  --time
-```
+> **Fail-safe note:** the default of `1` means a disconnected sensor reads HIGH,
+> which reads as empty and blocks the pump. If you set it to `0`, a broken
+> sensor wire looks like "has liquid" and the pump can run dry. If your floats
+> close on falling, consider flipping the float physically instead.
 
 ---
 
-## 5. Save PM2 Process List & Enable Autostart on Boot
+## Upgrading an existing Pi
+
+A `git pull` alone is **not enough** if you are coming from before the rename.
+PM2 stores absolute script paths and the old process names.
+
+```bash
+cd ~/Desktop/sabon-vendo-cashier
+git pull
+sudo pm2 delete all
+rm -rf coin_slot                    # stale gitignored binary the pull leaves behind
+cd controller && make clean && make && make test
+cd .. && ./setup_and_run.sh 2>&1 | tee setup_run.log
+sudo pm2 save
+```
+
+`rm -rf coin_slot` matters: `git pull` moves the tracked files to `controller/`,
+but the compiled `main` and `*.o` are gitignored, so the old directory lingers
+with a stale binary in it. `config.env` needs no edit — `TRANSACTION_DIR` and
+the venv path never contained `coin_slot`.
+
+---
+
+## Troubleshooting
+
+### apt: "Could not get lock"
+
+`packagekitd` holds it after boot. Wait it out with the loop in section 0, or:
+
+```bash
+sudo systemctl mask --now packagekit
+# ... run your install ...
+sudo systemctl unmask packagekit          # do not forget this
+```
+
+Never `rm` the lock file while an apt process is running.
+
+### Downloads fail with "Network is unreachable"
+
+The Pi lost its route, not a mirror problem.
+
+```bash
+ip -br a
+ip route                # no "default via ..." line = no gateway
+ping -c3 1.1.1.1        # works but DNS fails = DNS issue
+```
+
+If a previous install was killed mid-transaction:
+
+```bash
+sudo dpkg --configure -a
+```
+
+### Node.js is too old, or npm is missing
+
+Debian trixie's `nodejs` is 20.19.2 (below the 20.19.5 the script wants) and
+does **not** include npm. If NodeSource failed to install — usually because it
+could not fetch `curl` and `gnupg` — install those first, then retry:
+
+```bash
+sudo apt install -y curl gnupg
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt install -y nodejs
+node --version && npm --version
+```
+
+Confirm you got the NodeSource build, not Debian's:
+
+```bash
+apt-cache policy nodejs      # should show deb.nodesource.com
+```
+
+### Dashboard says `online` but the browser cannot reach it
+
+Check what it is actually running:
+
+```bash
+sudo pm2 describe 05_Cashier_Dashboard | grep -E "script path"
+sudo pm2 logs 05_Cashier_Dashboard --lines 30
+sudo ss -tlnp | grep ':80 '
+```
+
+- **Script path is a bare `node` binary** — an old `setup_and_run.sh` bug. Fixed
+  in current code; re-run the script.
+- **`EADDRINUSE`** — something else holds port 80, often a preinstalled web
+  server: `sudo systemctl disable --now lighttpd`
+- **`EACCES`** — not running as root. Port 80 needs it; all processes must start
+  via `sudo pm2`.
+- **`MODULE_NOT_FOUND`** — `cd cashier_dashboard && npm install --production`
+- **Works as `curl -I http://localhost/` on the Pi but not from a laptop** —
+  network path, not the app.
+
+### A button fires by itself
+
+Its pull-up is missing. Confirm section 1 was applied and that you rebooted:
+
+```bash
+raspi-gpio get 10,13,14,23,24,25    # each must show pull=UP
+```
+
+### One water sensor never changes
+
+```bash
+raspi-gpio get 26,20,21,11,8,9      # compare the dead one against a working one
+```
+
+- **`func=ALT0`** — SPI has claimed the pin. See the SPI note in section 1.
+- **`func=INPUT pull=UP` but the level never moves** — hardware. Swap that
+  sensor's connector with a working slot's. If the fault follows the sensor it
+  is the sensor or its wire; if it stays on the slot, move that channel to a
+  free plain GPIO and update `WATER_GPIO_PIN_n` in `config.env`.
+
+### A relay behaves opposite to the others
+
+`PUMP_TRIGGER_HIGH`/`PUMP_TRIGGER_LOW` are **global** — every relay must use the
+same polarity. Test a channel with the software stopped:
+
+```bash
+sudo pm2 stop 01_Dispenser_Controller
+pinctrl set 6 op dh     # relay OFF   (use raspi-gpio set if pinctrl is absent)
+pinctrl set 6 op dl    # relay ON
+sudo pm2 start 01_Dispenser_Controller
+```
+
+### Nothing works after a reboot
+
+```bash
+sudo pm2 list
+sudo systemctl status pm2-root
+```
+
+If PM2 is empty, the process list was never saved:
 
 ```bash
 sudo pm2 startup systemd
 sudo pm2 save
 ```
 
-> `pm2 startup` prints a command — you may need to copy-paste and run it.
-
----
-
-## 6. Configure & Start the GUI (vendo_gui.service)
-
-This installs `iot_dispenser_v2` as a systemd service so it auto-starts with
-the desktop session.
-
-### 6a. Write the service file
+### Useful commands
 
 ```bash
-sudo tee /etc/systemd/system/vendo_gui.service > /dev/null <<EOF
-[Unit]
-Description=Sabon Express Vendo GUI
-After=graphical.target
-Wants=graphical.target
-
-[Service]
-User=${DISPLAY_USER}
-ExecStartPre=/bin/bash -c 'c=0; until [ -S /tmp/.X11-unix/X0 ]; do sleep 1; c=\$((c+1)); [ \$c -ge 60 ] && exit 1; done; c=0; until DISPLAY=:0 XAUTHORITY=/home/${DISPLAY_USER}/.Xauthority xrandr 2>/dev/null | grep -qF "*"; do sleep 1; c=\$((c+1)); [ \$c -ge 30 ] && break; done'
-ExecStart=${PROJECT_DIR}/iot_dispenser_v2/main_gui
-WorkingDirectory=${PROJECT_DIR}/iot_dispenser_v2
-StandardOutput=journal
-StandardError=journal
-Restart=always
-RestartSec=5
-
-Environment="DISPLAY=:0"
-Environment="XAUTHORITY=/home/${DISPLAY_USER}/.Xauthority"
-
-[Install]
-WantedBy=graphical.target
-EOF
-```
-
-### 6b. Reload systemd, enable, and start
-
-```bash
-sudo systemctl daemon-reload
-sudo systemctl unmask vendo_gui.service 2>/dev/null || true
-sudo systemctl enable vendo_gui.service
-sudo systemctl restart vendo_gui.service
-```
-
-### 6c. Check status
-
-```bash
-sudo systemctl status vendo_gui.service --no-pager
-```
-
-If it shows `active (running)` — done. If not, check the journal:
-
-```bash
-sudo journalctl -u vendo_gui.service -n 50 --no-pager
+sudo pm2 logs                             # all processes
+sudo pm2 logs 01_Dispenser_Controller     # one process
+sudo pm2 monit                            # live CPU/memory
+sudo pm2 restart 01_Dispenser_Controller
+nc -zv <pi-ip> 8080                       # is the controller reachable
 ```
 
 ---
 
-## 7. Final Verification
+## Related documentation
 
-```bash
-# All PM2 processes
-sudo pm2 list
-
-# Tail logs for a specific process
-sudo pm2 logs 0 --lines 30   # 01_Dispenser_Controller (controller)
-sudo pm2 logs 1 --lines 30   # 02_Coin_Acceptor
-
-# GUI service
-sudo systemctl status vendo_gui.service --no-pager
-```
-
-Expected PM2 list — all processes should show `online`:
-
-| Name | ID | Status |
-|------|----|--------|
-| 01_Dispenser_Controller | 0 | online |
-| 02_Coin_Acceptor | 1 | online |
-| 03_Street_Light | 2 | online |
-| 04_QR_Scanner | 3 | online |
-| 02_Water_Sensors | 4 | online |
-| 03_Transaction_Uploader | 5 | online |
-| 04_Status_Uploader | 6 | online |
-
----
-
-## Common Troubleshooting
-
-| Symptom | Command |
-|---------|---------|
-| Process keeps restarting | `sudo pm2 logs <name> --lines 50` |
-| GUI not fullscreen on boot | `sudo systemctl restart vendo_gui.service` |
-| `config.env` not found | `ls $PROJECT_DIR/CONFIG/config.env` — copy from `config.env.sample` if missing |
-| controller won't start | `$PROJECT_DIR/controller/main` — run manually to see raw error |
-| PM2 processes lost after reboot | `sudo pm2 save` was not run — repeat step 5 |
-| Serial port not found (coin acceptor) | `ls /dev/ttyACM* /dev/ttyUSB*` — check Arduino is plugged in |
+| Document | Covers |
+|----------|--------|
+| [SYSTEM_REFERENCE.md](SYSTEM_REFERENCE.md) | Protocol, wire formats, every component |
+| [BUTTON_WIRING_DEBUG.md](BUTTON_WIRING_DEBUG.md) | Pin map, active-low wiring, debug history |
+| [../CONFIG/README.md](../CONFIG/README.md) | Every `config.env` key |
+| [../controller/README.md](../controller/README.md) | Controller architecture and socket protocol |
