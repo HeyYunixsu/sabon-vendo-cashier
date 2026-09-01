@@ -2,6 +2,7 @@ import os
 import time
 import sys
 import socket # Import the socket module for network communication
+import select
 import RPi.GPIO as GPIO # Import the RPi.GPIO library
 from pathlib import Path
 from dotenv import load_dotenv
@@ -145,6 +146,34 @@ def send_data_to_socket(data_string : str):
         connect_to_socket_server()
 
 
+def drain_socket():
+    """
+    Read and discard anything the server sent us.
+
+    The server answers every command with a STATUS broadcast, to every client.
+    This script only ever sends, so those replies were never read and piled up
+    in the kernel receive buffer -- around 100 KB per 7 minutes, without bound.
+    Once that buffer fills, the server's non-blocking send() to this client
+    starts failing and water level updates go missing, which looks like failing
+    sensors rather than a full buffer.
+
+    select() with a zero timeout keeps the socket blocking for sends; we only
+    read when there is something already waiting.
+    """
+    global client_socket
+    if not client_socket:
+        return
+    try:
+        while True:
+            readable, _, _ = select.select([client_socket], [], [], 0)
+            if not readable:
+                return
+            if not client_socket.recv(65536):
+                return          # peer closed; the next send triggers a reconnect
+    except (OSError, ValueError):
+        return
+
+
 if __name__ == "__main__":
     print("Raspberry Pi GPIO Input and Socket Client started.")
 
@@ -169,6 +198,10 @@ if __name__ == "__main__":
             
             # Send the processed data to the socket server
             send_data_to_socket(data_to_send)
+
+            # Discard the STATUS replies the server pushes back at us, so the
+            # receive buffer cannot grow without bound.
+            drain_socket()
 
             # Wait for 1 second before the next read and send
             time.sleep(1)

@@ -1,4 +1,4 @@
-﻿#include <thread>
+#include <thread>
 
 #ifndef _WIN32
 #include <signal.h>

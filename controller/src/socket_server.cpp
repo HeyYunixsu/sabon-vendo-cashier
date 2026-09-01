@@ -4,6 +4,7 @@
 #include <iostream>
 #include <cstring>
 #include <algorithm>
+#include <map>
 #include <chrono>
 
 #ifdef _WIN32
@@ -23,6 +24,7 @@
 
 // --- Constants ---
 const int MAX_BUFFER_SIZE = 1024;
+const int MAX_ARM_QTY     = 100;
 const int LISTEN_BACKLOG  = 5;
 
 SocketHandle g_server_listening_socket = (SocketHandle)-1;
@@ -140,6 +142,11 @@ static std::string build_status_response(AppState &state)
   resp += "," + std::to_string(state.paused ? 1 : 0);
   resp += "," + std::to_string(static_cast<int>(state.phase));
   resp += "," + std::to_string(state.bundleComplete ? 1 : 0);
+  // Newline-terminated: TCP is a byte stream with no message boundaries, and
+  // every consumer (server.js, status_uploader.py) already splits on newlines.
+  // Without this, two STATUS lines arriving in one recv() are parsed as one
+  // and the second is silently dropped.
+  resp += "\n";
   return resp;
 }
 
@@ -171,37 +178,31 @@ static void broadcast_status(AppState &state)
 {
   std::string msg = build_status_response(state);
   for (SocketHandle sock : g_connected_client_sockets)
-    send(sock, msg.c_str(), msg.length(), 0);
+  {
+    // A client that never drains its socket will eventually fill the kernel
+    // buffer and make this fail. Silence there looks like a dead sensor, so
+    // say so rather than dropping the update without a trace.
+    int sent = (int)send(sock, msg.c_str(), msg.length(), 0);
+    if (sent < 0)
+      log_error("socket", "STATUS broadcast failed (client not reading?)");
+  }
 }
 
-void manage_connected_clients(AppState &state)
+// Per-client receive buffers. TCP is a byte stream with no message
+// boundaries: one recv() can carry several commands, or half of one. Bytes
+// accumulate here and only complete newline-terminated lines are dispatched.
+static std::map<SocketHandle, std::string> g_client_buffers;
+
+// Largest partial line held for one client. A sender that never emits a
+// newline must not be able to grow this without bound.
+static const size_t MAX_CLIENT_BUFFER = 8192;
+
+static void process_command(AppState &state, const std::string &line,
+                            SocketHandle current_client_socket)
 {
-  char client_buffer[MAX_BUFFER_SIZE] = {0};
-
-  for (auto it = g_connected_client_sockets.begin(); it != g_connected_client_sockets.end();)
+  const char *client_buffer = line.c_str();
+  try
   {
-    SocketHandle current_client_socket = *it;
-    memset(client_buffer, 0, MAX_BUFFER_SIZE);
-    int bytes_received = recv(current_client_socket, client_buffer, MAX_BUFFER_SIZE - 1, 0);
-
-    if (bytes_received <= 0)
-    {
-#ifdef _WIN32
-      if (bytes_received == SOCKET_ERROR && GET_LAST_SOCKET_ERROR() == SOCKET_ERROR_WOULDBLOCK)
-      { ++it; continue; }
-#else
-      if (bytes_received == -1 && GET_LAST_SOCKET_ERROR() == SOCKET_ERROR_WOULDBLOCK)
-      { ++it; continue; }
-#endif
-      CLOSESOCKET(current_client_socket);
-      it = g_connected_client_sockets.erase(it);
-      continue;
-    }
-
-    client_buffer[bytes_received] = '\0';
-
-    try
-    {
       if (isFirstWordTest(client_buffer, "ARM_BATCH"))
       {
         // Format: ARM_BATCH,<slot1>:<qty1>,<slot2>:<qty2>,...
@@ -220,7 +221,7 @@ void manage_connected_clients(AppState &state)
             if (colon == std::string::npos) break;
             int slot = std::stoi(payload.substr(pos, colon - pos));
             int qty  = std::stoi(payload.substr(colon + 1, comma == std::string::npos ? std::string::npos : comma - colon - 1));
-            if (slot >= 1 && slot <= TOTAL_SLOTS && qty > 0) {
+            if (slot >= 1 && slot <= TOTAL_SLOTS && qty > 0 && qty <= MAX_ARM_QTY) {
               if (state.slotBusy[slot]) {
                 state.pendingQueue[slot].push(PendingArm(slot, qty));
               } else {
@@ -258,7 +259,7 @@ void manage_connected_clients(AppState &state)
           {
             log_error("socket", std::string("ARM rejected — invalid product ID: ") + std::to_string(productId));
           }
-          else if (qty <= 0)
+          else if (qty <= 0 || qty > MAX_ARM_QTY)
           {
             log_error("socket", std::string("ARM rejected — invalid qty: ") + std::to_string(qty));
           }
@@ -387,11 +388,55 @@ void manage_connected_clients(AppState &state)
         std::string data_to_send = build_status_response(state);
         send(current_client_socket, data_to_send.c_str(), data_to_send.length(), 0);
       }
-    }
-    catch (const std::exception &e)
+  }
+  catch (const std::exception &e)
+  {
+    log_error("socket", std::string("Command parse error (") + client_buffer + "): " + e.what());
+  }
+}
+
+void manage_connected_clients(AppState &state)
+{
+  char chunk[MAX_BUFFER_SIZE];
+
+  for (auto it = g_connected_client_sockets.begin(); it != g_connected_client_sockets.end();)
+  {
+    SocketHandle current_client_socket = *it;
+    int bytes_received = recv(current_client_socket, chunk, MAX_BUFFER_SIZE - 1, 0);
+
+    if (bytes_received <= 0)
     {
-      log_error("socket", std::string("Command parse error (") + client_buffer + "): " + e.what());
+#ifdef _WIN32
+      if (bytes_received == SOCKET_ERROR && GET_LAST_SOCKET_ERROR() == SOCKET_ERROR_WOULDBLOCK)
+      { ++it; continue; }
+#else
+      if (bytes_received == -1 && GET_LAST_SOCKET_ERROR() == SOCKET_ERROR_WOULDBLOCK)
+      { ++it; continue; }
+#endif
+      CLOSESOCKET(current_client_socket);
+      g_client_buffers.erase(current_client_socket);
+      it = g_connected_client_sockets.erase(it);
+      continue;
     }
+
+    std::string &buf = g_client_buffers[current_client_socket];
+    buf.append(chunk, (size_t)bytes_received);
+
+    size_t newline_pos;
+    while ((newline_pos = buf.find('\n')) != std::string::npos)
+    {
+      std::string line = trim(buf.substr(0, newline_pos));
+      buf.erase(0, newline_pos + 1);
+      if (!line.empty()) process_command(state, line, current_client_socket);
+    }
+
+    if (buf.size() > MAX_CLIENT_BUFFER)
+    {
+      log_error("socket", "Discarding " + std::to_string(buf.size())
+          + " buffered bytes from a client that sent no newline");
+      buf.clear();
+    }
+
     ++it;
   }
 }
@@ -400,6 +445,7 @@ void cleanup_socket_environment()
 {
   for (SocketHandle sock : g_connected_client_sockets) CLOSESOCKET(sock);
   g_connected_client_sockets.clear();
+  g_client_buffers.clear();
   if (g_server_listening_socket != (SocketHandle)-1)
   {
     CLOSESOCKET(g_server_listening_socket);

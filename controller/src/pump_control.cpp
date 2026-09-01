@@ -48,7 +48,6 @@ struct PumpState {
     bool firstPressAfterArm = false;  // true = next press needs 100ms hold
 };
 
-static std::mutex     g_pump_mutex;
 static PumpState      pumps[TOTAL_SLOTS + 1];   // index 1..TOTAL_SLOTS
 static AppState      *g_state_ptr = nullptr;
 static int            g_pump_start_cooldown_ms = 200;
@@ -235,7 +234,9 @@ void pump_setup(AppState &state) {
 }
 
 void pump_loop(AppState &state) {
-    std::lock_guard<std::mutex> lock(g_pump_mutex);
+    // No lock needed: main() calls pump_loop() and server_app_loop()
+    // sequentially on one thread, and buttons are polled rather than driven by
+    // a wiringPi ISR, so nothing here runs concurrently.
     auto current_time = std::chrono::steady_clock::now();
 
     // 1. Button scan — 4-sample rolling window (80ms debounce).

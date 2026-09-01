@@ -102,8 +102,11 @@ function connectToCoinSlot() {
         broadcastSSE(line);
       }
     }
-    if (statusBuffer.startsWith('STATUS')) {
-      broadcastSSE(statusBuffer);
+    // Whatever is left is an incomplete line. Keep it for the next chunk --
+    // broadcasting it here would emit a truncated STATUS and orphan the
+    // continuation bytes, corrupting the following parse.
+    if (statusBuffer.length > 64 * 1024) {
+      console.error('[dashboard] controller sent 64KB with no newline — dropping buffer');
       statusBuffer = '';
     }
   });
@@ -126,7 +129,9 @@ function sendToCoinSlot(command) {
     return false;
   }
   try {
-    coinSocket.write(command);
+    // The controller frames on newlines. Without the terminator a command sits
+    // in its buffer forever, and two commands sent close together arrive as one.
+    coinSocket.write(command.endsWith('\n') ? command : command + '\n');
     console.log(`[dashboard] Sent: ${command}`);
     return true;
   } catch (e) {
@@ -141,7 +146,7 @@ function flushLocalQueue() {
   console.log(`[dashboard] Flushing ${localArmQueue.length} queued ARM commands...`);
   while (localArmQueue.length > 0) {
     const cmd = localArmQueue.shift();
-    try { coinSocket.write(cmd); console.log(`[dashboard] Flushed: ${cmd}`); }
+    try { coinSocket.write(cmd.endsWith('\n') ? cmd : cmd + '\n'); console.log(`[dashboard] Flushed: ${cmd}`); }
     catch (e) { localArmQueue.unshift(cmd); break; }
   }
 }

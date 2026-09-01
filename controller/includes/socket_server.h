@@ -16,6 +16,11 @@ typedef int SocketHandle;
 // --- Constants ---
 extern const int MAX_BUFFER_SIZE;
 
+// Upper bound on a single ARM/ARM_BATCH quantity. Guards against a mistyped
+// cashier entry arming thousands of units, and against armedQty overflowing
+// across repeated adds.
+extern const int MAX_ARM_QTY;
+
 // --- Server Functions ---
 bool initialize_socket_environment();
 bool create_and_bind_server_socket(int port);

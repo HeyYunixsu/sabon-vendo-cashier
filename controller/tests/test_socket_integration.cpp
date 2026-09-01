@@ -69,9 +69,21 @@ static ClientSock connect_test_client()
     return sock;
 }
 
+// Fire-and-forget command send. Terminates with a newline like every real
+// client does, so the server's line framing sees a complete command.
+static void send_cmd(ClientSock sock, const std::string &msg)
+{
+    std::string framed = msg + "\n";
+    send(sock, framed.c_str(), (int)framed.length(), 0);
+}
+
+// The server frames on newlines, so every command must be terminated. Adding
+// it here rather than at each call site keeps the tests honest about the wire
+// format without repeating it 20 times.
 static std::string send_and_recv(ClientSock sock, const std::string &msg)
 {
-    send(sock, msg.c_str(), (int)msg.length(), 0);
+    std::string framed = msg + "\n";
+    send(sock, framed.c_str(), (int)framed.length(), 0);
     yield_to_server();
 
     char buf[1024] = {0};
@@ -212,7 +224,7 @@ void test_integration_arm_increases_armedQty()
     CHECK(sock != INVALID_CLIENT_SOCK);
     if (sock == INVALID_CLIENT_SOCK) return;
 
-    send(sock, "ARM,1,5", 7, 0);
+    send_cmd(sock, "ARM,1,5");
     yield_to_server();
 
     CHECK_EQ((int)g_test_state.armedQty[1], 5);
@@ -227,9 +239,9 @@ void test_integration_arm_accumulates_for_same_slot()
     CHECK(sock != INVALID_CLIENT_SOCK);
     if (sock == INVALID_CLIENT_SOCK) return;
 
-    send(sock, "ARM,2,3", 7, 0);
+    send_cmd(sock, "ARM,2,3");
     yield_to_server();
-    send(sock, "ARM,2,4", 7, 0);
+    send_cmd(sock, "ARM,2,4");
     yield_to_server();
 
     CHECK_EQ((int)g_test_state.armedQty[2], 7);
@@ -243,9 +255,9 @@ void test_integration_arm_different_slots_independent()
     CHECK(sock != INVALID_CLIENT_SOCK);
     if (sock == INVALID_CLIENT_SOCK) return;
 
-    send(sock, "ARM,1,2", 7, 0);
+    send_cmd(sock, "ARM,1,2");
     yield_to_server();
-    send(sock, "ARM,3,4", 7, 0);
+    send_cmd(sock, "ARM,3,4");
     yield_to_server();
 
     CHECK_EQ((int)g_test_state.armedQty[1], 2);
@@ -261,7 +273,7 @@ void test_integration_arm_reflected_in_status()
     if (sock == INVALID_CLIENT_SOCK) return;
     drain_connect_push(sock);
 
-    send(sock, "ARM,1,7", 7, 0);
+    send_cmd(sock, "ARM,1,7");
     yield_to_server();
 
     std::string resp = send_and_recv(sock, "STATUS");
@@ -280,7 +292,7 @@ void test_integration_malformed_arm_is_ignored()
     if (sock == INVALID_CLIENT_SOCK) return;
 
     // Only 1 comma — needs exactly 2
-    send(sock, "ARM,1", 5, 0);
+    send_cmd(sock, "ARM,1");
     yield_to_server();
 
     CHECK_EQ((int)g_test_state.armedQty[1], 0);
@@ -295,7 +307,7 @@ void test_integration_arm_invalid_product_rejected()
     if (sock == INVALID_CLIENT_SOCK) return;
 
     // Product ID 7 is out of range (valid: 1..TOTAL_SLOTS)
-    send(sock, "ARM,7,1", 7, 0);
+    send_cmd(sock, "ARM,7,1");
     yield_to_server();
 
     for (int i = 1; i <= TOTAL_SLOTS; i++)
@@ -310,7 +322,7 @@ void test_integration_arm_zero_qty_rejected()
     CHECK(sock != INVALID_CLIENT_SOCK);
     if (sock == INVALID_CLIENT_SOCK) return;
 
-    send(sock, "ARM,1,0", 7, 0);
+    send_cmd(sock, "ARM,1,0");
     yield_to_server();
 
     CHECK_EQ((int)g_test_state.armedQty[1], 0);
@@ -330,7 +342,7 @@ void test_integration_arm_queues_when_slot_busy()
     CHECK(sock != INVALID_CLIENT_SOCK);
     if (sock == INVALID_CLIENT_SOCK) return;
 
-    send(sock, "ARM,1,3", 7, 0);
+    send_cmd(sock, "ARM,1,3");
     yield_to_server();
 
     // armedQty should NOT increase — it's queued
@@ -353,7 +365,7 @@ void test_integration_wtrlvl_sets_flags()
     CHECK(sock != INVALID_CLIENT_SOCK);
     if (sock == INVALID_CLIENT_SOCK) return;
 
-    std::string msg = "WTRLVL,0,1,0,1";
+    std::string msg = "WTRLVL,0,1,0,1\n";
     send(sock, msg.c_str(), (int)msg.length(), 0);
     yield_to_server();
 
@@ -375,7 +387,7 @@ void test_integration_wtrlvl_six_sensors()
     CHECK(sock != INVALID_CLIENT_SOCK);
     if (sock == INVALID_CLIENT_SOCK) return;
 
-    std::string msg = "WTRLVL,0,0,0,0,1,1";
+    std::string msg = "WTRLVL,0,0,0,0,1,1\n";
     send(sock, msg.c_str(), (int)msg.length(), 0);
     yield_to_server();
 
@@ -400,7 +412,7 @@ void test_integration_wtrlvl_respects_inverted_polarity()
     CHECK(sock != INVALID_CLIENT_SOCK);
     if (sock == INVALID_CLIENT_SOCK) { WATER_SENSOR_EMPTY_HIGH = saved; return; }
 
-    std::string msg = "WTRLVL,0,1,0,1,0,1";
+    std::string msg = "WTRLVL,0,1,0,1,0,1\n";
     send(sock, msg.c_str(), (int)msg.length(), 0);
     yield_to_server();
 
@@ -417,6 +429,87 @@ void test_integration_wtrlvl_respects_inverted_polarity()
     WATER_SENSOR_EMPTY_HIGH = saved;
 }
 
+void test_integration_two_commands_in_one_packet()
+{
+    // TCP coalesces. Before newline framing the server treated a whole recv()
+    // as one command, so the comma count covered BOTH lines and the pair was
+    // rejected as malformed -- losing two updates at once.
+    for (int i = 1; i <= TOTAL_SLOTS; i++) g_test_state.slotEmpty[i] = false;
+    g_test_state.armedQty[1] = 0;
+    g_test_state.armedQty[2] = 0;
+
+    ClientSock sock = connect_test_client();
+    CHECK(sock != INVALID_CLIENT_SOCK);
+    if (sock == INVALID_CLIENT_SOCK) return;
+    drain_connect_push(sock);
+
+    std::string both = "ARM,1,2\nARM,2,3\n";
+    send(sock, both.c_str(), (int)both.length(), 0);
+    yield_to_server();
+
+    CHECK_EQ((int)g_test_state.armedQty[1], 2);
+    CHECK_EQ((int)g_test_state.armedQty[2], 3);
+
+    g_test_state.armedQty[1] = 0;
+    g_test_state.armedQty[2] = 0;
+    CLOSE_CLIENT(sock);
+}
+
+void test_integration_command_split_across_packets()
+{
+    // The other half of the same problem: one command delivered in two recv()s.
+    // Previously each fragment was parsed on its own and both were discarded.
+    for (int i = 1; i <= TOTAL_SLOTS; i++) g_test_state.slotEmpty[i] = false;
+    g_test_state.armedQty[3] = 0;
+
+    ClientSock sock = connect_test_client();
+    CHECK(sock != INVALID_CLIENT_SOCK);
+    if (sock == INVALID_CLIENT_SOCK) return;
+    drain_connect_push(sock);
+
+    std::string head = "ARM,3";
+    std::string tail = ",4\n";
+    send(sock, head.c_str(), (int)head.length(), 0);
+    yield_to_server();
+    CHECK_EQ((int)g_test_state.armedQty[3], 0);   // nothing acted on yet
+    send(sock, tail.c_str(), (int)tail.length(), 0);
+    yield_to_server();
+
+    CHECK_EQ((int)g_test_state.armedQty[3], 4);
+
+    g_test_state.armedQty[3] = 0;
+    CLOSE_CLIENT(sock);
+}
+
+void test_integration_status_is_newline_terminated()
+{
+    ClientSock sock = connect_test_client();
+    CHECK(sock != INVALID_CLIENT_SOCK);
+    if (sock == INVALID_CLIENT_SOCK) return;
+    drain_connect_push(sock);
+
+    std::string resp = send_and_recv(sock, "STATUS");
+    CHECK(!resp.empty());
+    if (!resp.empty()) CHECK_EQ(resp[resp.size() - 1], '\n');
+
+    CLOSE_CLIENT(sock);
+}
+
+void test_integration_arm_rejects_absurd_qty()
+{
+    g_test_state.armedQty[1] = 0;
+    ClientSock sock = connect_test_client();
+    CHECK(sock != INVALID_CLIENT_SOCK);
+    if (sock == INVALID_CLIENT_SOCK) return;
+    drain_connect_push(sock);
+
+    send_and_recv(sock, "ARM,1,999999");
+    CHECK_EQ((int)g_test_state.armedQty[1], 0);
+
+    g_test_state.armedQty[1] = 0;
+    CLOSE_CLIENT(sock);
+}
+
 void test_integration_wtrlvl_all_clear()
 {
     for (int i = 1; i <= TOTAL_SLOTS; i++) g_test_state.slotEmpty[i] = true;
@@ -424,7 +517,7 @@ void test_integration_wtrlvl_all_clear()
     CHECK(sock != INVALID_CLIENT_SOCK);
     if (sock == INVALID_CLIENT_SOCK) return;
 
-    std::string msg = "WTRLVL,0,0,0,0";
+    std::string msg = "WTRLVL,0,0,0,0\n";
     send(sock, msg.c_str(), (int)msg.length(), 0);
     yield_to_server();
 
@@ -439,7 +532,7 @@ void test_integration_malformed_wtrlvl_is_ignored()
     CHECK(sock != INVALID_CLIENT_SOCK);
     if (sock == INVALID_CLIENT_SOCK) return;
 
-    std::string msg = "WTRLVL,0,1";   // neither 4 nor TOTAL_SLOTS values
+    std::string msg = "WTRLVL,0,1\n";   // neither 4 nor TOTAL_SLOTS values
     send(sock, msg.c_str(), (int)msg.length(), 0);
     yield_to_server();
 
@@ -466,7 +559,7 @@ void test_integration_two_clients_independent()
     drain_connect_push(c2);
 
     // c1 sends ARM — both clients share the same AppState
-    send(c1, "ARM,1,5", 7, 0);
+    send_cmd(c1, "ARM,1,5");
     yield_to_server();
     CHECK_EQ((int)g_test_state.armedQty[1], 5);
 
@@ -517,6 +610,10 @@ void run_socket_integration_tests()
     RUN_TEST(test_integration_wtrlvl_sets_flags);
     RUN_TEST(test_integration_wtrlvl_six_sensors);
     RUN_TEST(test_integration_wtrlvl_respects_inverted_polarity);
+    RUN_TEST(test_integration_two_commands_in_one_packet);
+    RUN_TEST(test_integration_command_split_across_packets);
+    RUN_TEST(test_integration_status_is_newline_terminated);
+    RUN_TEST(test_integration_arm_rejects_absurd_qty);
     RUN_TEST(test_integration_wtrlvl_all_clear);
     RUN_TEST(test_integration_malformed_wtrlvl_is_ignored);
     RUN_TEST(test_integration_two_clients_independent);
