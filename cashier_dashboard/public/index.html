@@ -109,7 +109,6 @@ body {
   font-size: 10px; font-weight: 600; text-transform: uppercase;
   letter-spacing: 0.06em; padding: 6px 12px; transition: all .18s;
 }
-#theme-toggle:hover { border-color: var(--border-strong); color: var(--accent-action); }
 
 /* ===================================================================
    KPI ROW (3-4 summary blocks)
@@ -185,7 +184,6 @@ body {
   cursor: pointer; font-size: 16px; line-height: 1;
   padding: 4px; text-align: center; align-self: center;
 }
-.staged-card .staged-card-remove:hover { color: var(--status-negative); }
 .sale-controls {
   display: flex; align-items: center; gap: 10px; flex-shrink: 0;
 }
@@ -202,7 +200,6 @@ body {
   justify-content: center; font-family: 'Poppins', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   transition: all .15s;
 }
-.qty-stepper .stepper-btn:hover { background: var(--accent-action); color: #fff; }
 .qty-stepper .stepper-btn:disabled { opacity: .25; pointer-events: none; }
 .qty-stepper input {
   width: 48px; height: 100%; background: var(--bg-surface-secondary);
@@ -222,7 +219,6 @@ body {
 }
 #sale-strip .btn-primary { background: var(--accent-action); color: #fff; border: 1px solid transparent; }
 #sale-strip .btn-outline { background: transparent; border: 1px solid var(--border-default); color: var(--text-content-primary); flex: 0 0 auto; }
-#sale-strip .btn-outline:hover { border-color: var(--accent-action); color: var(--accent-action); }
 #sale-strip .sale-total { font-size: 22px; margin: 0 0 0 8px; white-space: nowrap; min-width: 50px; text-align: right; font-weight: 700; }
 
 /* Status-only right panel */
@@ -258,7 +254,6 @@ main {
   display: flex; align-items: center; gap: 16px;
   padding: 16px; min-height: 100px; position: relative;
 }
-.product-card:hover { border-color: var(--border-strong); transform: translateY(-1px); }
 .product-card.armed {
   border-color: var(--status-positive);
   box-shadow: 0 0 0 3px rgba(52,211,153,0.28);
@@ -406,7 +401,6 @@ main {
   display: flex; align-items: center; justify-content: center;
   transition: all .15s; flex-shrink: 0;
 }
-.btn-remove:hover { border-color: var(--status-negative); color: var(--status-negative); }
 @keyframes slide-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
 
 .sale-total {
@@ -425,10 +419,8 @@ main {
   touch-action: manipulation;
 }
 .btn-primary { background: var(--accent-action); color: #fff; }
-.btn-primary:hover { background: var(--accent-action-hover); }
 .btn-primary:disabled { opacity: .25; pointer-events: none; }
 .btn-outline { flex: 1; background: transparent; border: 1px solid var(--border-default); color: var(--text-content-secondary); }
-.btn-outline:hover { border-color: var(--border-strong); color: var(--accent-action); }
 .btn-lg { padding: 16px 24px; font-size: 15px; }
 .btn-block { display: block; width: 100%; }
 .btn-sm {
@@ -437,10 +429,7 @@ main {
   cursor: pointer; border-radius: var(--radius-pill);
   font-family: 'Inter', sans-serif; font-weight: 500; transition: all .15s;
 }
-.btn-sm:hover { border-color: var(--border-strong); color: var(--accent-action); }
 .btn-sm.retry { border-color: var(--accent-action); color: var(--accent-action); }
-.btn-sm.retry:hover { background: var(--accent-action); color: #fff; }
-.btn-sm.dismiss:hover { border-color: var(--status-negative); color: var(--status-negative); }
 .btn-negative {
   background: transparent; border: 1px solid var(--status-negative);
   color: var(--status-negative); padding: 6px 14px; font-size: 11px;
@@ -448,7 +437,6 @@ main {
   font-family: 'Inter', sans-serif; font-weight: 600; transition: all .15s;
   white-space: nowrap; flex-shrink: 0;
 }
-.btn-negative:hover { background: var(--status-negative); color: #fff; }
 
 /* List rows */
 .list-row {
@@ -599,6 +587,57 @@ main {
   .qty-stepper input { font-size: 16px; }
   .toast { font-size: 12px; padding: 10px 16px; }
 }
+
+/* ---------------------------------------------------------------------------
+   Touch behaviour (iPad / iOS Safari)
+
+   iOS Safari 10+ deliberately ignores `user-scalable=no` in the viewport tag
+   for accessibility, so double-tap-to-zoom stays enabled no matter what the
+   <head> says. `touch-action: manipulation` is what actually removes the
+   double-tap gesture -- and it leaves PINCH-zoom working, so the page can
+   still be magnified deliberately.
+
+   It has to be set on every element that can be tapped: touch-action is not
+   inherited, and .btn was the only rule carrying it, which is why the stepper
+   +/- and the product cards still zoomed.
+   --------------------------------------------------------------------------- */
+html, body { touch-action: manipulation; }
+
+button, input, select, textarea, a,
+.btn, .stepper-btn, .qty-stepper,
+.product-card, .kpi-card, .staged-card, .staged-card-remove,
+.list-row, .tab, .chip {
+  touch-action: manipulation;
+}
+
+/* Double-tapping text selects it and flashes a highlight before the zoom is
+   suppressed. Controls are not meant to be selectable. */
+button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+
+/* Hover styles latch on iOS: a tapped control keeps its hover appearance
+   until you tap somewhere else, so buttons read as stuck-selected after
+   every sale. Confining them to pointer devices means touch simply never
+   applies them -- no sticking, and no half-styled control either. */
+@media (hover: hover) {
+  #theme-toggle:hover { border-color: var(--border-strong); color: var(--accent-action); }
+  .staged-card .staged-card-remove:hover { color: var(--status-negative); }
+  .qty-stepper .stepper-btn:hover { background: var(--accent-action); color: #fff; }
+  #sale-strip .btn-outline:hover { border-color: var(--accent-action); color: var(--accent-action); }
+  .product-card:hover { border-color: var(--border-strong); transform: translateY(-1px); }
+  .btn-remove:hover { border-color: var(--status-negative); color: var(--status-negative); }
+  .btn-primary:hover { background: var(--accent-action-hover); }
+  .btn-outline:hover { border-color: var(--border-strong); color: var(--accent-action); }
+  .btn-sm:hover { border-color: var(--border-strong); color: var(--accent-action); }
+  .btn-sm.retry:hover { background: var(--accent-action); color: #fff; }
+  .btn-sm.dismiss:hover { border-color: var(--status-negative); color: var(--status-negative); }
+  .btn-negative:hover { background: var(--status-negative); color: #fff; }
+}
+
 </style>
 </head>
 <body>
