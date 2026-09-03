@@ -1005,7 +1005,19 @@ button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
   }
 
   // Grid
+  let gridSig = null;
+
   function renderGrid() {
+    // STATUS arrives every 500ms and refresh() calls this each time. Replacing
+    // innerHTML destroys the card under the user's finger, and a click only
+    // fires if press and release land on the same element -- so a tap that
+    // spanned a redraw was silently swallowed. Redraw only on real change.
+    let sig = selProduct + '|' + multiSelect;
+    for (let s = 1; s <= TOTAL; s++)
+      sig += '|' + (S.armedQty[s] || 0) + S.busy[s] + S.wlvl[s];
+    if (sig === gridSig) return;
+    gridSig = sig;
+
     let h = '';
     for (let s = 1; s <= TOTAL; s++) {
       const act = s <= ACTIVE, armed = S.armedQty[s] || 0, busy = S.busy[s],
@@ -1038,16 +1050,18 @@ button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
       h += '</div></div>';
     }
     $('grid-container').innerHTML = h;
-    $('grid-container').querySelectorAll('.product-card').forEach(c => {
-      c.addEventListener('click', () => {
-        const s = +c.dataset.slot;
-        if (s <= ACTIVE && !S.wlvl[s]) selectProduct(s);
-      });
-    });
   }
 
   // Right panel
+  let armedSig = null;
+
   function renderArmed() {
+    let sig = '';
+    for (let s = 1; s <= ACTIVE; s++)
+      sig += '|' + (S.armedQty[s] || 0) + S.busy[s];
+    if (sig === armedSig) return;
+    armedSig = sig;
+
     let h = '', cnt = 0;
     for (let s = 1; s <= ACTIVE; s++) {
       if (S.armedQty[s] > 0 || S.busy[s]) {
@@ -1062,9 +1076,6 @@ button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
     $('armed-list').innerHTML = h || '<span class="muted">--</span>';
     $('btn-cancel-all').style.display = h ? 'block' : 'none';
     $('armed-section').style.display = h ? 'block' : 'none';
-    $('armed-list').querySelectorAll('.btn-negative').forEach(b => {
-      b.addEventListener('click', () => cancelSlot(+b.dataset.slot));
-    });
   }
 
   function renderQueue() {
@@ -1110,9 +1121,6 @@ button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
     });
     $('unclaimed-list').innerHTML = h;
     $('attention-section').style.display = 'block';
-    $('unclaimed-list').querySelectorAll('[data-idx]').forEach(b => {
-      b.addEventListener('click', () => resolveUnclaimed(+b.dataset.idx, b.dataset.act));
-    });
   }
 
   // Sale
@@ -1252,9 +1260,6 @@ button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
          + '</div>';
     }
     el.innerHTML = h;
-    el.querySelectorAll('[data-prime]').forEach((b) => {
-      b.addEventListener('click', () => onPrimeTap(parseInt(b.dataset.prime, 10)));
-    });
   }
 
   function onPrimeTap(slot) {
@@ -1370,6 +1375,33 @@ button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
     html.setAttribute('data-theme', nxt);
     localStorage.setItem('sabon-theme', nxt);
     $('theme-toggle').textContent = themeLabel();
+  });
+
+  // Tap handling is delegated to the containers, which are never replaced.
+  // A listener bound to a card or row dies with it on the next redraw, and a
+  // tap that spans one would be lost -- when the element under the finger is
+  // swapped between press and release the browser dispatches the click on the
+  // nearest surviving ancestor, which is the container.
+  $('grid-container').addEventListener('click', (e) => {
+    const card = e.target.closest('.product-card');
+    if (!card) return;
+    const s = +card.dataset.slot;
+    if (s <= ACTIVE && !S.wlvl[s]) selectProduct(s);
+  });
+
+  $('armed-list').addEventListener('click', (e) => {
+    const b = e.target.closest('.btn-negative');
+    if (b) cancelSlot(+b.dataset.slot);
+  });
+
+  $('unclaimed-list').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-idx]');
+    if (b) resolveUnclaimed(+b.dataset.idx, b.dataset.act);
+  });
+
+  $('prime-list').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-prime]');
+    if (b && !b.disabled) onPrimeTap(parseInt(b.dataset.prime, 10));
   });
 
   // Offline retry
