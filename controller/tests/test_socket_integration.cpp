@@ -51,6 +51,29 @@ static void yield_to_server()
     std::this_thread::sleep_for(std::chrono::milliseconds(30));
 }
 
+// Wait until `pred` holds, or give up after timeout_ms.
+//
+// The server runs on its own thread, so a fixed sleep is a race: under load
+// 30ms is not always enough for a command to be parsed and applied. That made
+// test_integration_arm_queues_when_slot_busy fail roughly one run in ten,
+// which is worse than useless now that CI runs this on every push -- a flaky
+// red teaches people to ignore the light.
+//
+// Only use this where a state change is EXPECTED. Assertions that something
+// did NOT change must keep the fixed sleep: waiting for an absence would
+// return the instant it looked absent, which is always.
+template <typename Pred>
+static bool wait_for(Pred pred, int timeout_ms = 2000)
+{
+    const auto deadline = std::chrono::steady_clock::now()
+                        + std::chrono::milliseconds(timeout_ms);
+    while (std::chrono::steady_clock::now() < deadline) {
+        if (pred()) return true;
+        std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    }
+    return pred();
+}
+
 static ClientSock connect_test_client()
 {
     ClientSock sock = socket(AF_INET, SOCK_STREAM, 0);
@@ -225,7 +248,7 @@ void test_integration_arm_increases_armedQty()
     if (sock == INVALID_CLIENT_SOCK) return;
 
     send_cmd(sock, "ARM,1,5");
-    yield_to_server();
+    wait_for([]{ return g_test_state.armedQty[1] == 5; });
 
     CHECK_EQ((int)g_test_state.armedQty[1], 5);
     CHECK_EQ((int)g_test_state.armedQty[2], 0);  // other slots unaffected
@@ -240,9 +263,9 @@ void test_integration_arm_accumulates_for_same_slot()
     if (sock == INVALID_CLIENT_SOCK) return;
 
     send_cmd(sock, "ARM,2,3");
-    yield_to_server();
+    wait_for([]{ return g_test_state.armedQty[2] == 3; });
     send_cmd(sock, "ARM,2,4");
-    yield_to_server();
+    wait_for([]{ return g_test_state.armedQty[2] == 7; });
 
     CHECK_EQ((int)g_test_state.armedQty[2], 7);
     CLOSE_CLIENT(sock);
@@ -256,9 +279,9 @@ void test_integration_arm_different_slots_independent()
     if (sock == INVALID_CLIENT_SOCK) return;
 
     send_cmd(sock, "ARM,1,2");
-    yield_to_server();
+    wait_for([]{ return g_test_state.armedQty[1] == 2; });
     send_cmd(sock, "ARM,3,4");
-    yield_to_server();
+    wait_for([]{ return g_test_state.armedQty[3] == 4; });
 
     CHECK_EQ((int)g_test_state.armedQty[1], 2);
     CHECK_EQ((int)g_test_state.armedQty[3], 4);
@@ -274,7 +297,7 @@ void test_integration_arm_reflected_in_status()
     drain_connect_push(sock);
 
     send_cmd(sock, "ARM,1,7");
-    yield_to_server();
+    wait_for([]{ return g_test_state.armedQty[1] == 7; });
 
     std::string resp = send_and_recv(sock, "STATUS");
     // First field after "STATUS," should be "7"
@@ -343,7 +366,7 @@ void test_integration_arm_queues_when_slot_busy()
     if (sock == INVALID_CLIENT_SOCK) return;
 
     send_cmd(sock, "ARM,1,3");
-    yield_to_server();
+    wait_for([]{ return !g_test_state.pendingQueue[1].empty(); });
 
     // armedQty should NOT increase — it's queued
     CHECK_EQ((int)g_test_state.armedQty[1], 0);
@@ -367,7 +390,7 @@ void test_integration_wtrlvl_sets_flags()
 
     std::string msg = "WTRLVL,0,1,0,1\n";
     send(sock, msg.c_str(), (int)msg.length(), 0);
-    yield_to_server();
+    wait_for([]{ return g_test_state.slotEmpty[2] && g_test_state.slotEmpty[4]; });
 
     CHECK(!g_test_state.slotEmpty[1]);
     CHECK( g_test_state.slotEmpty[2]);
@@ -389,7 +412,7 @@ void test_integration_wtrlvl_six_sensors()
 
     std::string msg = "WTRLVL,0,0,0,0,1,1\n";
     send(sock, msg.c_str(), (int)msg.length(), 0);
-    yield_to_server();
+    wait_for([]{ return g_test_state.slotEmpty[5] && g_test_state.slotEmpty[6]; });
 
     for (int i = 1; i <= 4; i++) CHECK(!g_test_state.slotEmpty[i]);
     CHECK(g_test_state.slotEmpty[5]);
@@ -414,7 +437,7 @@ void test_integration_wtrlvl_respects_inverted_polarity()
 
     std::string msg = "WTRLVL,0,1,0,1,0,1\n";
     send(sock, msg.c_str(), (int)msg.length(), 0);
-    yield_to_server();
+    wait_for([]{ return g_test_state.slotEmpty[1] && g_test_state.slotEmpty[5]; });
 
     // Inverted: the zeros are the empty slots now, not the ones.
     CHECK( g_test_state.slotEmpty[1]);
@@ -445,7 +468,7 @@ void test_integration_two_commands_in_one_packet()
 
     std::string both = "ARM,1,2\nARM,2,3\n";
     send(sock, both.c_str(), (int)both.length(), 0);
-    yield_to_server();
+    wait_for([]{ return g_test_state.armedQty[1] == 2 && g_test_state.armedQty[2] == 3; });
 
     CHECK_EQ((int)g_test_state.armedQty[1], 2);
     CHECK_EQ((int)g_test_state.armedQty[2], 3);
@@ -473,7 +496,7 @@ void test_integration_command_split_across_packets()
     yield_to_server();
     CHECK_EQ((int)g_test_state.armedQty[3], 0);   // nothing acted on yet
     send(sock, tail.c_str(), (int)tail.length(), 0);
-    yield_to_server();
+    wait_for([]{ return g_test_state.armedQty[3] == 4; });
 
     CHECK_EQ((int)g_test_state.armedQty[3], 4);
 
