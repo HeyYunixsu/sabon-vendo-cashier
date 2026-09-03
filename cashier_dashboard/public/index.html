@@ -456,7 +456,13 @@ main {
   white-space: nowrap; min-width: 28px;
 }
 .list-row .btn-negative, .list-row .btn-sm {
-  width: 60px; text-align: center;
+  /* min-width, not width: these keep their side padding, so a fixed 60px left
+     "Cancel" a ~30px content box to sit in and it overflowed to one side
+     instead of centring. Flex centring keeps the label true even when a
+     longer word ("Dismiss") makes the button grow. */
+  min-width: 72px;
+  display: inline-flex; align-items: center; justify-content: center;
+  text-align: center;
 }
 .muted {
   color: var(--text-content-secondary); font-family: 'Poppins', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
@@ -666,7 +672,12 @@ button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
   text-align: right;
 }
 .prime-row .prime-count.busy { color: var(--status-caution); }
-.prime-row .btn-sm { flex: 0 0 auto; }
+.prime-row .btn-sm {
+  /* Wide enough for both labels so the row does not jump when the button
+     switches from "Clear Air" to "Tap again". */
+  flex: 0 0 auto; min-width: 86px;
+  display: inline-flex; align-items: center; justify-content: center;
+}
 .prime-row .btn-sm.confirm {
   border-color: var(--status-caution);
   color: var(--status-caution);
