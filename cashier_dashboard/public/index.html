@@ -863,11 +863,16 @@ button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
     es.addEventListener('error', () => {
       S.connected = false;
       refresh();
-      // A rejected PIN and a restarting server both land here. Ask the server
-      // which it was rather than guessing: showing the gate on every ordinary
-      // reconnect would be maddening.
+      // A rejected PIN and a restarting server both land here: EventSource
+      // reports either as a bare error with no status code. Probe a gated
+      // route to tell them apart -- a stored PIN that has since been changed
+      // would otherwise leave this device sitting on "disconnected" forever
+      // without ever offering the prompt.
       fetch('/auth-status').then(r => r.json()).then(a => {
-        if (a.required && !getPin()) showPinGate(false);
+        if (!a.required) return;
+        if (!getPin()) { showPinGate(false); return; }
+        apiFetch('/api/ping').then(r => { if (r.status === 401) showPinGate(true); })
+                             .catch(() => {});
       }).catch(() => {});
     });
   }

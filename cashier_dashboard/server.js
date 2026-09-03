@@ -214,6 +214,11 @@ app.use('/api', (req, res, next) => {
   return res.status(401).json({ error: 'unauthorized' });
 });
 
+// Cheapest possible gated route. The page probes it after a dropped stream to
+// tell "the PIN is wrong" apart from "the server restarted" -- EventSource
+// reports both as a bare error event with no status code.
+app.get('/api/ping', (req, res) => res.json({ ok: true }));
+
 // SSE endpoint
 app.get('/api/status/stream', (req, res) => {
   res.writeHead(200, {
