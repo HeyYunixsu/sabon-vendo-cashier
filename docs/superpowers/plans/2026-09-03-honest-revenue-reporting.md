@@ -47,7 +47,7 @@ Verified in the code before planning:
 
 ---
 
-## Task 1 — Put the real prices in (BLOCKED: needs the six prices)
+## Task 1 — Put the real prices in (PARKED 2026-09-03: awaiting the six prices)
 
 Every product currently reports `amount = 5`, because `amount` comes from the
 first number of `calibrateProductN`. With 100 ml Fabcon selling at ₱25 the cloud
@@ -65,6 +65,10 @@ downstream is wrong and no reconciliation is meaningful.**
       directory carries the right `amount`
 
 No code change, no rebuild. This alone delivers the core goal.
+
+**Parked 2026-09-03** at the owner's request until the real prices are decided.
+Nothing here is blocked on engineering; the moment the six numbers exist this is
+a two-minute config edit.
 
 ---
 
@@ -158,6 +162,38 @@ They are building the multi-machine view; they need to know exactly what arrives
 - [ ] Document the unclaimed record type if Task 4 goes ahead
 - [ ] Note that `machine_id` comes from `config.env` and **must be unique per
       Pi** — two machines sharing an id silently merge their revenue
+
+---
+
+## Task 6 — Prime / purge a line without recording a sale (DONE 2026-09-03)
+
+When a gallon is replaced, air enters the hose. The next press dispenses air
+instead of product: the customer is charged, the machine records a sale, and
+nothing useful comes out. Staff need a way to run a pump until liquid appears,
+without that run counting as revenue.
+
+**This is deliberately a hole in the anti-theft number** — it dispenses
+product and records no sale, which is exactly what a dishonest cashier wants.
+So it must be *non-revenue and visible*, never *unrecorded*.
+
+- [x] `PRIME,<slot>` socket command — runs that pump for `PRIME_SECONDS`
+- [x] Fixed short burst, repeatable — **not** hold-to-run. A held button over
+      Wi-Fi is a dead-man's switch that fails open: drop the link mid-hold and
+      the pump never gets the release
+- [x] `isPriming` on the pump state so the completion branch skips
+      `writeTransaction()` instead of writing a ₱0 sale
+- [x] Refuse while the slot is armed, busy, queued, or the machine is paused —
+      priming is a between-sales maintenance action, and sharing `pump.timer`
+      with a live dispense would corrupt the customer's run length
+- [x] Keep the empty-tank guard — priming a genuinely dry tank runs the pump
+      against air, which is what damages it
+- [x] Record every prime to a separate non-revenue log (slot, duration, time)
+- [x] Show a prime count per slot on the dashboard so the pattern is visible
+- [ ] Upload prime events alongside Task 4's unclaimed records, same cloud
+      agreement, same non-transaction record type (deferred with Task 4)
+
+The owner should be able to ask "why was slot 3 primed 40 times last week?"
+A prime that leaves no trace makes the honest number unenforceable.
 
 ---
 

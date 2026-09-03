@@ -1,6 +1,7 @@
 #include "socket_server.h"
 // voucher_manager removed — per-slot armed state used instead
 #include "utils.h"
+#include "pump_control.h"
 #include <iostream>
 #include <cstring>
 #include <algorithm>
@@ -282,6 +283,41 @@ static void process_command(AppState &state, const std::string &line,
           }
           broadcast_status(state);
           saveStateToDisk(state, state.transactionDir);
+        }
+      }
+      else if (isFirstWordTest(client_buffer, "PRIME"))
+      {
+        // PRIME,<slot> -- run one pump for a short fixed burst to push air out
+        // of the hose after a gallon change, so the next customer is not
+        // charged for a press that dispenses nothing.
+        //
+        // A fixed burst rather than hold-to-run: a held button over Wi-Fi is a
+        // dead-man's switch that fails open. Drop the link mid-hold and the
+        // release never arrives, leaving the pump running unattended.
+        //
+        // This deliberately records no sale, so the controller appends a
+        // non-revenue record instead of leaving no trace at all.
+        if (socket_count_commas(client_buffer) != 1)
+        {
+          log_error("socket", std::string("Malformed PRIME (expected 1 comma): ") + client_buffer);
+        }
+        else
+        {
+          std::string input_str(client_buffer);
+          int slot = std::stoi(input_str.substr(input_str.find(',') + 1));
+          PrimeResult r = pump_start_prime(state, slot);
+          std::string result = prime_result_text(r);
+
+          if (r == PrimeResult::STARTED)
+            log_info("socket", "PRIME slot " + std::to_string(slot) + ": started");
+          else
+            log_info("socket", "PRIME slot " + std::to_string(slot) + " refused: " + result);
+
+          // Answer the caller directly. Without this the dashboard cannot tell
+          // a refusal from a lost packet, and staff retry blindly.
+          std::string ack = "PRIME_ACK," + std::to_string(slot) + "," + result + "\n";
+          send(current_client_socket, ack.c_str(), ack.length(), 0);
+          broadcast_status(state);
         }
       }
       else if (isFirstWordTest(client_buffer, "CANCEL_ALL"))

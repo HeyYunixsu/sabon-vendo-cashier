@@ -23,7 +23,11 @@ controller/main
 **/node_modules/
 .superdesign
 controller/tests/tmp_transaction/
+controller/tests/tmp_prime/
 controller/tests/test_runner
+
+# prime / purge events -- machine-local operational record, not source
+logs/
 
 # editor workspace files (local, per-developer)
 *.code-workspace

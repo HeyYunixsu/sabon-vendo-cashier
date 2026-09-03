@@ -23,6 +23,7 @@
 #include "utils.h"
 #include <wiringPi.h>
 #include <cstdio>
+#include <fstream>
 #include <chrono>
 #include <algorithm>
 #include <mutex>
@@ -46,11 +47,17 @@ struct PumpState {
     std::chrono::time_point<std::chrono::steady_clock> postPressDeadline{};
     std::chrono::time_point<std::chrono::steady_clock> armTimestamp{};  // when last armed
     bool firstPressAfterArm = false;  // true = next press needs 100ms hold
+    // True while this pump is running a maintenance prime rather than a sale.
+    // The completion branch checks it and skips writeTransaction() entirely --
+    // not even a zero-peso record, which would still reach the cloud and
+    // pollute the revenue report we are trying to keep honest.
+    bool isPriming = false;
 };
 
 static PumpState      pumps[TOTAL_SLOTS + 1];   // index 1..TOTAL_SLOTS
 static AppState      *g_state_ptr = nullptr;
 static int            g_pump_start_cooldown_ms = 200;
+static double         g_prime_seconds = 3.0;
 static std::chrono::time_point<std::chrono::steady_clock> g_last_pump_start =
     std::chrono::steady_clock::now() - std::chrono::seconds(1);
 
@@ -118,13 +125,41 @@ static void executeDispenseTrigger(int pumpIdx) {
     }
 }
 
+// A slot that stops being busy must take its next queued ARM with it.
+// ARM queues rather than arms while slotBusy is set, so any path that clears
+// the flag without draining the queue strands credits a cashier already took
+// money for. Returns true if armedQty changed and needs persisting.
+static bool releaseSlot(AppState &state, int id)
+{
+    state.slotBusy[id] = false;
+    if (state.pendingQueue[id].empty()) return false;
+
+    PendingArm next = state.pendingQueue[id].front();
+    state.pendingQueue[id].pop();
+    state.armedQty[id] += next.qty;
+    log_info("pump", "Slot " + std::to_string(id)
+              + ": dequeued pending  qty=" + std::to_string(next.qty));
+    return true;
+}
+
 // ------------------------------------------------------------------------------
 // Per-pump state machine
 // ------------------------------------------------------------------------------
 static void handlePump(PumpState &pump, AppState &state) {
     if (state.slotEmpty[pump.id]) {
-        if (pump.isPumping)
+        if (pump.isPriming) {
+            // The sensor read empty mid-prime. Release the slot: priming sets
+            // slotBusy, and leaving it set would lock the line out of service
+            // until the controller restarts.
+            log_info("pump", "Pump " + std::to_string(pump.id) + ": PRIME ABORTED  reason=empty");
+            pump.isPriming = false;
+            pump.isPumping = false;
+            pump.timer = std::chrono::steady_clock::now();
+            if (releaseSlot(state, pump.id))
+                saveStateToDisk(state, state.transactionDir);
+        } else if (pump.isPumping) {
             log_info("pump", "Pump " + std::to_string(pump.id) + ": STOPPED  reason=empty");
+        }
         digitalWrite(pin_pump[pump.id], PUMP_TRIGGER_LOW);
     } else if (state.remainingTime[pump.id] > 0) {
         if (pump.isPaused) {
@@ -138,7 +173,16 @@ static void handlePump(PumpState &pump, AppState &state) {
         }
     } else {
         digitalWrite(pin_pump[pump.id], PUMP_TRIGGER_LOW);
-        if (pump.isPumping) {
+        if (pump.isPriming) {
+            // Checked before isPumping: both are true during a prime, and a
+            // prime must never fall through to the sale-recording branch.
+            log_info("pump", "Pump " + std::to_string(pump.id) + ": PRIME DONE  (no sale recorded)");
+            pump.isPriming = false;
+            pump.isPumping = false;
+            pump.amount = 0;
+            if (releaseSlot(state, pump.id))
+                saveStateToDisk(state, state.transactionDir);
+        } else if (pump.isPumping) {
             log_info("pump", "Pump " + std::to_string(pump.id) + ": DONE  amount="
                       + std::to_string(pump.amount));
             if (pump.armedUnitsReserved > 0) pump.armedUnitsReserved--;
@@ -146,15 +190,7 @@ static void handlePump(PumpState &pump, AppState &state) {
             pump.amount = 0;
             pump.isPumping = false;
             pump.postPressDeadline = std::chrono::steady_clock::time_point{};
-            state.slotBusy[pump.id] = false;
-
-            if (!state.pendingQueue[pump.id].empty()) {
-                PendingArm next = state.pendingQueue[pump.id].front();
-                state.pendingQueue[pump.id].pop();
-                state.armedQty[pump.id] += next.qty;
-                log_info("pump", "Slot " + std::to_string(pump.id)
-                          + ": dequeued pending  qty=" + std::to_string(next.qty));
-            }
+            releaseSlot(state, pump.id);
 
             saveStateToDisk(state, state.transactionDir);
 
@@ -170,14 +206,18 @@ static void handlePump(PumpState &pump, AppState &state) {
 // ------------------------------------------------------------------------------
 // Public API
 // ------------------------------------------------------------------------------
+void pump_reset_state() {
+    auto now = std::chrono::steady_clock::now();
+    for (int i = 1; i <= TOTAL_SLOTS; i++) {
+        pumps[i] = PumpState{};
+        pumps[i].id = i;
+        pumps[i].timer = now;
+    }
+}
+
 void pump_setup(AppState &state) {
     g_state_ptr = &state;
-    for (int i = 1; i <= TOTAL_SLOTS; i++) {
-        pumps[i].id = i;
-        pumps[i].timer = std::chrono::steady_clock::now();
-        pumps[i].buttonWasPressedLastFrame = false;
-        pumps[i].processingTrigger = false;
-    }
+    pump_reset_state();
 
     std::string binDir = get_binary_dir();
     auto config = loadEnv(binDir + "/../CONFIG/config.env");
@@ -189,6 +229,19 @@ void pump_setup(AppState &state) {
     if (config.count("TRANSACTION_DIR")) state.transactionDir = config["TRANSACTION_DIR"];
     else state.transactionDir = binDir + "/../transaction";
     if (config.count("PUMP_START_COOLDOWN_MS")) g_pump_start_cooldown_ms = std::stoi(config["PUMP_START_COOLDOWN_MS"]);
+    if (config.count("PRIME_SECONDS")) {
+        double v = std::stod(config["PRIME_SECONDS"]);
+        // Clamped rather than trusted. A typo here runs a pump unattended:
+        // too short is useless, too long empties a gallon onto the floor.
+        if (v < 0.5)  { log_error("pump", "PRIME_SECONDS below 0.5 - using 0.5"); v = 0.5; }
+        if (v > 15.0) { log_error("pump", "PRIME_SECONDS above 15 - using 15");  v = 15.0; }
+        g_prime_seconds = v;
+    }
+
+    // Prime events live outside transactionDir on purpose: the uploader sends
+    // every file in that directory to the cloud as a sale.
+    if (config.count("PRIME_LOG")) state.primeLogPath = config["PRIME_LOG"];
+    else state.primeLogPath = binDir + "/../logs/prime_events.jsonl";
 
     // Apply config.env pin/calibration overrides BEFORE logging the map,
     // otherwise the startup log reports compiled-in defaults, not real pins.
@@ -225,6 +278,13 @@ void pump_setup(AppState &state) {
         pinMode(pin_led[i], OUTPUT);
         digitalWrite(pin_led[i], LOW);
     }
+
+    if (!state.primeLogPath.empty()) {
+        std::string parent = fs::path(state.primeLogPath).parent_path().string();
+        if (!parent.empty()) ensureDirectoryExists(parent);
+    }
+    log_info("pump", "Prime burst: " + std::to_string(g_prime_seconds)
+             + "s  log=" + state.primeLogPath);
 
     if (ensureDirectoryExists(state.transactionDir)) {
         log_info("pump", "Transaction dir: " + state.transactionDir);
@@ -314,6 +374,8 @@ void pump_loop(AppState &state) {
             if (i > 1) delayMicroseconds(5000);  // stagger
         } else if (state.armedQty[i] > 0 && state.slotBusy[i]) {
             digitalWrite(pin_led[i], HIGH);  // busy = solid on
+        } else if (pumps[i].isPriming) {
+            digitalWrite(pin_led[i], HIGH);  // priming = solid on, so staff see which line runs
         } else {
             digitalWrite(pin_led[i], LOW);
         }
@@ -350,6 +412,81 @@ void pump_loop(AppState &state) {
     // 6. Software pause toggle — no physical stop button.
     //    state.paused can be set via socket command or dashboard.
     std::this_thread::sleep_for(std::chrono::milliseconds(20));
+}
+
+// ------------------------------------------------------------------------------
+// Prime / purge
+// ------------------------------------------------------------------------------
+
+// Append one non-revenue record. A prime dispenses product and books no sale,
+// so if it left no trace "I was only priming" would be an unfalsifiable
+// excuse and the honest-revenue number would stop being enforceable.
+static void appendPrimeLog(AppState &state, int slot, double seconds)
+{
+    if (state.primeLogPath.empty()) return;
+    std::ofstream f(state.primeLogPath, std::ios::app);
+    if (!f.is_open()) {
+        log_error("pump", "Could not append prime log: " + state.primeLogPath);
+        return;
+    }
+    f << "{\"machine_id\":\"" << state.machineId
+      << "\",\"slot\":\"" << slot
+      << "\",\"seconds\":" << seconds
+      << ",\"date_created\":\"" << format_current_time() << "\"}\n";
+}
+
+const char *prime_result_text(PrimeResult r)
+{
+    switch (r) {
+        case PrimeResult::STARTED:         return "started";
+        case PrimeResult::SLOT_INVALID:    return "invalid_slot";
+        case PrimeResult::SLOT_BUSY:       return "slot_busy";
+        case PrimeResult::SLOT_EMPTY:      return "slot_empty";
+        case PrimeResult::MACHINE_PAUSED:  return "paused";
+        case PrimeResult::TOO_MANY_ACTIVE: return "max_active";
+    }
+    return "unknown";
+}
+
+double pump_prime_seconds() { return g_prime_seconds; }
+
+PrimeResult pump_start_prime(AppState &state, int slot)
+{
+    if (slot < 1 || slot > TOTAL_SLOTS) return PrimeResult::SLOT_INVALID;
+    if (state.paused)                   return PrimeResult::MACHINE_PAUSED;
+
+    // Keep the empty-tank guard. Priming a genuinely dry tank runs the pump
+    // against air, which is the thing that damages it. The real case is a
+    // freshly refilled gallon, where the sensor already reads full.
+    if (state.slotEmpty[slot]) return PrimeResult::SLOT_EMPTY;
+
+    // Priming shares pump.timer with dispensing, so starting one mid-sale
+    // would extend the customer's run and hand them extra product. A slot
+    // that owes anyone anything is off limits -- prime between sales.
+    if (state.armedQty[slot] > 0 || state.slotBusy[slot] ||
+        !state.pendingQueue[slot].empty())
+        return PrimeResult::SLOT_BUSY;
+
+    auto now = std::chrono::steady_clock::now();
+    int activePumps = 0;
+    for (int i = 1; i <= TOTAL_SLOTS; i++)
+        if (pumps[i].timer > now) activePumps++;
+    if (activePumps >= 2) return PrimeResult::TOO_MANY_ACTIVE;
+
+    PumpState &pump = pumps[slot];
+    pump.isPriming = true;
+    pump.amount    = 0;
+    pump.timer     = now + std::chrono::milliseconds((int)(g_prime_seconds * 1000));
+
+    // slotBusy keeps a sale from being armed into the middle of the burst.
+    // handlePump clears it when the burst ends or aborts.
+    state.slotBusy[slot] = true;
+    g_last_pump_start    = now;
+
+    appendPrimeLog(state, slot, g_prime_seconds);
+    log_info("pump", "Slot " + std::to_string(slot) + ": PRIME START  run_ms="
+             + std::to_string((int)(g_prime_seconds * 1000)));
+    return PrimeResult::STARTED;
 }
 
 void pump_shutdown() {

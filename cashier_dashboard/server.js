@@ -7,6 +7,7 @@
  * - Sale IDs + double-click guard
  * - Local ARM queue (retry on reconnect)
  * - Unclaimed sale tracking
+ * - Prime / purge: run a pump briefly to clear air, recording no sale
  */
 
 const express = require('express');
@@ -48,6 +49,15 @@ const SOCKET_IP   = config.SOCKET_IP   || '127.0.0.1';
 const SOCKET_PORT = parseInt(config.SOCKET_PORT || '8080', 10);
 const HTTP_PORT   = parseInt(config.DASHBOARD_PORT || '80', 10);
 
+// Prime events. The controller owns this file; the dashboard only reads it, so
+// the count staff see is the controller's own record and not a tally the
+// dashboard could quietly lose on restart. Kept out of the transaction
+// directory on purpose -- the uploader sends everything in there as a sale.
+const PRIME_LOG_PATH = config.PRIME_LOG
+  ? path.resolve(__dirname, '..', config.PRIME_LOG)
+  : path.resolve(__dirname, '..', 'logs', 'prime_events.jsonl');
+const PRIME_SECONDS = parseFloat(config.PRIME_SECONDS || '3');
+
 // ---------------------------------------------------------------------------
 // State
 // ---------------------------------------------------------------------------
@@ -57,6 +67,10 @@ const processedSaleIds = new Set();      // double-click guard
 const localArmQueue = [];                // queued ARM commands (offline retry)
 const unclaimedSales = [];               // unclaimed / needs-attention
 let coinSocket = null;
+// True only between 'connect' and 'close'. A socket that is still connecting
+// is neither null nor destroyed, and write() on it silently buffers -- so
+// checking the socket object alone reports a send that has not happened yet.
+let coinConnected = false;
 let statusBuffer = '';
 
 // Persistence file for unclaimed sales
@@ -89,6 +103,7 @@ function connectToCoinSlot() {
 
   coinSocket.connect(SOCKET_PORT, SOCKET_IP, () => {
     console.log(`[dashboard] Connected to controller`);
+    coinConnected = true;
     // Flush any locally queued ARM commands
     flushLocalQueue();
   });
@@ -100,6 +115,11 @@ function connectToCoinSlot() {
     for (const line of lines) {
       if (line.startsWith('STATUS')) {
         broadcastSSE(line);
+      } else if (line.startsWith('PRIME_ACK')) {
+        // Forwarded so the page can say why a prime was refused. Without it
+        // staff cannot tell a refusal from a dropped packet and retry blindly.
+        console.log(`[dashboard] ${line.trim()}`);
+        broadcastSSE(line.trim());
       }
     }
     // Whatever is left is an incomplete line. Keep it for the next chunk --
@@ -117,6 +137,7 @@ function connectToCoinSlot() {
 
   coinSocket.on('close', () => {
     console.log('[dashboard] controller disconnected — reconnecting in 3s...');
+    coinConnected = false;
     coinSocket = null;
     setTimeout(connectToCoinSlot, 3000);
   });
@@ -137,6 +158,24 @@ function sendToCoinSlot(command) {
   } catch (e) {
     console.error(`[dashboard] Send error: ${e.message}`);
     localArmQueue.push(command);
+    return false;
+  }
+}
+
+// Send without queuing. Used by PRIME: a queued prime would fire whenever the
+// controller next reconnects, which could be hours later, running a pump with
+// nobody at the machine. Better to refuse and let staff retry deliberately.
+function sendNowOrFail(command) {
+  // Requires a live connection, not merely a socket object. Writing to one
+  // that is mid-connect buffers the command and delivers it on connect --
+  // which is the delayed unattended prime this function exists to prevent.
+  if (!coinConnected || !coinSocket || coinSocket.destroyed) return false;
+  try {
+    coinSocket.write(command.endsWith('\n') ? command : command + '\n');
+    console.log(`[dashboard] Sent: ${command}`);
+    return true;
+  } catch (e) {
+    console.error(`[dashboard] Send error: ${e.message}`);
     return false;
   }
 }
@@ -279,6 +318,73 @@ app.post('/api/cancel-queue', (req, res) => {
   const sent = sendToCoinSlot(`CANCEL_QUEUE,${productId}`);
   console.log(`[dashboard] CANCEL_QUEUE slot ${productId}: ${sent ? 'sent' : 'queued'}`);
   res.json({ success: sent });
+});
+
+// ---------------------------------------------------------------------------
+// Prime / purge
+//
+// Replacing an empty gallon lets air into the hose, so the next press
+// dispenses air and still charges the customer. Priming runs the pump for a
+// short fixed burst to push that air through, recording no sale.
+//
+// Because it moves product without booking revenue, every prime is counted
+// and shown back to staff. An untraceable prime would make "I was only
+// priming" an excuse nobody could check.
+// ---------------------------------------------------------------------------
+
+// Today's primes, per slot, read from the controller's own log.
+function readPrimeCounts() {
+  const counts = {};
+  let total = 0;
+  try {
+    if (!fs.existsSync(PRIME_LOG_PATH)) return { counts, total };
+
+    // Local date, matching the controller's localtime timestamps.
+    const now = new Date();
+    const today = `${now.getFullYear()}-`
+                + `${String(now.getMonth() + 1).padStart(2, '0')}-`
+                + `${String(now.getDate()).padStart(2, '0')}`;
+
+    for (const line of fs.readFileSync(PRIME_LOG_PATH, 'utf-8').split(/\r?\n/)) {
+      if (!line.trim()) continue;
+      let rec;
+      // One malformed line must not hide the rest of the day's activity.
+      try { rec = JSON.parse(line); } catch (_) { continue; }
+      if (!rec.date_created || !String(rec.date_created).startsWith(today)) continue;
+      const slot = parseInt(rec.slot, 10);
+      if (!Number.isFinite(slot)) continue;
+      counts[slot] = (counts[slot] || 0) + 1;
+      total++;
+    }
+  } catch (e) {
+    console.error(`[dashboard] Could not read prime log: ${e.message}`);
+  }
+  return { counts, total };
+}
+
+app.get('/api/prime', (req, res) => {
+  const { counts, total } = readPrimeCounts();
+  res.json({ seconds: PRIME_SECONDS, today: counts, todayTotal: total });
+});
+
+app.post('/api/prime', (req, res) => {
+  const slot = parseInt(req.body && req.body.slot, 10);
+
+  if (!Number.isFinite(slot) || slot < 1 || slot > 6) {
+    return res.status(400).json({ success: false, reason: 'invalid_slot' });
+  }
+
+  // Never queued. A prime held until the controller reconnects would start a
+  // pump with nobody standing at the machine.
+  const sent = sendNowOrFail(`PRIME,${slot}`);
+  if (!sent) {
+    console.error(`[dashboard] PRIME slot ${slot} not sent — controller offline`);
+    return res.status(503).json({ success: false, reason: 'controller_offline' });
+  }
+
+  console.log(`[dashboard] PRIME slot ${slot}: sent`);
+  // The controller answers asynchronously with PRIME_ACK, forwarded over SSE.
+  res.json({ success: true, slot, seconds: PRIME_SECONDS });
 });
 
 // Resolve unclaimed sale

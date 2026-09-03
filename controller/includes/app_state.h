@@ -42,6 +42,11 @@ struct AppState {
     int serverPort = 8080;
     std::string transactionDir = "../transaction";
 
+    // Where prime/purge events are appended. Deliberately NOT inside
+    // transactionDir: the uploader treats every file in there as a sale to
+    // send to the cloud, and a prime is explicitly not a sale.
+    std::string primeLogPath;
+
     long long remainingTime[TOTAL_SLOTS + 1] = {0};  // index 1-6
     // true = that slot's tank is empty, which blocks arming and stops a
     // running pump. Set from WTRLVL; which GPIO level counts as empty is

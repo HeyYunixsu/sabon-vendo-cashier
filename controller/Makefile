@@ -64,7 +64,7 @@ TEST_OBJS = tests/run_tests.o \
             tests/test_transaction_json.o tests/test_app_state.o \
             tests/test_product_config.o tests/test_transaction_write.o \
             tests/test_module_linkage.o tests/test_input_validation.o tests/test_config_loading.o \
-            tests/test_armed_state.o tests/test_logging.o \
+            tests/test_armed_state.o tests/test_logging.o tests/test_prime.o \
             tests/test_socket_integration.o
 
 # Source modules compiled with mock support into tests/obj/

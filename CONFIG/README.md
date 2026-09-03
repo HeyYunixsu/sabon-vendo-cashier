@@ -62,6 +62,20 @@ One button, one LED and one pump relay per slot, all independent.
 |-----|---------|-------------|
 | `calibrateProduct1`-`calibrateProduct6` | `(5, 2.777778)` | `(coins, seconds)` - how long that slot's pump runs per unit |
 
+### Prime / purge
+
+| Key | Default | Description |
+|-----|---------|-------------|
+| `PRIME_SECONDS` | `3` | Length of one prime burst, in seconds. Clamped to `0.5`-`15` by the controller, because an over-long burst empties a gallon onto the floor with nobody at the machine |
+| `PRIME_LOG` | `<repo>/logs/prime_events.jsonl` | Where prime events are appended, one JSON object per line. **Must stay outside `TRANSACTION_DIR`** - the uploader treats every file in there as a sale to POST to the cloud |
+
+Priming clears air from a hose after a gallon change, so the next customer is
+not charged for a press that dispenses air. A prime moves product and records
+**no sale**, which is also what someone stealing from the till would want, so
+every prime is written to `PRIME_LOG` and counted back to staff on the
+dashboard's Maintenance panel. Nothing is ever written to the transaction
+directory by a prime - not even a zero-peso record.
+
 ### Water level sensors (`uploaders`)
 
 | Key | Default | Description |

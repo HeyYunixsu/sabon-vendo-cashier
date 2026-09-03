@@ -612,6 +612,103 @@ void test_integration_server_handles_client_disconnect()
 
 // ========================================================== entry point ---
 
+// ---------------------------------- PRIME (non-revenue maintenance run) ---
+
+// Put the machine in a known state. These run last, after earlier cases have
+// armed slots and set water flags, and a prime is refused by design when the
+// slot owes anyone product.
+static void reset_for_prime()
+{
+    ClientSock sock = connect_test_client();
+    if (sock == INVALID_CLIENT_SOCK) return;
+    drain_connect_push(sock);
+    send_cmd(sock, "CANCEL_ALL");
+    send_cmd(sock, "WTRLVL,0,0,0,0,0,0");
+    yield_to_server();
+    CLOSE_CLIENT(sock);
+}
+
+void test_integration_prime_acknowledges_the_caller()
+{
+    reset_for_prime();
+
+    ClientSock sock = connect_test_client();
+    CHECK(sock != INVALID_CLIENT_SOCK);
+    if (sock == INVALID_CLIENT_SOCK) return;
+    drain_connect_push(sock);
+
+    // Without an explicit answer the dashboard cannot tell a refusal from a
+    // lost packet, and staff retry blindly at the machine.
+    std::string resp = send_and_recv(sock, "PRIME,5");
+    CHECK(resp.find("PRIME_ACK,5,started") != std::string::npos);
+    CHECK(g_test_state.slotBusy[5] == true);
+
+    // A prime is not a sale: it must not stage credit for the slot.
+    CHECK_EQ(g_test_state.armedQty[5], 0);
+
+    CLOSE_CLIENT(sock);
+}
+
+void test_integration_prime_reports_why_it_refused()
+{
+    reset_for_prime();
+
+    ClientSock sock = connect_test_client();
+    CHECK(sock != INVALID_CLIENT_SOCK);
+    if (sock == INVALID_CLIENT_SOCK) return;
+    drain_connect_push(sock);
+
+    std::string resp = send_and_recv(sock, "PRIME,99");
+    CHECK(resp.find("PRIME_ACK,99,invalid_slot") != std::string::npos);
+
+    CLOSE_CLIENT(sock);
+}
+
+void test_integration_prime_refused_for_an_armed_slot()
+{
+    reset_for_prime();
+
+    ClientSock sock = connect_test_client();
+    CHECK(sock != INVALID_CLIENT_SOCK);
+    if (sock == INVALID_CLIENT_SOCK) return;
+    drain_connect_push(sock);
+
+    send_cmd(sock, "ARM,4,1");
+    CHECK(wait_for([]{ return g_test_state.armedQty[4] > 0; }));
+
+    // Priming shares the pump timer with dispensing, so allowing this would
+    // extend the waiting customer's run and give away product.
+    std::string resp = send_and_recv(sock, "PRIME,4");
+    CHECK(resp.find("PRIME_ACK,4,slot_busy") != std::string::npos);
+    CHECK(g_test_state.slotBusy[4] == false);
+
+    send_cmd(sock, "CANCEL_ALL");
+    yield_to_server();
+    CLOSE_CLIENT(sock);
+}
+
+void test_integration_malformed_prime_is_ignored()
+{
+    reset_for_prime();
+
+    ClientSock sock = connect_test_client();
+    CHECK(sock != INVALID_CLIENT_SOCK);
+    if (sock == INVALID_CLIENT_SOCK) return;
+    drain_connect_push(sock);
+
+    send_cmd(sock, "PRIME");
+    send_cmd(sock, "PRIME,notanumber");
+    yield_to_server();
+
+    // No pump may start from a command the server could not parse, and the
+    // connection must survive to carry the next one.
+    CHECK(g_test_state.slotBusy[6] == false);
+    std::string resp = send_and_recv(sock, "Client ACK");
+    CHECK(resp.find("STATUS") != std::string::npos);
+
+    CLOSE_CLIENT(sock);
+}
+
 void run_socket_integration_tests()
 {
     SUITE("socket integration (TCP protocol behavioral tests)");
@@ -641,6 +738,12 @@ void run_socket_integration_tests()
     RUN_TEST(test_integration_malformed_wtrlvl_is_ignored);
     RUN_TEST(test_integration_two_clients_independent);
     RUN_TEST(test_integration_server_handles_client_disconnect);
+
+    // Prime last: it marks a slot busy, which earlier cases assume is clear.
+    RUN_TEST(test_integration_prime_acknowledges_the_caller);
+    RUN_TEST(test_integration_prime_reports_why_it_refused);
+    RUN_TEST(test_integration_prime_refused_for_an_armed_slot);
+    RUN_TEST(test_integration_malformed_prime_is_ignored);
 
     stop_integration_server();
 }

@@ -163,7 +163,9 @@ On client connect:
 3. Starts a 15-second keep-alive heartbeat (`:keepalive\n\n`) to prevent browser timeout
 4. On `req.on('close')`: clears the keep-alive interval, removes client from `sseClients` Set
 
-Thereafter, every `STATUS` line from controller is forwarded verbatim to all connected SSE clients.
+Thereafter, every `STATUS` line from controller is forwarded verbatim to all
+connected SSE clients, along with any `PRIME_ACK,<slot>,<result>` line so the
+page can report why a prime was refused rather than appearing to do nothing.
 
 `broadcastSSE(data)` writes to every response object in `sseClients`. Failed writes are silently caught.
 
@@ -176,6 +178,8 @@ Thereafter, every `STATUS` line from controller is forwarded verbatim to all con
 | `POST` | `/api/cancel-all` | `{}` | `{success}` | Cancel ALL armed slots + queues |
 | `POST` | `/api/cancel-queue` | `{productId}` | `{success}` | Clear pending queue for one slot |
 | `POST` | `/api/unclaimed/resolve` | `{slot, qty, action}` | `{success}` | Retry or dismiss unclaimed sale |
+| `POST` | `/api/prime` | `{slot}` | `{success, slot, seconds}` | Run one pump briefly to clear air. **Records no sale** |
+| `GET` | `/api/prime` | — | `{seconds, today, todayTotal}` | Today's prime count per slot, read from `PRIME_LOG` |
 | `GET` | `/api/status/stream` | — | SSE stream | Live STATUS + UNCLAIMED events |
 | `GET` | `/qr` | — | 302 redirect | QR code of LAN URL |
 
@@ -196,6 +200,37 @@ Thereafter, every `STATUS` line from controller is forwarded verbatim to all con
 // Response
 { "saleId": "...", "results": [{ "productId": 1, "qty": 3, "success": true }] }
 ```
+
+**`/api/prime` — prime / purge:**
+```json
+// Request
+{ "slot": 3 }
+// Sends to controller: PRIME,3
+// Response (command sent; the controller decides and answers over SSE)
+{ "success": true, "slot": 3, "seconds": 3 }
+```
+
+Replacing an empty gallon lets air into the hose, so the next press dispenses
+air and still charges the customer. A prime pushes that air through.
+
+Three properties matter and are easy to break by accident:
+
+1. **It never writes a transaction.** Not even a zero-peso one — the uploader
+   POSTs every file in the transaction directory to the cloud as a sale.
+2. **It is never queued.** `/api/prime` uses `sendNowOrFail()`, which requires a
+   live connection (`coinConnected`), not merely a socket object. A socket that
+   is still connecting accepts `write()` into a buffer, so a queued prime would
+   start a pump whenever the controller next reconnected — possibly hours later,
+   with nobody at the machine. Offline returns `503 controller_offline`.
+3. **It always leaves a trace.** The controller appends to `PRIME_LOG` and the
+   dashboard shows today's count per slot. A prime that vanished would make
+   "I was only priming" an excuse nobody could check.
+
+`PRIME_ACK,<slot>,<result>` comes back asynchronously over SSE. `result` is one
+of `started`, `slot_busy`, `slot_empty`, `paused`, `max_active`, `invalid_slot`.
+The controller refuses a slot that is armed, dispensing, or has queued credits,
+because priming shares the pump timer with dispensing and would otherwise
+extend a waiting customer's run.
 
 **Double-click guard:** `processedSaleIds` is a Set of sale IDs. Duplicate `saleId` values return `{success: false, duplicate: true}`. The set is trimmed to 500 entries when it exceeds 1000.
 

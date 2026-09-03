@@ -638,6 +638,40 @@ button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
   .btn-negative:hover { background: var(--status-negative); color: #fff; }
 }
 
+
+/* Maintenance / prime.
+   Deliberately understated and collapsed: priming dispenses product without
+   recording a sale, so it should never sit next to Arm looking like part of
+   the normal flow. */
+#maintenance-section { border-left-color: var(--status-neutral) !important; }
+.maint-note {
+  font-size: 10px;
+  line-height: 1.5;
+  color: var(--text-content-secondary);
+  margin: 8px 0 6px;
+}
+.maint-note strong { color: var(--status-caution); }
+.prime-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 0;
+  border-bottom: 1px solid var(--border-default);
+}
+.prime-row:last-child { border-bottom: none; }
+.prime-row .prime-name { flex: 1; font-size: 11px; }
+.prime-row .prime-count {
+  font-size: 10px;
+  color: var(--text-content-secondary);
+  min-width: 44px;
+  text-align: right;
+}
+.prime-row .prime-count.busy { color: var(--status-caution); }
+.prime-row .btn-sm { flex: 0 0 auto; }
+.prime-row .btn-sm.confirm {
+  border-color: var(--status-caution);
+  color: var(--status-caution);
+}
 </style>
 </head>
 <body>
@@ -709,6 +743,18 @@ button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
       <div class="section-label">Alerts</div>
       <div id="alert-list"></div>
     </section>
+    <section id="maintenance-section" class="status-section">
+      <div class="section-label">Maintenance <span id="prime-today">0</span></div>
+      <button id="btn-maint-toggle" class="btn btn-outline btn-block">Prime lines</button>
+      <div id="maint-body" style="display:none;">
+        <div class="maint-note">
+          Clears air from a hose after a gallon change. Runs
+          <span id="prime-secs">3</span>s per tap.
+          <strong>No sale is recorded</strong> &mdash; every prime is logged.
+        </div>
+        <div id="prime-list"></div>
+      </div>
+    </section>
   </aside>
 </main>
 
@@ -777,6 +823,7 @@ button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
         refresh(); return;
       }
       if (e.data.startsWith('UNCLAIMED:')) { addUnclaimed(e.data); return; }
+      if (e.data.startsWith('PRIME_ACK')) { onPrimeAck(e.data); return; }
       parse(e.data);
     });
     es.addEventListener('error', () => { S.connected = false; refresh(); });
@@ -819,6 +866,7 @@ button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
     renderQueue();
     renderAlerts();
     renderUnclaimed();
+    renderPrime();
   }
 
   function updateStatus() {
@@ -1036,6 +1084,118 @@ button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
     } catch(e) { /* silent */ }
   }
 
+  // ---------------------------------------------------------------------
+  // Maintenance: prime / purge
+  //
+  // A prime dispenses product and books no sale, so the UI works against
+  // casual use: collapsed by default, and a tap only arms the button -- a
+  // second tap fires it. The count beside each line is the controller's own
+  // record, shown back to staff so a prime is never an invisible act.
+  // ---------------------------------------------------------------------
+  let primeCounts = {}, primeSeconds = 3, primeArmedSlot = null, primeArmTmr = null;
+
+  async function loadPrimeInfo() {
+    try {
+      const r = await fetch('/api/prime');
+      const d = await r.json();
+      primeCounts  = d.today || {};
+      primeSeconds = d.seconds || 3;
+      $('prime-secs').textContent = primeSeconds;
+      $('prime-today').textContent = d.todayTotal || 0;
+      renderPrime();
+    } catch (e) { /* panel still usable without the count */ }
+  }
+
+  function disarmPrime() {
+    primeArmedSlot = null;
+    clearTimeout(primeArmTmr);
+    renderPrime();
+  }
+
+  function renderPrime() {
+    const el = $('prime-list');
+    if (!el || $('maint-body').style.display === 'none') return;
+    let h = '';
+    for (let s = 1; s <= ACTIVE; s++) {
+      const n = primeCounts[s] || 0;
+      // Empty or occupied lines are refused by the controller anyway; saying
+      // so here stops staff tapping at a machine that will not answer.
+      const blocked = S.wlvl[s] || S.busy[s] || S.armedQty[s] > 0 || S.paused || !S.connected;
+      const armed = primeArmedSlot === s;
+      h += '<div class="prime-row">'
+         + '<span class="prime-name">' + PRODUCT[s] + '</span>'
+         + '<span class="prime-count' + (n > 0 ? ' busy' : '') + '">'
+         + (n > 0 ? n + ' today' : '&mdash;') + '</span>'
+         + '<button class="btn btn-sm' + (armed ? ' confirm' : '') + '" data-prime="' + s + '"'
+         + (blocked ? ' disabled' : '') + '>'
+         + (armed ? 'Tap to run' : 'Prime') + '</button>'
+         + '</div>';
+    }
+    el.innerHTML = h;
+    el.querySelectorAll('[data-prime]').forEach((b) => {
+      b.addEventListener('click', () => onPrimeTap(parseInt(b.dataset.prime, 10)));
+    });
+  }
+
+  function onPrimeTap(slot) {
+    if (primeArmedSlot !== slot) {
+      // First tap only arms. A pump that starts on a single mis-tap is the
+      // one thing this panel must not do.
+      primeArmedSlot = slot;
+      renderPrime();
+      clearTimeout(primeArmTmr);
+      primeArmTmr = setTimeout(disarmPrime, 5000);
+      toast('Tap again to prime ' + PRODUCT[slot], 'info');
+      return;
+    }
+    disarmPrime();
+    doPrime(slot);
+  }
+
+  async function doPrime(slot) {
+    try {
+      const r = await fetch('/api/prime', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slot }),
+      });
+      const d = await r.json();
+      if (!d.success) {
+        toast(d.reason === 'controller_offline'
+              ? 'Machine unreachable — prime not sent'
+              : 'Prime rejected: ' + (d.reason || 'unknown'), 'error');
+      }
+      // A success here only means the command was sent. The controller
+      // decides, and answers with PRIME_ACK over SSE.
+    } catch (e) {
+      toast('Prime failed: ' + e.message, 'error');
+    }
+  }
+
+  function onPrimeAck(raw) {
+    const p = raw.split(',');
+    const slot = parseInt(p[1], 10);
+    const result = (p[2] || '').trim();
+    const name = PRODUCT[slot] || ('Slot ' + slot);
+
+    if (result === 'started') {
+      toast('Priming ' + name + ' — ' + primeSeconds + 's, no sale recorded', 'success');
+      // Re-read the controller's log rather than incrementing locally, so the
+      // number staff see is always the one on disk.
+      setTimeout(loadPrimeInfo, (primeSeconds * 1000) + 500);
+      return;
+    }
+
+    const why = {
+      slot_busy:    name + ' has credits or is dispensing. Prime between sales.',
+      slot_empty:   name + ' reads empty. Refill the gallon first.',
+      paused:       'Machine is paused.',
+      max_active:   'Two pumps already running. Try again in a moment.',
+      invalid_slot: 'Unknown slot.',
+    };
+    toast(why[result] || ('Prime refused: ' + result), 'error');
+  }
+
   // Theme
   const html = document.documentElement;
   const saved = localStorage.getItem('sabon-theme');
@@ -1093,9 +1253,20 @@ button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
   // Cancel all
   $('btn-cancel-all').addEventListener('click', cancelAll);
 
+  // Maintenance panel — collapsed until asked for
+  $('btn-maint-toggle').addEventListener('click', () => {
+    const body = $('maint-body');
+    const open = body.style.display === 'none';
+    body.style.display = open ? 'block' : 'none';
+    $('btn-maint-toggle').textContent = open ? 'Hide prime lines' : 'Prime lines';
+    disarmPrime();
+    if (open) loadPrimeInfo();
+  });
+
   // Init
   renderGrid();
   connectSSE();
+  loadPrimeInfo();
 
   // Skeleton timeout: if no STATUS data after 4s, show demo
   setTimeout(() => {
