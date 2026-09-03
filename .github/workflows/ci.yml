@@ -1,0 +1,51 @@
+name: CI
+
+# The 424-test suite only ran when someone remembered to type `make test`.
+# The Windows/mock build had been broken for months before anyone noticed.
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  controller-tests:
+    name: controller test suite
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # The `test` target always compiles against mock/wiringPi.cpp and links
+      # with empty TEST_LDFLAGS on Linux, so no real wiringPi is needed here.
+      - name: Build and run tests
+        working-directory: controller
+        run: make test
+
+      - name: Fail on compiler warnings
+        working-directory: controller
+        run: |
+          make clean
+          if make test 2>&1 | tee build.log | grep -E '\.(cpp|h):[0-9]+:[0-9]+: warning:'; then
+            echo "::error::compiler warnings present"
+            exit 1
+          fi
+          echo "no warnings"
+
+  python-syntax:
+    name: python syntax
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11" }
+      - name: Compile all scripts
+        run: python -m compileall -q uploaderTransaction
+
+  dashboard-syntax:
+    name: dashboard syntax
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "20" }
+      - name: Check server.js parses
+        run: node --check cashier_dashboard/server.js

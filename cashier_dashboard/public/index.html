@@ -638,9 +638,45 @@ button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
   .btn-negative:hover { background: var(--status-negative); color: #fff; }
 }
 
+
+/* PIN gate ---------------------------------------------------------------- */
+#pin-gate {
+  position: fixed; inset: 0; z-index: 9999;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--bg-surface-primary);
+}
+#pin-gate[hidden] { display: none !important; }
+.pin-box {
+  display: flex; flex-direction: column; gap: 12px;
+  width: min(320px, 88vw); padding: 28px;
+  background: var(--bg-surface-secondary);
+  border: 1px solid var(--border-default); border-radius: 12px;
+}
+.pin-title { font-size: 20px; font-weight: 700; color: var(--text-content-primary); }
+.pin-sub   { font-size: 13px; color: var(--text-content-secondary); margin-bottom: 4px; }
+#pin-input {
+  height: 48px; padding: 0 14px; border-radius: 8px;
+  border: 1px solid var(--border-default);
+  background: var(--bg-surface-tertiary); color: var(--text-content-primary);
+  /* 16px minimum: iOS Safari zooms the page when focusing a smaller input */
+  font-size: 16px; letter-spacing: 4px; text-align: center;
+}
+#pin-submit { height: 48px; }
+.pin-error { color: var(--status-negative); font-size: 13px; text-align: center; }
+
 </style>
 </head>
 <body>
+<div id="pin-gate" hidden>
+  <div class="pin-box">
+    <div class="pin-title">Cashier Dashboard</div>
+    <div class="pin-sub">Enter the dashboard PIN to continue</div>
+    <input id="pin-input" type="password" inputmode="numeric" autocomplete="off"
+           pattern="[0-9]*" placeholder="PIN">
+    <button id="pin-submit" class="btn btn-primary">Unlock</button>
+    <div id="pin-error" class="pin-error" hidden>Incorrect PIN</div>
+  </div>
+</div>
 
 <div id="viewport" style="flex:1;display:flex;flex-direction:column;min-height:0;overflow:auto;">
 <header id="status-bar">
@@ -763,7 +799,52 @@ button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
 
   // SSE
   function connectSSE() {
-    const es = new EventSource('/api/status/stream');
+    // --- API authentication -------------------------------------------
+    // The PIN is kept per-device in localStorage so a cashier types it once.
+    // It is not a secret from anyone with the device -- it exists to stop a
+    // stranger on the same network from opening the IP and dispensing.
+    const PIN_KEY = 'sabon_dashboard_pin';
+    function getPin() {
+      try { return localStorage.getItem(PIN_KEY) || ''; } catch (_) { return ''; }
+    }
+    function setPin(v) {
+      try { localStorage.setItem(PIN_KEY, v); } catch (_) {}
+    }
+    function showPinGate(wrong) {
+      const g = $('pin-gate'), e = $('pin-error');
+      if (!g) return;
+      if (e) e.hidden = !wrong;
+      g.hidden = false;
+      const i = $('pin-input');
+      if (i) { i.value = ''; i.focus(); }
+    }
+    // Every API call goes through here so the header is never forgotten, and a
+    // 401 always surfaces as the gate rather than a silent no-op.
+    async function apiFetch(url, opts) {
+      opts = opts || {};
+      opts.headers = Object.assign({}, opts.headers || {}, { 'X-Dashboard-Pin': getPin() });
+      const r = await fetch(url, opts);
+      if (r.status === 401) showPinGate(true);
+      return r;
+    }
+    fetch('/auth-status')
+      .then(r => r.json())
+      .then(a => { if (a.required && !getPin()) showPinGate(false); })
+      .catch(() => {});
+
+    (function wirePinGate() {
+      const submit = $('pin-submit'), input = $('pin-input');
+      if (!submit || !input) return;
+      const tryPin = () => {
+        setPin(input.value.trim());
+        $('pin-gate').hidden = true;
+        location.reload();     // reconnect SSE with the new PIN
+      };
+      submit.addEventListener('click', tryPin);
+      input.addEventListener('keydown', ev => { if (ev.key === 'Enter') tryPin(); });
+    })();
+
+    const es = new EventSource('/api/status/stream?pin=' + encodeURIComponent(getPin()));
     es.addEventListener('message', (e) => {
       if (e.data === 'connected') {
         // Fresh connection — reset all state
@@ -779,7 +860,16 @@ button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
       if (e.data.startsWith('UNCLAIMED:')) { addUnclaimed(e.data); return; }
       parse(e.data);
     });
-    es.addEventListener('error', () => { S.connected = false; refresh(); });
+    es.addEventListener('error', () => {
+      S.connected = false;
+      refresh();
+      // A rejected PIN and a restarting server both land here. Ask the server
+      // which it was rather than guessing: showing the gate on every ordinary
+      // reconnect would be maddening.
+      fetch('/auth-status').then(r => r.json()).then(a => {
+        if (a.required && !getPin()) showPinGate(false);
+      }).catch(() => {});
+    });
   }
 
   function parse(raw) {
@@ -997,7 +1087,7 @@ button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
     // Build ARM_BATCH payload: slot:qty,slot:qty,...
     const batch = staged.map(i => i.id+':'+i.qty).join(',');
     try {
-      const r = await fetch('/api/arm', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ saleId:sid, batch }) });
+      const r = await apiFetch('/api/arm', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ saleId:sid, batch }) });
       const d = await r.json();
       if (d.success) {
         toast('Armed: '+staged.map(i=>i.name+' ('+i.qty+'x)').join(', '), 'success');
@@ -1011,27 +1101,27 @@ button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
   }
   async function cancelSlot(id) {
     try {
-      await fetch('/api/cancel', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({productId:id}) });
+      await apiFetch('/api/cancel', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({productId:id}) });
       toast('Slot ' + id + ' cancelled', 'info');
     } catch(e) { /* silent */ }
   }
 
   async function cancelAll() {
     try {
-      await fetch('/api/cancel-all', { method:'POST', headers:{'Content-Type':'application/json'} });
+      await apiFetch('/api/cancel-all', { method:'POST', headers:{'Content-Type':'application/json'} });
       toast('All slots cancelled', 'info');
     } catch(e) { /* silent */ }
   }
 
   async function cancelQueueSlot(id) {
     try {
-      await fetch('/api/cancel-queue', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({productId:id}) });
+      await apiFetch('/api/cancel-queue', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({productId:id}) });
     } catch(e) { /* silent */ }
   }
   async function resolveUnclaimed(idx, action) {
     const it = unclaimed[idx];
     try {
-      await fetch('/api/unclaimed/resolve', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({slot:it.slot,qty:it.qty,action}) });
+      await apiFetch('/api/unclaimed/resolve', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({slot:it.slot,qty:it.qty,action}) });
       unclaimed.splice(idx,1); renderUnclaimed();
     } catch(e) { /* silent */ }
   }

@@ -252,6 +252,28 @@ sudo pm2 startup systemd || \
 # PATH that does not include /usr/bin. We install the package and create a
 # symlink in /usr/local/bin so sudo always finds it.
 # --------------------------------------------------------------------------- #
+# --------------------------------------------------------------------------- #
+# 4b. PM2 log rotation
+# --------------------------------------------------------------------------- #
+# Without this PM2 log files grow without bound on the SD card. Five processes
+# writing continuously will eventually fill it, and the write churn is the most
+# common way a Pi dies in the field. Caps each file at 10MB and keeps 7.
+# --------------------------------------------------------------------------- #
+section "4b. Configuring PM2 log rotation"
+
+if sudo pm2 list 2>/dev/null | grep -q "pm2-logrotate"; then
+  log "pm2-logrotate already installed"
+else
+  log "Installing pm2-logrotate..."
+  sudo pm2 install pm2-logrotate || warn "pm2-logrotate install failed — logs will grow unbounded"
+fi
+
+sudo pm2 set pm2-logrotate:max_size 10M        || warn "could not set max_size"
+sudo pm2 set pm2-logrotate:retain 7            || warn "could not set retain"
+sudo pm2 set pm2-logrotate:compress true       || warn "could not set compress"
+sudo pm2 set pm2-logrotate:rotateInterval '0 0 * * *' || warn "could not set rotateInterval"
+log "PM2 log rotation: 10MB per file, 7 kept, compressed"
+
 section "5. Installing journalctl (systemd journal)"
 
 if command -v journalctl &>/dev/null; then

@@ -43,6 +43,7 @@ cp config.env.sample config.env
 | Key | Default | Description |
 |-----|---------|-------------|
 | `DASHBOARD_PORT` | `80` | HTTP port for the dashboard. 80 needs root, which is why PM2 runs it via sudo |
+| `DASHBOARD_PIN` | _(blank)_ | PIN gating every `/api` route. Blank disables the check, leaving anyone on the network able to arm pumps. Cashiers enter it once per device |
 
 ### Slot hardware (BCM pin numbers)
 

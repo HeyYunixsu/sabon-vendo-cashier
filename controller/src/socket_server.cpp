@@ -378,7 +378,16 @@ static void process_command(AppState &state, const std::string &line,
                      + (state.slotEmpty[slot] ? "E" : "ok");
           }
 
-          log_info("socket", "Water level:" + summary);
+          // Only log transitions. The sensor script sends WTRLVL once a
+          // second and the reading is almost always identical, so logging
+          // every one wrote ~86,400 near-duplicate lines a day per machine --
+          // enough to fill the SD card, wear it out, and bury real events.
+          static std::string last_water_summary;
+          if (summary != last_water_summary)
+          {
+            log_info("socket", "Water level:" + summary);
+            last_water_summary = summary;
+          }
           broadcast_status(state);
         }
       }

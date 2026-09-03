@@ -47,6 +47,7 @@ const config = loadEnv(CONFIG_PATH);
 const SOCKET_IP   = config.SOCKET_IP   || '127.0.0.1';
 const SOCKET_PORT = parseInt(config.SOCKET_PORT || '8080', 10);
 const HTTP_PORT   = parseInt(config.DASHBOARD_PORT || '80', 10);
+const DASHBOARD_PIN = (config.DASHBOARD_PIN || '').trim();
 
 // ---------------------------------------------------------------------------
 // State
@@ -178,6 +179,40 @@ function pushUnclaimed(slot, qty) {
 const app = express();
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
+
+// ---------------------------------------------------------------------------
+// API authentication
+//
+// Every /api route can arm a pump, so without this anyone who can reach the
+// dashboard's IP can dispense product for free. The static page is left open
+// deliberately: it is just the shell, and the PIN prompt it shows is a
+// convenience. This middleware is the actual gate.
+//
+// EventSource cannot set request headers, so the SSE endpoint accepts the PIN
+// as a query parameter as well.
+//
+// A blank DASHBOARD_PIN disables the check, so upgrading an existing machine
+// cannot lock the cashier out before the key is added to config.env.
+// ---------------------------------------------------------------------------
+if (!DASHBOARD_PIN) {
+  console.warn('[dashboard] WARNING: DASHBOARD_PIN is not set in CONFIG/config.env.');
+  console.warn('[dashboard] The API is unauthenticated — anyone on this network can arm pumps.');
+} else {
+  console.log('[dashboard] API protected by DASHBOARD_PIN');
+}
+
+// Deliberately outside /api and unauthenticated: it reveals only WHETHER a PIN
+// is required, never the PIN. The page needs this to decide between showing the
+// unlock gate and loading straight through on a machine that has none set.
+app.get('/auth-status', (req, res) => res.json({ required: !!DASHBOARD_PIN }));
+
+app.use('/api', (req, res, next) => {
+  if (!DASHBOARD_PIN) return next();
+  const supplied = req.get('X-Dashboard-Pin') || req.query.pin || '';
+  if (supplied === DASHBOARD_PIN) return next();
+  console.warn(`[dashboard] Rejected unauthenticated ${req.method} ${req.path} from ${req.ip}`);
+  return res.status(401).json({ error: 'unauthorized' });
+});
 
 // SSE endpoint
 app.get('/api/status/stream', (req, res) => {
