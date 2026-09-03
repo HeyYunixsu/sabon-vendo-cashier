@@ -340,7 +340,7 @@ static void process_command(AppState &state, const std::string &line,
       {
         // "WTRLVL,v1,...,vN" — N is TOTAL_SLOTS (current wiring, one sensor
         // per slot) or the legacy 4, so an un-upgraded
-        // water_level_monitoring_v2.py keeps working. Slots past N are
+        // water_level_monitoring.py keeps working. Slots past N are
         // treated as "has liquid" so they are never blocked from dispensing.
         // Any other count is malformed and ignored.
         const int LEGACY_SENSOR_COUNT = 4;
@@ -358,7 +358,7 @@ static void process_command(AppState &state, const std::string &line,
           size_t start = input_str.find(',') + 1;
           std::string summary;
 
-          // water_level_monitoring_v2.py forwards the raw GPIO reading, so
+          // water_level_monitoring.py forwards the raw GPIO reading, so
           // which level means "empty" depends on how the sensors are wired.
           // WATER_SENSOR_EMPTY_HIGH (config.env) selects it without a rebuild.
           const std::string emptyLevel = WATER_SENSOR_EMPTY_HIGH ? "1" : "0";

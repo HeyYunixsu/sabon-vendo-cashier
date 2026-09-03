@@ -61,10 +61,10 @@ TEST_CXXFLAGS = -std=c++17 -Wall -Wextra -Wno-unused-parameter -g -Iincludes -Im
 TEST_OBJS = tests/run_tests.o \
             tests/test_utils.o \
             tests/test_socket_cmd.o tests/test_mock.o tests/test_hardware.o \
-            tests/test_phase2.o tests/test_phase3.o \
-            tests/test_phase4.o tests/test_phase5.o \
-            tests/test_phase6.o tests/test_phase7.o tests/test_phase8.o \
-            tests/test_phase9.o tests/test_phase10.o \
+            tests/test_transaction_json.o tests/test_app_state.o \
+            tests/test_product_config.o tests/test_transaction_write.o \
+            tests/test_module_linkage.o tests/test_input_validation.o tests/test_config_loading.o \
+            tests/test_armed_state.o tests/test_logging.o \
             tests/test_socket_integration.o
 
 # Source modules compiled with mock support into tests/obj/

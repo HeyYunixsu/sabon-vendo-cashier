@@ -129,9 +129,9 @@ void test_appstate_two_instances_do_not_share_state()
 
 // ---------------------------------------------------------- entry point ---
 
-void run_phase3_tests()
+void run_app_state_tests()
 {
-    SUITE("phase3 (AppState)");
+    SUITE("app_state (AppState)");
     RUN_TEST(test_appstate_armedQty_default_zero);
     RUN_TEST(test_appstate_machineId_default_is_1);
     RUN_TEST(test_appstate_vendorId_default_empty);

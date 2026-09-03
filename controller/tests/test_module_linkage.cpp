@@ -87,9 +87,9 @@ void test_slotBusy_defaults_false()
 
 // ---------------------------------------------------------- entry point ---
 
-void run_phase6_tests()
+void run_module_linkage_tests()
 {
-    SUITE("phase6 (build polish + armed-state smoke)");
+    SUITE("module_linkage (build polish + armed-state smoke)");
     RUN_TEST(test_cwd_has_src_directory);
     RUN_TEST(test_cwd_has_includes_directory);
     RUN_TEST(test_cwd_has_tests_directory);

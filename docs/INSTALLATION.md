@@ -105,7 +105,7 @@ raspi-gpio get 6,12,15,16,17,18     # each: func=OUTPUT level=1
 > **Water sensor pins are deliberately absent from this list.** They are pulled
 > up in Python instead. `RPi.GPIO` defaults to `PUD_OFF` and *actively writes*
 > it, so `GPIO.setup()` would undo a boot-time pull seconds after startup.
-> `water_level_monitoring_v2.py` sets `PUD_UP` itself.
+> `water_level_monitoring.py` sets `PUD_UP` itself.
 
 ### If SPI is enabled, turn it off
 
@@ -222,9 +222,9 @@ Five processes, all `online`:
 | PM2 name | Runs |
 |----------|------|
 | `01_Dispenser_Controller` | `controller/main` |
-| `02_Water_Sensors` | `uploaderTransaction/water_level_monitoring_v2.py` |
-| `03_Transaction_Uploader` | `uploaderTransaction/uploader.py` |
-| `04_Status_Uploader` | `uploaderTransaction/status_uploader.py` |
+| `02_Water_Sensors` | `uploaders/water_level_monitoring.py` |
+| `03_Transaction_Uploader` | `uploaders/transaction_uploader.py` |
+| `04_Status_Uploader` | `uploaders/status_uploader.py` |
 | `05_Cashier_Dashboard` | `cashier_dashboard/server.js` |
 
 Then confirm both listeners are actually bound — `online` in PM2 is not proof a

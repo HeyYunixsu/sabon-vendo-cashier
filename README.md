@@ -18,7 +18,7 @@ The system is a set of cooperating processes on a Raspberry Pi (or local network
 │  │status_upload │ ◄────────────────────────── │             │   │
 │  └──────────────┘                             │  TCP :8080  │   │
 │  ┌──────────────┐                             │             │◄──┤
-│  │  uploader.py │   watches ../transaction    │             │   │
+│  │  transaction_uploader.py │   watches ../transaction    │             │   │
 │  │  (JSON sync) │ ◄── written by controller    └──────┬──────┘   │
 │  └──────────────┘                                    │          │
 │                                                      │          │
@@ -52,14 +52,14 @@ The main application. Manages 6 pumps, per-slot armed quantities, per-slot pendi
 A local web app that acts as a TCP client to `controller` over the LAN. The cashier selects product(s), enters the amount paid, and the dashboard sends one `ARM,<productId>,<qty>` per product in the sale. Live status shows armed slots, remaining quantities, queue depth, water level, and alerts.
 - Runs via PM2 as **`05_Cashier_Dashboard`**
 
-### `uploaderTransaction` — Data Sync & Sensor Bridge (Python)
+### `uploaders` — Data Sync & Sensor Bridge (Python)
 Three background scripts:
-- **`uploader.py`** — watches `../transaction/` for JSON files written by `controller` and POSTs them to the cloud API. Deletes files on successful upload.
-- **`water_level_monitoring_v2.py`** — reads 6 GPIO water level sensor pins and continuously sends `WTRLVL,<p1>..<p6>` to the socket server.
+- **`transaction_uploader.py`** — watches `../transaction/` for JSON files written by `controller` and POSTs them to the cloud API. Deletes files on successful upload.
+- **`water_level_monitoring.py`** — reads 6 GPIO water level sensor pins and continuously sends `WTRLVL,<p1>..<p6>` to the socket server.
 - **`status_uploader.py`** — subscribes to the socket server's `STATUS` responses and uploads machine/slot status changes to the cloud API.
 
 Runs via PM2 as **`02_Water_Sensors`**, **`03_Transaction_Uploader`**, **`04_Status_Uploader`**.
-See [uploaderTransaction/README.md](uploaderTransaction/README.md)
+See [uploaders/README.md](uploaders/README.md)
 
 ### `CONFIG` — Centralized Configuration
 `CONFIG/config.env` (gitignored) is the single config file shared by all components. Copy `CONFIG/config.env.sample` to create it. See [CONFIG/README.md](CONFIG/README.md) for all available keys.
@@ -71,9 +71,9 @@ See [uploaderTransaction/README.md](uploaderTransaction/README.md)
 | PM2 Name | Script / Binary | Purpose |
 |----------|----------------|---------|
 | `01_Dispenser_Controller` | `controller/main` | Core C++ controller |
-| `02_Water_Sensors` | `uploaderTransaction/water_level_monitoring_v2.py` | GPIO water sensors → socket |
-| `03_Transaction_Uploader` | `uploaderTransaction/uploader.py` | JSON transaction uploader |
-| `04_Status_Uploader` | `uploaderTransaction/status_uploader.py` | Machine status uploader |
+| `02_Water_Sensors` | `uploaders/water_level_monitoring.py` | GPIO water sensors → socket |
+| `03_Transaction_Uploader` | `uploaders/transaction_uploader.py` | JSON transaction uploader |
+| `04_Status_Uploader` | `uploaders/status_uploader.py` | Machine status uploader |
 | `05_Cashier_Dashboard` | `cashier_dashboard/server.js` | Cashier web dashboard |
 
 ---

@@ -117,9 +117,9 @@ void test_save_json_overwrites_existing_file()
 
 // ---------------------------------------------------------- entry point ---
 
-void run_phase2_tests()
+void run_transaction_json_tests()
 {
-    SUITE("phase2 (transaction JSON saving)");
+    SUITE("transaction_json (transaction JSON saving)");
     RUN_TEST(test_save_json_creates_file);
     RUN_TEST(test_save_json_all_fields_present);
     RUN_TEST(test_save_json_amount_value_written);

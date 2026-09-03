@@ -131,9 +131,9 @@ void test_per_slot_queues_independent()
 
 // ---------------------------------------------------------- entry point ---
 
-void run_phase9_tests()
+void run_armed_state_tests()
 {
-    SUITE("phase9 (per-slot armed state + pending queues)");
+    SUITE("armed_state (per-slot armed state + pending queues)");
     RUN_TEST(test_appstate_armedQty_defaults_zero);
     RUN_TEST(test_appstate_armedQty_can_be_set);
     RUN_TEST(test_appstate_armedQty_decrement);

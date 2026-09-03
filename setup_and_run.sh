@@ -137,7 +137,7 @@ setup_venv() {
   fi
 }
 
-setup_venv "uploaderTransaction"
+setup_venv "uploaders"
 
 # --------------------------------------------------------------------------- #
 # 3. Register processes with PM2
@@ -240,26 +240,26 @@ pm2_start_binary \
   "$CONTROLLER_BIN" \
   "$SCRIPT_DIR/controller"
 
-# 02_Water_Sensors — uploaderTransaction/water_level_monitoring_v2.py
+# 02_Water_Sensors — uploaders/water_level_monitoring.py
 pm2_start_python \
   "02_Water_Sensors" \
-  "$SCRIPT_DIR/uploaderTransaction/water_level_monitoring_v2.py" \
-  "$SCRIPT_DIR/uploaderTransaction" \
-  "$SCRIPT_DIR/uploaderTransaction"
+  "$SCRIPT_DIR/uploaders/water_level_monitoring.py" \
+  "$SCRIPT_DIR/uploaders" \
+  "$SCRIPT_DIR/uploaders"
 
-# 03_Transaction_Uploader — uploaderTransaction/uploader.py
+# 03_Transaction_Uploader — uploaders/transaction_uploader.py
 pm2_start_python \
   "03_Transaction_Uploader" \
-  "$SCRIPT_DIR/uploaderTransaction/uploader.py" \
-  "$SCRIPT_DIR/uploaderTransaction" \
-  "$SCRIPT_DIR/uploaderTransaction"
+  "$SCRIPT_DIR/uploaders/transaction_uploader.py" \
+  "$SCRIPT_DIR/uploaders" \
+  "$SCRIPT_DIR/uploaders"
 
-# 04_Status_Uploader — uploaderTransaction/status_uploader.py
+# 04_Status_Uploader — uploaders/status_uploader.py
 pm2_start_python \
   "04_Status_Uploader" \
-  "$SCRIPT_DIR/uploaderTransaction/status_uploader.py" \
-  "$SCRIPT_DIR/uploaderTransaction" \
-  "$SCRIPT_DIR/uploaderTransaction"
+  "$SCRIPT_DIR/uploaders/status_uploader.py" \
+  "$SCRIPT_DIR/uploaders" \
+  "$SCRIPT_DIR/uploaders"
 
 # 05_Cashier_Dashboard — cashier_dashboard Node.js server
 log "Installing cashier_dashboard npm dependencies..."

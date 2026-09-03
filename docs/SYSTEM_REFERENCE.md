@@ -28,7 +28,7 @@
 
 | Machine | Role | Software |
 |---------|------|----------|
-| **Vendo (Raspberry Pi)** | Physical dispenser | `controller` C++ binary (TCP :8080), `water_level_monitoring_v2.py` |
+| **Vendo (Raspberry Pi)** | Physical dispenser | `controller` C++ binary (TCP :8080), `water_level_monitoring.py` |
 | **Cashier (RPi or any machine)** | Sales terminal | Node.js Express server (:80), browser-based dashboard |
 
 The dashboard server is the **bridge**: browsers connect to it via HTTP/SSE, and it proxies commands to `controller` over TCP. The browser never talks directly to the vendo machine.
@@ -116,12 +116,12 @@ the list so the systemd hook resurrects it on boot.
 | PM2 name | Runs |
 |----------|------|
 | `01_Dispenser_Controller` | `controller/main` |
-| `02_Water_Sensors` | `uploaderTransaction/water_level_monitoring_v2.py` |
-| `03_Transaction_Uploader` | `uploaderTransaction/uploader.py` |
-| `04_Status_Uploader` | `uploaderTransaction/status_uploader.py` |
+| `02_Water_Sensors` | `uploaders/water_level_monitoring.py` |
+| `03_Transaction_Uploader` | `uploaders/transaction_uploader.py` |
+| `04_Status_Uploader` | `uploaders/status_uploader.py` |
 | `05_Cashier_Dashboard` | `cashier_dashboard/server.js` |
 
-Python processes run under `uploaderTransaction/venv/bin/python3`. The
+Python processes run under `uploaders/venv/bin/python3`. The
 dashboard binds `DASHBOARD_PORT` (default 80), which is why it needs root.
 
 ---
@@ -402,7 +402,7 @@ Lines with fewer than 34 fields are silently ignored
 
 **Three parsers share this layout** and must change together: `build_status_response()`
 in `controller/src/socket_server.cpp`, `parse()` in `public/index.html`, and
-`preprocess_data()` in `uploaderTransaction/status_uploader.py`.
+`preprocess_data()` in `uploaders/status_uploader.py`.
 
 ### 6.8 UNCLAIMED Format (SSE)
 
@@ -582,7 +582,7 @@ controller sends `STATUS,...` lines every ~500ms and on state changes. Format do
 
 ## 9. Water Level Monitoring
 
-A separate Python script (`water_level_monitoring_v2.py`) runs on the Pi, reads 6 GPIO pins (BCM 26, 20, 21, 11, 8, 9 per config), and outputs `WTRLVL,v1,...,v6` values. The controller C++ binary reads these and maps them to `slotEmpty[1..6]` which become the `wlvl[1..6]` fields in the STATUS broadcast.
+A separate Python script (`water_level_monitoring.py`) runs on the Pi, reads 6 GPIO pins (BCM 26, 20, 21, 11, 8, 9 per config), and outputs `WTRLVL,v1,...,v6` values. The controller C++ binary reads these and maps them to `slotEmpty[1..6]` which become the `wlvl[1..6]` fields in the STATUS broadcast.
 
 **Sensor count is negotiated by field count.** `controller` accepts either 6 values (one per slot, current wiring) or the legacy 4. With 4, slots 5 and 6 fall back to "has liquid" so they are never blocked from dispensing. Any other count is logged as malformed and ignored.
 
@@ -658,21 +658,21 @@ controller saves `armedQty` + `pendingQueue` to `transaction/state.json` and rel
 
 ---
 
-## 11. uploaderTransaction — Python Background Services
+## 11. uploaders — Python Background Services
 
 Three Python scripts running on the Pi, managed by PM2:
 
 | Script | PM2 Name | Purpose |
 |--------|----------|---------|
-| `water_level_monitoring_v2.py` | 02_Water_Sensors | Reads 6 GPIO water level sensor pins, sends `WTRLVL,v1,...,v6` to controller TCP every 1s |
-| `uploader.py` | 03_Transaction_Uploader | Watches `transaction/` for JSON files written by controller, batches up to 20, POSTs to cloud API, deletes on confirmed success |
+| `water_level_monitoring.py` | 02_Water_Sensors | Reads 6 GPIO water level sensor pins, sends `WTRLVL,v1,...,v6` to controller TCP every 1s |
+| `transaction_uploader.py` | 03_Transaction_Uploader | Watches `transaction/` for JSON files written by controller, batches up to 20, POSTs to cloud API, deletes on confirmed success |
 | `status_uploader.py` | 04_Status_Uploader | Persistent TCP client to controller, parses STATUS lines, posts water-level changes to cloud API |
 
 ### Cloud API Endpoints
 
 | Endpoint | Caller | Method | Purpose |
 |----------|--------|--------|---------|
-| `POST /api/v1/auth/machine/transaction` | uploader.py | POST | Batch transaction upload |
+| `POST /api/v1/auth/machine/transaction` | transaction_uploader.py | POST | Batch transaction upload |
 | `POST /api/v1/auth/machine/status` | status_uploader.py | POST | Machine status (water level changes) |
 
 Base URL: `https://office.dynamicglobalsoft.com:1232` (from `config.env` `API_BASE_URL`)
@@ -686,9 +686,9 @@ The deployment script `setup_and_run.sh` registers **5 PM2 processes**:
 | PM2 Name | Script | Language | Restart |
 |----------|--------|----------|---------|
 | 01_Dispenser_Controller | `controller/main` | C++ binary | 2s delay |
-| 02_Water_Sensors | `uploaderTransaction/water_level_monitoring_v2.py` | Python (venv) | 5s delay |
-| 03_Transaction_Uploader | `uploaderTransaction/uploader.py` | Python (venv) | — |
-| 04_Status_Uploader | `uploaderTransaction/status_uploader.py` | Python (venv) | — |
+| 02_Water_Sensors | `uploaders/water_level_monitoring.py` | Python (venv) | 5s delay |
+| 03_Transaction_Uploader | `uploaders/transaction_uploader.py` | Python (venv) | — |
+| 04_Status_Uploader | `uploaders/status_uploader.py` | Python (venv) | — |
 | 05_Cashier_Dashboard | `cashier_dashboard/server.js` | Node.js | 3s delay |
 
 **Note:** all five processes are registered by `setup_and_run.sh` via the PM2 CLI and persisted with `sudo pm2 save`. Legacy processes 02_Coin_Acceptor, 03_Street_Light and 04_QR_Scanner were removed from the active deployment.
@@ -701,7 +701,7 @@ The deployment script `setup_and_run.sh` registers **5 PM2 processes**:
 - Raspberry Pi with WiringPi GPIO library
 - Node.js (the Pi uses `/usr/bin/node`)
 - PM2 (`npm install -g pm2`)
-- Python 3 with venv (for uploaderTransaction)
+- Python 3 with venv (for uploaders)
 - C++ build toolchain (g++, make)
 
 ### Automated Setup
@@ -731,8 +731,8 @@ A nested `sabon_express_dispenser-main/` directory inside the project root conta
 | `usb_to_coin_module/` | USB-serial coin bridge + LED relay control | Coin model replaced by dashboard |
 | `keyboard_monitoring/` | QR code scanner via `pynput` global keyboard listener | Voucher system removed |
 | `iot_dispenser_v2/` | FLTK C++ touchscreen GUI for customers (~1359 lines) | Replaced by browser dashboard |
-| `uploaderTransaction/water_level_monitoring.py` | v1 I2C-based water sensor reader | Replaced by GPIO-based v2 |
-| `uploaderTransaction/qr_gen.py` | QR code generation utility | No longer needed |
+| `uploaders/water_level_monitoring.py` | v1 I2C-based water sensor reader | Replaced by GPIO-based v2 |
+| `uploaders/qr_gen.py` | QR code generation utility | No longer needed |
 
 The root-level active project contains only what's needed for the current cashier-dashboard architecture. The nested copy is historical reference.
 
@@ -746,7 +746,7 @@ The root-level active project contains only what's needed for the current cashie
 
 3. **Water level sensor mapping:** Python reads pins in config order. C++ maps them internally. If the physical sensor-to-slot wiring doesn't match the pin order in `config.env`, the wrong slot shows as empty.
 
-4. **Water level sensor count is negotiated:** controller accepts a `WTRLVL` line with 6 values (current wiring) or 4 (legacy). Under the legacy form, slots 5 and 6 report "has liquid" and are never blocked. If the Pi is running an old `water_level_monitoring_v2.py`, those two slots will dispense even when actually empty.
+4. **Water level sensor count is negotiated:** controller accepts a `WTRLVL` line with 6 values (current wiring) or 4 (legacy). Under the legacy form, slots 5 and 6 report "has liquid" and are never blocked. If the Pi is running an old `water_level_monitoring.py`, those two slots will dispense even when actually empty.
 
 5. **All 6 slots are active:** `ACTIVE = TOTAL = 6`. The `.inactive` CSS class in `index.html` is now unused — it is kept only for the case where a slot is taken out of service.
 
@@ -777,8 +777,8 @@ Edit `PRODUCT_ML` in `index.html` (~line 634). This is display-only — actual p
    the `defaults[]` row in `controller/src/hardware_config.cpp`
 3. Update `ACTIVE` and `TOTAL` in `index.html` (`STATUS_FIELDS` follows automatically)
 4. Update `PRODUCT`, `PRODUCT_ML`, `PRODUCT_ICON` objects
-5. Update `TOTAL_SLOTS` in `uploaderTransaction/water_level_monitoring_v2.py` and
-   `uploaderTransaction/status_uploader.py`
+5. Update `TOTAL_SLOTS` in `uploaders/water_level_monitoring.py` and
+   `uploaders/status_uploader.py`
 6. Update `config.env`: `BTNn`, `PUMPn`, `LEDn`, `WATER_GPIO_PIN_n`, `calibrateProductn`
 7. Rebuild controller (`cd controller && make`) and restart PM2
 

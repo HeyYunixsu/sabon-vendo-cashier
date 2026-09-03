@@ -62,7 +62,7 @@ One button, one LED and one pump relay per slot, all independent.
 |-----|---------|-------------|
 | `calibrateProduct1`-`calibrateProduct6` | `(5, 2.777778)` | `(coins, seconds)` - how long that slot's pump runs per unit |
 
-### Water level sensors (`uploaderTransaction`)
+### Water level sensors (`uploaders`)
 
 | Key | Default | Description |
 |-----|---------|-------------|
@@ -74,7 +74,7 @@ One button, one LED and one pump relay per slot, all independent.
 | `WATER_GPIO_PIN_6` | `9` | BCM GPIO pin for slot 6 water sensor |
 | `WATER_SENSOR_EMPTY_HIGH` | `1` | Which level means empty. `1` = empty reads HIGH, `0` = empty reads LOW. Sensors are wired to GND with a pull-up, so a disconnected one reads HIGH; the default therefore treats a dead sensor as empty and blocks the pump rather than letting it run dry |
 
-Sensor pins are read only by `water_level_monitoring_v2.py`, which pulls them
+Sensor pins are read only by `water_level_monitoring.py`, which pulls them
 up internally and forwards the raw levels. `WATER_SENSOR_EMPTY_HIGH` is what
 `controller` uses to interpret those levels.
 

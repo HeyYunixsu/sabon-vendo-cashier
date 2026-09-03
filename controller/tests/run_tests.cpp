@@ -11,15 +11,15 @@ void run_mock_tests();
 void run_hardware_tests();
 
 // Phase 2-10 suites
-void run_phase2_tests();
-void run_phase3_tests();
-void run_phase4_tests();
-void run_phase5_tests();
-void run_phase6_tests();
-void run_phase7_tests();
-void run_phase8_tests();
-void run_phase9_tests();
-void run_phase10_tests();
+void run_transaction_json_tests();
+void run_app_state_tests();
+void run_product_config_tests();
+void run_transaction_write_tests();
+void run_module_linkage_tests();
+void run_input_validation_tests();
+void run_config_loading_tests();
+void run_armed_state_tests();
+void run_logging_tests();
 
 // Socket protocol integration tests (Phase 9/10)
 void run_socket_integration_tests();
@@ -34,15 +34,15 @@ int main()
     run_mock_tests();
     run_hardware_tests();
 
-    run_phase2_tests();
-    run_phase3_tests();
-    run_phase4_tests();
-    run_phase5_tests();
-    run_phase6_tests();
-    run_phase7_tests();
-    run_phase8_tests();
-    run_phase9_tests();
-    run_phase10_tests();
+    run_transaction_json_tests();
+    run_app_state_tests();
+    run_product_config_tests();
+    run_transaction_write_tests();
+    run_module_linkage_tests();
+    run_input_validation_tests();
+    run_config_loading_tests();
+    run_armed_state_tests();
+    run_logging_tests();
 
     // Integration tests run last — they bind a real socket on port 9901
     run_socket_integration_tests();

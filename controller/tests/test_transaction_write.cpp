@@ -28,7 +28,7 @@ static std::string read_file(const std::string &path)
 
 // These tests must never write into ../transaction. The Makefile runs the
 // runner from controller/, so that path resolves to the machine's live
-// transaction directory -- the one uploader.py watches. A test transaction
+// transaction directory -- the one transaction_uploader.py watches. A test transaction
 // landing there is POSTed to the cloud API as a real sale and then deleted.
 // Everything below goes into a directory only this suite touches.
 static const std::string TEST_TXN_DIR = "tests/tmp_transaction";
@@ -196,9 +196,9 @@ void test_writeTransaction_slot_appears_in_filename()
 
 // ---------------------------------------------------------- entry point ---
 
-void run_phase5_tests()
+void run_transaction_write_tests()
 {
-    SUITE("phase5 (writeTransaction uses AppState, not externs)");
+    SUITE("transaction_write (writeTransaction uses AppState, not externs)");
     RUN_TEST(test_writeTransaction_creates_file);
     RUN_TEST(test_writeTransaction_machineId_from_AppState);
     RUN_TEST(test_writeTransaction_vendorId_from_AppState);

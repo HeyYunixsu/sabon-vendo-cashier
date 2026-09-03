@@ -38,7 +38,7 @@ jobs:
       - uses: actions/setup-python@v5
         with: { python-version: "3.11" }
       - name: Compile all scripts
-        run: python -m compileall -q uploaderTransaction
+        run: python -m compileall -q uploaders
 
   dashboard-syntax:
     name: dashboard syntax

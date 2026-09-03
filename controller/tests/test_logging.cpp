@@ -148,9 +148,9 @@ void test_log_error_does_not_write_to_stdout()
 
 // ---------------------------------------------------------- entry point ---
 
-void run_phase10_tests()
+void run_logging_tests()
 {
-    SUITE("phase10 (structured logging)");
+    SUITE("logging (structured logging)");
     RUN_TEST(test_log_info_writes_to_stdout);
     RUN_TEST(test_log_info_contains_module_tag);
     RUN_TEST(test_log_info_contains_message);

@@ -188,9 +188,9 @@ void test_writeTransaction_produces_no_stdout()
 
 // ---------------------------------------------------------- entry point ---
 
-void run_phase8_tests()
+void run_config_loading_tests()
 {
-    SUITE("phase8 (config extraction + symbol renames)");
+    SUITE("config_loading (config extraction + symbol renames)");
     RUN_TEST(test_durationSeconds_field_accessible);
     RUN_TEST(test_durationSeconds_drives_correct_ms);
     RUN_TEST(test_appstate_serverPort_default_is_8080);

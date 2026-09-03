@@ -55,15 +55,15 @@ controller/
 │   ├── test_socket_cmd.cpp   — Socket command parsing tests
 │   ├── test_mock.cpp         — Mock layer tests
 │   ├── test_hardware.cpp     — Hardware config tests
-│   ├── test_phase2.cpp       — JSON transaction writing
-│   ├── test_phase3.cpp       — AppState defaults and mutation
-│   ├── test_phase4.cpp       — productMap values and pump timing
-│   ├── test_phase5.cpp       — writeTransaction reads from AppState
-│   ├── test_phase6.cpp       — Build layout and module linkage sentinels
-│   ├── test_phase7.cpp       — Input validation, credit cap, remainingTime clamp
-│   ├── test_phase8.cpp       — Config extraction, ensureDirectoryExists, no debug stdout
-│   ├── test_phase9.cpp       — Per-slot armed state and pending queues
-│   ├── test_phase10.cpp      — log_info/log_error stream routing, timestamp format
+│   ├── test_transaction_json.cpp       — JSON transaction writing
+│   ├── test_app_state.cpp       — AppState defaults and mutation
+│   ├── test_product_config.cpp       — productMap values and pump timing
+│   ├── test_transaction_write.cpp       — writeTransaction reads from AppState
+│   ├── test_module_linkage.cpp       — Build layout and module linkage sentinels
+│   ├── test_input_validation.cpp       — Input validation, credit cap, remainingTime clamp
+│   ├── test_config_loading.cpp       — Config extraction, ensureDirectoryExists, no debug stdout
+│   ├── test_armed_state.cpp       — Per-slot armed state and pending queues
+│   ├── test_logging.cpp      — log_info/log_error stream routing, timestamp format
 │   └── test_socket_integration.cpp — Full TCP server integration tests (18 cases)
 │   fixtures/
 │       └── test.env          — Fixture env file for utils tests
@@ -115,7 +115,7 @@ All commands are validated (comma count checked) before parsing; malformed messa
 
 Before triggering a pump, `processTimer()` checks `state.slotEmpty[pumpIdx]`. If the water level sensor for that slot reports empty (`true`), the pump is not activated even if the slot is armed, and the armed quantity is not consumed. This prevents the machine from dispensing air when a soap container runs out.
 
-The `slotEmpty` flags are set by `water_level_monitoring_v2.py` (in `/uploaderTransaction`) via the `WTRLVL` socket command, and reflected back to clients in the `STATUS` response.
+The `slotEmpty` flags are set by `water_level_monitoring.py` (in `/uploaders`) via the `WTRLVL` socket command, and reflected back to clients in the `STATUS` response.
 
 ---
 
@@ -268,15 +268,15 @@ A non-zero exit code means at least one test failed.
 | `socket_cmd` | `test_socket_cmd.cpp` | Command parsing, `socket_count_commas()` |
 | `mock` | `test_mock.cpp` | Mock wiringPi stubs compile and run without crash |
 | `hardware` | `test_hardware.cpp` | `pin_pump` map, relay polarity constants |
-| `phase2` | `test_phase2.cpp` | JSON transaction file writing |
-| `phase3` | `test_phase3.cpp` | `AppState` defaults, field mutation, independence |
-| `phase4` | `test_phase4.cpp` | `productMap` values and millisecond timing derived from `durationSeconds` |
-| `phase5` | `test_phase5.cpp` | `writeTransaction()` reads `machineId`/`vendorId` from `AppState`, not externs |
-| `phase6` | `test_phase6.cpp` | Build layout: `tests/fixtures` exists, required headers present |
-| `phase7` | `test_phase7.cpp` | Input validation (comma count), credit cap, `remainingTime` clamp math |
-| `phase8` | `test_phase8.cpp` | `durationSeconds` field, `serverPort`/`transactionDir` defaults, no debug stdout |
-| `phase9` | `test_phase9.cpp` | Per-slot armed state, pending queue FIFO order |
-| `phase10` | `test_phase10.cpp` | `log_info`/`log_error` stream routing, module tag format, timestamp structure |
+| `phase2` | `test_transaction_json.cpp` | JSON transaction file writing |
+| `phase3` | `test_app_state.cpp` | `AppState` defaults, field mutation, independence |
+| `phase4` | `test_product_config.cpp` | `productMap` values and millisecond timing derived from `durationSeconds` |
+| `phase5` | `test_transaction_write.cpp` | `writeTransaction()` reads `machineId`/`vendorId` from `AppState`, not externs |
+| `phase6` | `test_module_linkage.cpp` | Build layout: `tests/fixtures` exists, required headers present |
+| `phase7` | `test_input_validation.cpp` | Input validation (comma count), credit cap, `remainingTime` clamp math |
+| `phase8` | `test_config_loading.cpp` | `durationSeconds` field, `serverPort`/`transactionDir` defaults, no debug stdout |
+| `phase9` | `test_armed_state.cpp` | Per-slot armed state, pending queue FIFO order |
+| `phase10` | `test_logging.cpp` | `log_info`/`log_error` stream routing, module tag format, timestamp structure |
 | `socket_integration` | `test_socket_integration.cpp` | Full TCP server integration: 18 end-to-end cases |
 
 ### Clean build artifacts

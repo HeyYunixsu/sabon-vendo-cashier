@@ -98,9 +98,9 @@ void test_remainingTime_large_positive_unchanged()
 
 // ---------------------------------------------------------- entry point ---
 
-void run_phase7_tests()
+void run_input_validation_tests()
 {
-    SUITE("phase7 (robustness: input validation + clamp)");
+    SUITE("input_validation (robustness: input validation + clamp)");
     RUN_TEST(test_count_commas_zero);
     RUN_TEST(test_count_commas_one);
     RUN_TEST(test_count_commas_two);

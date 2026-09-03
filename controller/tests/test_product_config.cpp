@@ -99,9 +99,9 @@ void test_product_id_matches_map_key()
 
 // ---------------------------------------------------------- entry point ---
 
-void run_phase4_tests()
+void run_product_config_tests()
 {
-    SUITE("phase4 (product config drives pump timing)");
+    SUITE("product_config (product config drives pump timing)");
     RUN_TEST(test_productMap_has_an_entry_per_slot);
     RUN_TEST(test_product1_id_is_1);
     RUN_TEST(test_product2_id_is_2);
