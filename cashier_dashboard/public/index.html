@@ -643,7 +643,6 @@ button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
    Deliberately understated and collapsed: priming dispenses product without
    recording a sale, so it should never sit next to Arm looking like part of
    the normal flow. */
-#maintenance-section { border-left-color: var(--status-neutral) !important; }
 .maint-note {
   font-size: 10px;
   line-height: 1.5;
@@ -672,6 +671,69 @@ button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
   border-color: var(--status-caution);
   color: var(--status-caution);
 }
+
+/* ===================================================================
+   SETTINGS SHEET
+   Things a cashier touches rarely: theme, maintenance, machine identity.
+   Kept behind a gear so the main screen stays about selling.
+   =================================================================== */
+#btn-settings {
+  background: none; border: 1px solid var(--border-default);
+  border-radius: var(--radius-element); color: var(--text-content-secondary);
+  cursor: pointer; padding: 5px 9px; line-height: 0; transition: all .18s;
+}
+#btn-settings svg { width: 18px; height: 18px; display: block; }
+
+#settings-backdrop {
+  position: fixed; inset: 0; background: rgba(0,0,0,.55);
+  z-index: 200;
+}
+#settings-sheet {
+  position: fixed; z-index: 201;
+  top: 50%; left: 50%; transform: translate(-50%, -50%);
+  width: min(460px, calc(100vw - 32px));
+  max-height: min(78vh, 680px);
+  display: flex; flex-direction: column;
+  background: var(--bg-surface-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-container);
+  box-shadow: 0 24px 60px rgba(0,0,0,.45);
+  overflow: hidden;
+}
+#settings-backdrop[hidden], #settings-sheet[hidden] { display: none; }
+
+.sheet-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 16px; border-bottom: 1px solid var(--border-default);
+  font-size: 14px; font-weight: 700;
+}
+#settings-close {
+  background: none; border: none; cursor: pointer;
+  color: var(--text-content-secondary);
+  font-size: 26px; line-height: 1; padding: 0 4px;
+}
+.sheet-body { padding: 4px 16px 16px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+.sheet-group { padding: 14px 0; border-bottom: 1px solid var(--border-default); }
+.sheet-group:last-child { border-bottom: none; }
+.sheet-label {
+  font-size: 10px; font-weight: 700; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--text-content-secondary);
+  margin-bottom: 8px;
+}
+.sheet-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; min-height: 40px; font-size: 12px;
+}
+.sheet-val {
+  color: var(--text-content-secondary); font-size: 12px;
+  text-align: right; word-break: break-all;
+}
+.sheet-val.good { color: var(--status-positive); }
+.sheet-val.bad  { color: var(--status-negative); }
+.sheet-row .btn-sm, .sheet-row a.btn-sm {
+  flex: 0 0 auto; text-decoration: none; display: inline-flex;
+  align-items: center; min-height: 34px;
+}
 </style>
 </head>
 <body>
@@ -680,13 +742,15 @@ button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
 <header id="status-bar">
   <div class="status-left">
     <span id="machine-status"><span class="dot dot-neutral"></span> Connecting</span>
-    <span>Machine 001</span>
+    <span id="machine-label">Machine --</span>
   </div>
   <div class="status-center">
     <span id="pause-indicator" class="hidden" style="color:var(--status-caution);font-weight:600;">PAUSED</span>
   </div>
   <div class="status-right">
-    <button id="theme-toggle">LIGHT</button>
+    <button id="btn-settings" aria-label="Settings" title="Settings">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    </button>
     <span id="last-update">--:--:--</span>
   </div>
 </header>
@@ -697,24 +761,24 @@ button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
 
 <!-- KPI Row -->
 <div class="kpi-row" id="kpi-row">
-  <div class="kpi-card"><div class="kpi-label">Total Armed</div><div class="kpi-value" id="kpi-armed">0</div><div class="kpi-sub">units across all slots</div></div>
-  <div class="kpi-card"><div class="kpi-label">In Stock</div><div class="kpi-value" id="kpi-active" style="color:var(--status-positive);">6</div><div class="kpi-sub" id="kpi-active-sub">of 6 active slots</div></div>
-  <div class="kpi-card"><div class="kpi-label">Phase</div><div class="kpi-value" id="kpi-bundle">IDLE</div><div class="kpi-sub" id="kpi-bundle-sub">waiting for sale</div></div>
+  <div class="kpi-card"><div class="kpi-label">Waiting to Dispense</div><div class="kpi-value" id="kpi-armed">0</div><div class="kpi-sub">presses not yet used</div></div>
+  <div class="kpi-card"><div class="kpi-label">In Stock</div><div class="kpi-value" id="kpi-active" style="color:var(--status-positive);">6</div><div class="kpi-sub" id="kpi-active-sub">of 6 products</div></div>
+  <div class="kpi-card"><div class="kpi-label">Machine</div><div class="kpi-value" id="kpi-bundle">Ready</div><div class="kpi-sub" id="kpi-bundle-sub">waiting for a sale</div></div>
   <div class="kpi-card"><div class="kpi-label">Today</div><div class="kpi-value" id="kpi-today">0</div><div class="kpi-sub">dispenses completed</div></div>
 </div>
 
 <!-- Sale Strip (horizontal, full width) -->
 <div id="sale-strip">
-  <div id="staged-items"><span class="muted">Select product, then set quantity</span></div>
+  <div id="staged-items"><span class="muted">Tap a product, then set how many</span></div>
   <div class="sale-controls">
     <div class="qty-stepper" id="qty-stepper">
       <button class="stepper-btn" id="stepper-down">−</button>
       <input type="text" id="qty-value" value="1" inputmode="numeric" pattern="[0-9]*" readonly>
       <button class="stepper-btn" id="stepper-up">+</button>
     </div>
-    <button id="btn-stage" class="btn btn-outline" disabled>Stage</button>
-    <button id="btn-clear-sale" class="btn btn-outline">Clear</button>
-    <button id="btn-arm" class="btn btn-primary" disabled>Arm</button>
+    <button id="btn-stage" class="btn btn-outline" disabled>Add</button>
+    <button id="btn-clear-sale" class="btn btn-outline">Clear List</button>
+    <button id="btn-arm" class="btn btn-primary" disabled>Unlock Buttons</button>
     <div id="sale-total" class="sale-total">0 presses</div>
   </div>
 </div>
@@ -727,36 +791,65 @@ button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
 
   <aside id="right-panel">
     <section id="armed-section" class="status-section" style="display:none;">
-      <div class="section-label">Armed <span id="armed-count">0</span></div>
+      <div class="section-label">Waiting for Customer <span id="armed-count">0</span></div>
       <div id="armed-list"></div>
-      <button id="btn-cancel-all" class="btn btn-negative btn-block" style="margin-top:4px;">Clear All Credits</button>
+      <button id="btn-cancel-all" class="btn btn-negative btn-block" style="margin-top:4px;">Cancel All</button>
     </section>
     <section id="dispensing-section" class="status-section" style="display:none;">
-      <div class="section-label">Dispensing <span id="queue-count">0</span></div>
+      <div class="section-label">Now Dispensing <span id="queue-count">0</span></div>
       <div id="queue-list"></div>
     </section>
     <section id="attention-section" class="status-section" style="display:none;">
-      <div class="section-label">Attention</div>
+      <div class="section-label">Needs Attention</div>
       <div id="unclaimed-list"></div>
     </section>
     <section id="alerts-section" class="status-section" style="display:none;">
       <div class="section-label">Alerts</div>
       <div id="alert-list"></div>
     </section>
-    <section id="maintenance-section" class="status-section">
-      <div class="section-label">Maintenance <span id="prime-today">0</span></div>
-      <button id="btn-maint-toggle" class="btn btn-outline btn-block">Prime lines</button>
-      <div id="maint-body" style="display:none;">
-        <div class="maint-note">
-          Clears air from a hose after a gallon change. Runs
-          <span id="prime-secs">3</span>s per tap.
-          <strong>No sale is recorded</strong> &mdash; every prime is logged.
-        </div>
-        <div id="prime-list"></div>
-      </div>
-    </section>
   </aside>
 </main>
+
+<div id="settings-backdrop" hidden></div>
+<div id="settings-sheet" hidden role="dialog" aria-modal="true" aria-labelledby="settings-title">
+  <div class="sheet-head">
+    <span id="settings-title">Settings</span>
+    <button id="settings-close" aria-label="Close">&times;</button>
+  </div>
+  <div class="sheet-body">
+
+    <div class="sheet-group">
+      <div class="sheet-label">Appearance</div>
+      <div class="sheet-row">
+        <span>Theme</span>
+        <button id="theme-toggle" class="btn btn-sm">Switch to Light</button>
+      </div>
+    </div>
+
+    <div class="sheet-group">
+      <div class="sheet-label">Maintenance &mdash; cleared today: <span id="prime-today">0</span></div>
+      <div class="maint-note">
+        Removes air after a gallon change, so the next customer is not
+        charged for a press that dispenses nothing. Runs
+        <span id="prime-secs">3</span>s per tap.
+        <strong>No sale is recorded</strong> &mdash; every run is logged.
+      </div>
+      <div id="prime-list"></div>
+    </div>
+
+    <div class="sheet-group">
+      <div class="sheet-label">This machine</div>
+      <div class="sheet-row"><span>Machine ID</span><span id="info-machine" class="sheet-val">--</span></div>
+      <div class="sheet-row"><span>Controller</span><span id="info-controller" class="sheet-val">--</span></div>
+      <div class="sheet-row"><span>Address</span><span id="info-url" class="sheet-val">--</span></div>
+      <div class="sheet-row">
+        <span>Open on another device</span>
+        <a id="info-qr" class="btn btn-sm" href="/qr" target="_blank" rel="noopener">Show QR</a>
+      </div>
+    </div>
+
+  </div>
+</div>
 
 <div id="toast"></div>
 
@@ -890,10 +983,13 @@ button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
     $('kpi-active').style.color = inStock === ACTIVE ? 'var(--status-positive)'
       : (inStock >= Math.ceil(ACTIVE / 2) ? 'var(--status-caution)' : 'var(--status-negative)');
     // Phase indicator
-    const phases = ['IDLE','ARMED','DISPENSING','COMPLETE'];
-    $('kpi-bundle').textContent = phases[S.phase] || 'IDLE';
+    // Plain words, not the C++ enum names. A cashier reads this, not an engineer.
+    const phases = ['Ready', 'Buttons Unlocked', 'Dispensing', 'Done'];
+    $('kpi-bundle').textContent = phases[S.phase] || 'Ready';
     $('kpi-bundle').style.color = S.bundleComplete ? 'var(--status-positive)' : (S.phase === 3 ? 'var(--accent-action)' : 'var(--text-content-primary)');
-    $('kpi-bundle-sub').textContent = S.bundleComplete ? 'bundle complete!' : (S.phase === 0 ? 'waiting for sale' : (S.phase === 1 ? 'buttons live' : 'dispensing...'));
+    $('kpi-bundle-sub').textContent = S.bundleComplete ? 'all done!'
+      : (S.phase === 0 ? 'waiting for a sale'
+      : (S.phase === 1 ? 'customer can press now' : 'please wait...'));
     $('kpi-today').textContent = dispenseCount;
   }
 
@@ -910,11 +1006,11 @@ button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
 
       let dotHtml, dotColor;
       if (!act)      { dotHtml = '<span class="dot dot-neutral"></span> N/A';      dotColor = 'var(--text-content-secondary)'; }
-      else if (busy) { dotHtml = '<span class="dot dot-caution"></span> Busy';     dotColor = 'var(--status-caution)'; }
+      else if (busy) { dotHtml = '<span class="dot dot-caution"></span> Dispensing'; dotColor = 'var(--status-caution)'; }
       else if (empty){ dotHtml = '<span class="dot dot-negative"></span> Empty';   dotColor = 'var(--status-negative)'; }
       else if (sel)  { dotHtml = '<span class="dot dot-accent"></span> Selected';  dotColor = 'var(--accent-action)'; }
-      else if (armed){ dotHtml = '<span class="dot dot-positive"></span> Armed';   dotColor = 'var(--status-positive)'; }
-      else           { dotHtml = '<span class="dot dot-neutral"></span> Idle';     dotColor = 'var(--text-content-secondary)'; }
+      else if (armed){ dotHtml = '<span class="dot dot-positive"></span> Unlocked'; dotColor = 'var(--status-positive)'; }
+      else           { dotHtml = '<span class="dot dot-neutral"></span> Ready';    dotColor = 'var(--text-content-secondary)'; }
 
       const justArmed = act && !prevArmedQty[s] && armed > 0;
       prevArmedQty[s] = armed;
@@ -1023,7 +1119,7 @@ button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
   }
   function removeStaged(i) { staged.splice(i,1); renderStaged(); updateArm(); }
   function renderStaged() {
-    if (!staged.length) { $('staged-items').innerHTML = '<span class="muted">Select product, then set quantity</span>'; $('sale-total').textContent = '0 presses'; return; }
+    if (!staged.length) { $('staged-items').innerHTML = '<span class="muted">Tap a product, then set how many</span>'; $('sale-total').textContent = '0 presses'; return; }
     let h = '', totalQty = 0;
     staged.forEach((it, i) => {
       totalQty += it.qty;
@@ -1034,13 +1130,15 @@ button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
   }
   function updateArm() {
     $('btn-arm').disabled = !staged.length;
-    $('btn-arm').textContent = staged.length ? 'Arm '+staged.length+' Slot'+(staged.length>1?'s':'') : 'Arm';
+    $('btn-arm').textContent = staged.length
+      ? 'Unlock '+staged.length+' Button'+(staged.length>1?'s':'')
+      : 'Unlock Buttons';
   }
 
   // API
   async function executeArm() {
     if (!staged.length) return;
-    $('btn-arm').disabled = true; $('btn-arm').textContent = 'Working...';
+    $('btn-arm').disabled = true; $('btn-arm').textContent = 'Please wait...';
     const sid = 'SALE-'+Date.now()+'-'+(++saleCtr);
     // Build ARM_BATCH payload: slot:qty,slot:qty,...
     const batch = staged.map(i => i.id+':'+i.qty).join(',');
@@ -1048,11 +1146,11 @@ button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
       const r = await fetch('/api/arm', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ saleId:sid, batch }) });
       const d = await r.json();
       if (d.success) {
-        toast('Armed: '+staged.map(i=>i.name+' ('+i.qty+'x)').join(', '), 'success');
+        toast('Buttons unlocked: '+staged.map(i=>i.name+' ('+i.qty+'x)').join(', '), 'success');
         staged = []; selProduct = null; $('btn-stage').disabled = true; currentQty = 1; $('qty-value').value = 1;
         renderStaged(); renderGrid(); updateArm();
       } else {
-        toast('Arm failed: '+ (d.error || 'unknown'), 'error');
+        toast('Could not unlock: '+ (d.error || 'unknown'), 'error');
       }
     } catch(e) { toast('Error: '+e.message, 'error'); }
     finally { updateArm(); }
@@ -1060,14 +1158,14 @@ button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
   async function cancelSlot(id) {
     try {
       await fetch('/api/cancel', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({productId:id}) });
-      toast('Slot ' + id + ' cancelled', 'info');
+      toast((PRODUCT[id] || ('Slot ' + id)) + ' cancelled', 'info');
     } catch(e) { /* silent */ }
   }
 
   async function cancelAll() {
     try {
       await fetch('/api/cancel-all', { method:'POST', headers:{'Content-Type':'application/json'} });
-      toast('All slots cancelled', 'info');
+      toast('All cancelled', 'info');
     } catch(e) { /* silent */ }
   }
 
@@ -1093,6 +1191,7 @@ button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
   // record, shown back to staff so a prime is never an invisible act.
   // ---------------------------------------------------------------------
   let primeCounts = {}, primeSeconds = 3, primeArmedSlot = null, primeArmTmr = null;
+  let primeSig = null;
 
   async function loadPrimeInfo() {
     try {
@@ -1114,7 +1213,17 @@ button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
 
   function renderPrime() {
     const el = $('prime-list');
-    if (!el || $('maint-body').style.display === 'none') return;
+    if (!el || $('settings-sheet').hidden) return;
+
+    // STATUS arrives every 500ms and refresh() calls this each time. Rebuilding
+    // the rows blindly would swap the button out from under a finger mid-tap,
+    // so only redraw when something actually changed.
+    let sig = String(primeArmedSlot) + '|' + S.paused + '|' + S.connected;
+    for (let s = 1; s <= ACTIVE; s++)
+      sig += '|' + (primeCounts[s] || 0) + S.wlvl[s] + S.busy[s] + (S.armedQty[s] > 0);
+    if (sig === primeSig) return;
+    primeSig = sig;
+
     let h = '';
     for (let s = 1; s <= ACTIVE; s++) {
       const n = primeCounts[s] || 0;
@@ -1128,7 +1237,7 @@ button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
          + (n > 0 ? n + ' today' : '&mdash;') + '</span>'
          + '<button class="btn btn-sm' + (armed ? ' confirm' : '') + '" data-prime="' + s + '"'
          + (blocked ? ' disabled' : '') + '>'
-         + (armed ? 'Tap to run' : 'Prime') + '</button>'
+         + (armed ? 'Tap again' : 'Clear Air') + '</button>'
          + '</div>';
     }
     el.innerHTML = h;
@@ -1145,7 +1254,7 @@ button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
       renderPrime();
       clearTimeout(primeArmTmr);
       primeArmTmr = setTimeout(disarmPrime, 5000);
-      toast('Tap again to prime ' + PRODUCT[slot], 'info');
+      toast('Tap again to clear air from ' + PRODUCT[slot], 'info');
       return;
     }
     disarmPrime();
@@ -1162,13 +1271,13 @@ button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
       const d = await r.json();
       if (!d.success) {
         toast(d.reason === 'controller_offline'
-              ? 'Machine unreachable — prime not sent'
-              : 'Prime rejected: ' + (d.reason || 'unknown'), 'error');
+              ? 'Machine unreachable — nothing was sent'
+              : 'Could not clear air: ' + (d.reason || 'unknown'), 'error');
       }
       // A success here only means the command was sent. The controller
       // decides, and answers with PRIME_ACK over SSE.
     } catch (e) {
-      toast('Prime failed: ' + e.message, 'error');
+      toast('Could not clear air: ' + e.message, 'error');
     }
   }
 
@@ -1179,7 +1288,7 @@ button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
     const name = PRODUCT[slot] || ('Slot ' + slot);
 
     if (result === 'started') {
-      toast('Priming ' + name + ' — ' + primeSeconds + 's, no sale recorded', 'success');
+      toast('Clearing air from ' + name + ' — ' + primeSeconds + 's, no sale recorded', 'success');
       // Re-read the controller's log rather than incrementing locally, so the
       // number staff see is always the one on disk.
       setTimeout(loadPrimeInfo, (primeSeconds * 1000) + 500);
@@ -1187,25 +1296,69 @@ button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
     }
 
     const why = {
-      slot_busy:    name + ' has credits or is dispensing. Prime between sales.',
-      slot_empty:   name + ' reads empty. Refill the gallon first.',
+      slot_busy:    name + ' still has presses waiting. Finish that sale first.',
+      slot_empty:   name + ' reads empty. Replace the gallon first.',
       paused:       'Machine is paused.',
       max_active:   'Two pumps already running. Try again in a moment.',
-      invalid_slot: 'Unknown slot.',
+      invalid_slot: 'Unknown product.',
     };
-    toast(why[result] || ('Prime refused: ' + result), 'error');
+    toast(why[result] || ('Could not clear air: ' + result), 'error');
+  }
+
+  // ---------------------------------------------------------------------
+  // Settings sheet
+  // ---------------------------------------------------------------------
+  function settingsOpen() { return !$('settings-sheet').hidden; }
+
+  function openSettings() {
+    $('settings-backdrop').hidden = false;
+    $('settings-sheet').hidden = false;
+    loadInfo();
+    loadPrimeInfo();
+  }
+
+  function closeSettings() {
+    $('settings-backdrop').hidden = true;
+    $('settings-sheet').hidden = true;
+    primeSig = null;   // force a fresh draw next time it opens
+    // Never leave a prime half-confirmed behind a closed sheet.
+    disarmPrime();
+  }
+
+  $('btn-settings').addEventListener('click', openSettings);
+  $('settings-close').addEventListener('click', closeSettings);
+  $('settings-backdrop').addEventListener('click', closeSettings);
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && settingsOpen()) closeSettings();
+  });
+
+  async function loadInfo() {
+    try {
+      const d = await (await fetch('/api/info')).json();
+      $('info-machine').textContent = d.machineId || '--';
+      $('machine-label').textContent = 'Machine ' + (d.machineId || '--');
+      $('info-url').textContent = d.lanUrl || location.origin;
+      const conn = $('info-controller');
+      conn.textContent = d.controllerConnected ? 'Connected' : 'Not connected';
+      conn.className = 'sheet-val ' + (d.controllerConnected ? 'good' : 'bad');
+    } catch (e) {
+      $('info-url').textContent = location.origin;
+    }
   }
 
   // Theme
   const html = document.documentElement;
   const saved = localStorage.getItem('sabon-theme');
   if (saved) html.setAttribute('data-theme', saved);
-  $('theme-toggle').textContent = html.getAttribute('data-theme') === 'dark' ? 'LIGHT' : 'DARK';
+  function themeLabel() {
+    return html.getAttribute('data-theme') === 'dark' ? 'Switch to Light' : 'Switch to Dark';
+  }
+  $('theme-toggle').textContent = themeLabel();
   $('theme-toggle').addEventListener('click', () => {
     const nxt = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
     html.setAttribute('data-theme', nxt);
     localStorage.setItem('sabon-theme', nxt);
-    $('theme-toggle').textContent = nxt === 'dark' ? 'LIGHT' : 'DARK';
+    $('theme-toggle').textContent = themeLabel();
   });
 
   // Offline retry
@@ -1253,20 +1406,11 @@ button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
   // Cancel all
   $('btn-cancel-all').addEventListener('click', cancelAll);
 
-  // Maintenance panel — collapsed until asked for
-  $('btn-maint-toggle').addEventListener('click', () => {
-    const body = $('maint-body');
-    const open = body.style.display === 'none';
-    body.style.display = open ? 'block' : 'none';
-    $('btn-maint-toggle').textContent = open ? 'Hide prime lines' : 'Prime lines';
-    disarmPrime();
-    if (open) loadPrimeInfo();
-  });
 
   // Init
   renderGrid();
   connectSSE();
-  loadPrimeInfo();
+  loadInfo();
 
   // Skeleton timeout: if no STATUS data after 4s, show demo
   setTimeout(() => {

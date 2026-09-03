@@ -431,6 +431,19 @@ function getLanUrl() {
   return `http://localhost:${HTTP_PORT}`;
 }
 
+// Machine identity for the Settings panel. The header used to show a
+// hardcoded "Machine 001" on every unit, which is worse than showing nothing
+// when someone is looking at one of several machines.
+app.get('/api/info', (req, res) => {
+  res.json({
+    machineId: config.machineId || 'unknown',
+    lanUrl: getLanUrl(),
+    controllerHost: `${SOCKET_IP}:${SOCKET_PORT}`,
+    controllerConnected: coinConnected,
+    primeSeconds: PRIME_SECONDS,
+  });
+});
+
 app.get('/qr', (req, res) => {
   const url = getLanUrl();
   const qrApi = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(url)}`;
