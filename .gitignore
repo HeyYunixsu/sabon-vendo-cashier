@@ -24,3 +24,6 @@ controller/main
 .superdesign
 controller/tests/tmp_transaction/
 controller/tests/test_runner
+
+# editor workspace files (local, per-developer)
+*.code-workspace
