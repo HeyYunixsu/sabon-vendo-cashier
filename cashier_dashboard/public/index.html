@@ -663,6 +663,21 @@ button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
 }
 #pin-submit { height: 48px; }
 .pin-error { color: var(--status-negative); font-size: 13px; text-align: center; }
+.pin-link {
+  background: none; border: none; padding: 4px;
+  color: var(--text-content-secondary); font-size: 13px;
+  text-decoration: underline; cursor: pointer;
+}
+.pin-link:disabled { opacity: .4; text-decoration: none; }
+#recover-box { display: flex; flex-direction: column; gap: 10px; margin-top: 4px; }
+#recover-box[hidden] { display: none !important; }
+#recover-input {
+  height: 44px; padding: 0 12px; border-radius: 8px;
+  border: 1px solid var(--border-default);
+  background: var(--bg-surface-tertiary); color: var(--text-content-primary);
+  font-size: 16px; text-align: center;
+}
+#recover-msg.ok { color: var(--status-positive); font-size: 15px; font-weight: 600; }
 
 </style>
 </head>
@@ -675,6 +690,14 @@ button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
            pattern="[0-9]*" placeholder="PIN">
     <button id="pin-submit" class="btn btn-primary">Unlock</button>
     <div id="pin-error" class="pin-error" hidden>Incorrect PIN</div>
+    <button id="pin-forgot" class="pin-link" hidden>Forgot PIN?</button>
+
+    <div id="recover-box" hidden>
+      <div class="pin-sub">Ask the owner for the recovery code.</div>
+      <input id="recover-input" type="text" autocomplete="off" placeholder="Recovery code">
+      <button id="recover-submit" class="btn btn-outline">Recover PIN</button>
+      <div id="recover-msg" class="pin-error" hidden></div>
+    </div>
   </div>
 </div>
 
@@ -831,6 +854,64 @@ button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
       .then(r => r.json())
       .then(a => { if (a.required && !getPin()) showPinGate(false); })
       .catch(() => {});
+
+    // The link only appears when the server actually has a recovery code set,
+    // so it never advertises a route that would just 404.
+    fetch('/recover-status').then(r => r.json()).then(s => {
+      if (s.available) $('pin-forgot').hidden = false;
+    }).catch(() => {});
+
+    (function wireRecovery() {
+      const link = $('pin-forgot'), box = $('recover-box');
+      const input = $('recover-input'), submit = $('recover-submit'), msg = $('recover-msg');
+      if (!link || !box) return;
+
+      link.addEventListener('click', () => {
+        box.hidden = false; link.hidden = true; input.focus();
+      });
+
+      const attempt = async () => {
+        const code = input.value.trim();
+        if (!code) return;
+        submit.disabled = true;
+        msg.hidden = true; msg.classList.remove('ok');
+        try {
+          const r = await fetch('/recover', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ code }),
+          });
+          const d = await r.json();
+          if (r.ok && d.pin) {
+            // Store it so this device is unlocked from here on, and show it so
+            // the cashier can write it down.
+            setPin(d.pin);
+            msg.textContent = 'Your PIN is ' + d.pin + ' — unlocking...';
+            msg.classList.add('ok');
+            msg.hidden = false;
+            setTimeout(() => location.reload(), 2500);
+            return;
+          }
+          if (r.status === 429) {
+            msg.textContent = 'Too many attempts. Try again in ' + (d.minutes || 15) + ' minutes.';
+          } else if (typeof d.remaining === 'number') {
+            msg.textContent = 'Incorrect code. ' + d.remaining + ' attempt(s) left.';
+          } else {
+            msg.textContent = 'Recovery is not available on this machine.';
+          }
+          msg.hidden = false;
+        } catch (_) {
+          msg.textContent = 'Could not reach the machine.';
+          msg.hidden = false;
+        } finally {
+          submit.disabled = false;
+          input.value = '';
+        }
+      };
+
+      submit.addEventListener('click', attempt);
+      input.addEventListener('keydown', ev => { if (ev.key === 'Enter') attempt(); });
+    })();
 
     (function wirePinGate() {
       const submit = $('pin-submit'), input = $('pin-input');
