@@ -11,7 +11,6 @@
 
 const express = require('express');
 const net = require('net');
-const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 
@@ -48,8 +47,6 @@ const config = loadEnv(CONFIG_PATH);
 const SOCKET_IP   = config.SOCKET_IP   || '127.0.0.1';
 const SOCKET_PORT = parseInt(config.SOCKET_PORT || '8080', 10);
 const HTTP_PORT   = parseInt(config.DASHBOARD_PORT || '80', 10);
-const DASHBOARD_PIN = (config.DASHBOARD_PIN || '').trim();
-const RECOVERY_CODE = (config.DASHBOARD_RECOVERY_CODE || '').trim();
 
 // ---------------------------------------------------------------------------
 // State
@@ -181,117 +178,6 @@ function pushUnclaimed(slot, qty) {
 const app = express();
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
-
-// ---------------------------------------------------------------------------
-// API authentication
-//
-// Every /api route can arm a pump, so without this anyone who can reach the
-// dashboard's IP can dispense product for free. The static page is left open
-// deliberately: it is just the shell, and the PIN prompt it shows is a
-// convenience. This middleware is the actual gate.
-//
-// EventSource cannot set request headers, so the SSE endpoint accepts the PIN
-// as a query parameter as well.
-//
-// A blank DASHBOARD_PIN disables the check, so upgrading an existing machine
-// cannot lock the cashier out before the key is added to config.env.
-// ---------------------------------------------------------------------------
-if (!DASHBOARD_PIN) {
-  console.warn('[dashboard] WARNING: DASHBOARD_PIN is not set in CONFIG/config.env.');
-  console.warn('[dashboard] The API is unauthenticated — anyone on this network can arm pumps.');
-} else {
-  console.log('[dashboard] API protected by DASHBOARD_PIN');
-}
-
-// ---------------------------------------------------------------------------
-// PIN recovery
-//
-// The cashier is locked out, so this cannot sit behind the PIN gate. What
-// protects it is the recovery code, which the OWNER holds and reads out over
-// the phone -- never the cashier, and never written near the machine. Anyone
-// on this network can reach this route, so it is rate limited hard and the
-// code is compared in constant time.
-//
-// It reveals the current PIN rather than setting a new one: nothing is written
-// to disk, so a failed or hijacked recovery cannot lock the real owner out.
-// Blank DASHBOARD_RECOVERY_CODE disables the route entirely.
-// ---------------------------------------------------------------------------
-const MAX_RECOVERY_FAILS = 5;
-const RECOVERY_LOCKOUT_MS = 15 * 60 * 1000;
-const recoveryAttempts = new Map();   // ip -> { fails, until }
-
-function constantTimeEqual(a, b) {
-  const ba = Buffer.from(String(a), 'utf8');
-  const bb = Buffer.from(String(b), 'utf8');
-  if (ba.length !== bb.length) return false;      // length leaks, the value does not
-  return crypto.timingSafeEqual(ba, bb);
-}
-
-app.get('/recover-status', (req, res) =>
-  res.json({ available: !!(RECOVERY_CODE && DASHBOARD_PIN) }));
-
-app.post('/recover', (req, res) => {
-  if (!RECOVERY_CODE || !DASHBOARD_PIN) {
-    return res.status(404).json({ error: 'recovery not configured' });
-  }
-
-  const ip = req.ip || 'unknown';
-  const now = Date.now();
-  const rec = recoveryAttempts.get(ip) || { fails: 0, until: 0 };
-
-  if (rec.until > now) {
-    const mins = Math.ceil((rec.until - now) / 60000);
-    return res.status(429).json({ error: 'locked', minutes: mins });
-  }
-
-  const supplied = (req.body && req.body.code) || '';
-  if (!constantTimeEqual(supplied, RECOVERY_CODE)) {
-    rec.fails += 1;
-    // Never log the supplied value: it may be one character off the real code.
-    console.warn(`[dashboard] Failed PIN recovery from ${ip}`);
-
-    if (rec.fails >= MAX_RECOVERY_FAILS) {
-      rec.until = now + RECOVERY_LOCKOUT_MS;
-      rec.fails = 0;
-      recoveryAttempts.set(ip, rec);
-      console.warn(`[dashboard] Recovery locked for ${ip} after ${MAX_RECOVERY_FAILS} failures`);
-      // Report the lockout on the attempt that causes it, rather than saying
-      // "5 attempts left" and then refusing the next one.
-      return res.status(429).json({
-        error: 'locked',
-        minutes: Math.ceil(RECOVERY_LOCKOUT_MS / 60000),
-      });
-    }
-
-    recoveryAttempts.set(ip, rec);
-    return res.status(401).json({
-      error: 'bad code',
-      remaining: MAX_RECOVERY_FAILS - rec.fails,
-    });
-  }
-
-  recoveryAttempts.delete(ip);
-  console.log(`[dashboard] PIN recovered by ${ip}`);
-  return res.json({ pin: DASHBOARD_PIN });
-});
-
-// Deliberately outside /api and unauthenticated: it reveals only WHETHER a PIN
-// is required, never the PIN. The page needs this to decide between showing the
-// unlock gate and loading straight through on a machine that has none set.
-app.get('/auth-status', (req, res) => res.json({ required: !!DASHBOARD_PIN }));
-
-app.use('/api', (req, res, next) => {
-  if (!DASHBOARD_PIN) return next();
-  const supplied = req.get('X-Dashboard-Pin') || req.query.pin || '';
-  if (supplied === DASHBOARD_PIN) return next();
-  console.warn(`[dashboard] Rejected unauthenticated ${req.method} ${req.path} from ${req.ip}`);
-  return res.status(401).json({ error: 'unauthorized' });
-});
-
-// Cheapest possible gated route. The page probes it after a dropped stream to
-// tell "the PIN is wrong" apart from "the server restarted" -- EventSource
-// reports both as a bare error event with no status code.
-app.get('/api/ping', (req, res) => res.json({ ok: true }));
 
 // SSE endpoint
 app.get('/api/status/stream', (req, res) => {
