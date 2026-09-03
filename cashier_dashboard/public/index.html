@@ -921,7 +921,7 @@ button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
         S.armedQty.fill(0); S.remaining.fill(0); S.wlvl.fill(false);
         S.busy.fill(false); S.queueDepth.fill(0); S.paused = false;
         S.phase = 0; S.bundleComplete = false;
-        dispenseCount = 0; staged = []; selProduct = null; unclaimed = [];
+        dispenseCount = 0; staged = []; selProduct = null; multiSelect = false; unclaimed = [];
         renderStaged(); updateArm();
         $('btn-stage').disabled = true; currentQty = 1; $('qty-value').value = 1;
         refresh(); return;
@@ -1050,6 +1050,9 @@ button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
       h += '</div></div>';
     }
     $('grid-container').innerHTML = h;
+    // Safe to do here: the signature above includes multiSelect, so this runs
+    // on every change to it.
+    $('btn-select-all').textContent = multiSelect ? 'Unselect All' : 'Select All Products';
   }
 
   // Right panel
@@ -1124,7 +1127,23 @@ button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
   }
 
   // Sale
-  function selectProduct(id) { multiSelect = false; selProduct = id; renderGrid(); $('btn-stage').disabled = false; }
+  // Tapping the highlighted card again clears it. Without this the only way
+  // out of a selection was Clear List, which also throws away everything
+  // already staged -- far too blunt for "I picked the wrong one".
+  function selectProduct(id) {
+    if (!multiSelect && selProduct === id) { clearSelection(); return; }
+    multiSelect = false; selProduct = id;
+    renderGrid();
+    $('btn-stage').disabled = false;
+  }
+
+  // Clears only the highlight. Staged items are untouched.
+  function clearSelection() {
+    selProduct = null; multiSelect = false;
+    renderGrid();
+    $('btn-stage').disabled = true;
+  }
+
   function enableQtyStepper() { $('btn-stage').disabled = false; }
   function stageItem(id, qtyOverride) {
     const qty = qtyOverride != null ? qtyOverride : currentQty;
@@ -1431,6 +1450,7 @@ button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
 
   // Select All
   $('btn-select-all').addEventListener('click', () => {
+    if (multiSelect) { clearSelection(); return; }
     multiSelect = true; selProduct = null;
     renderGrid();
     enableQtyStepper();
