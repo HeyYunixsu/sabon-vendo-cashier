@@ -127,14 +127,13 @@ Comment out any `dtparam=spi=on` you find, then reboot. Nothing here uses SPI.
 cd ~/Desktop
 git clone https://github.com/HeyYunixsu/sabon-vendo-cashier.git
 cd sabon-vendo-cashier
-git checkout feat/enable-six-products
 git log --oneline -1
 ```
 
-> **The six-slot work lives on `feat/enable-six-products`, not `master`.**
-> `master` is still the five-slot version with the broken dashboard
-> registration. Until the branch is merged, checking out `master` on this Pi
-> silently reverts you. Confirm the branch before continuing.
+> `master` now carries the six-slot work — the feature branch was merged on
+> 2026-09-04. Older notes told you to check out `feat/enable-six-products`;
+> that is no longer needed, and the branch will not have the credit-accounting
+> or one-tap staging work that landed after the merge.
 
 ---
 
@@ -164,8 +163,23 @@ If the username is not `dgsi`, change it. Get the correct value with:
 echo "TRANSACTION_DIR=$HOME/Desktop/sabon-vendo-cashier/transaction"
 ```
 
-Everything else in the sample has a working default. See
-[CONFIG/README.md](../CONFIG/README.md) for every key.
+Everything else has a working default, but three groups are worth setting now
+rather than discovering later:
+
+| Key | Why |
+|-----|-----|
+| `PRODUCT1_NAME`–`PRODUCT6_NAME`, `PRODUCT1_ML`–`PRODUCT6_ML` | What is actually in each tank. The dashboard, the sales report and the attention rows all label themselves from these. Left unset, every machine claims to sell "Product 1". |
+| `PRICE1`–`PRICE6` | What a press costs, in whole pesos. **Unset means ₱5 for everything**, so takings will be wrong until these match the shop's real prices. Also editable later from the dashboard's Settings, which keeps an audit log. |
+| `ARM_TIMEOUT_SECONDS` | How long an unlocked button stays live, default 300. The button is physically live for this whole window — anyone can press it — so raise it only as far as the counter needs. |
+
+Log paths (`PRIME_LOG`, `INTERRUPTED_LOG`, `UNCLAIMED_LOG`, `SETTLEMENT_LOG`,
+`SALES_ARCHIVE_DIR`) all default sensibly under `<repo>/logs/`. If you do set
+them, **use absolute paths** — a relative value is resolved differently by the
+controller and the dashboard, and they will silently read and write different
+files. And never point one inside `TRANSACTION_DIR`: the uploader POSTs every
+file in there to the cloud as a sale.
+
+See [CONFIG/README.md](../CONFIG/README.md) for every key.
 
 If you are replacing a machine, copy `calibrateProduct1`–`calibrateProduct6`
 from the old Pi — those are physically measured per-pump flow rates and cannot
@@ -207,7 +221,7 @@ Run the test suite too — it catches a bad build before the hardware does:
 cd controller && make test
 ```
 
-Expect **413 passed, 0 failed**.
+Expect **647 passed, 0 failed**.
 
 ---
 
