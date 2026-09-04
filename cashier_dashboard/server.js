@@ -99,6 +99,31 @@ function saveResolved() {
   }
 }
 
+// How each credit was settled. RESOLVED_FILE records only THAT a key was dealt
+// with; without this, whether it was re-armed and later sold or written off as
+// a loss survives nowhere but a pm2 line that rotates out in a week -- which is
+// the exact gap this whole feature exists to close. At month end the difference
+// is the difference between a loss and a sale already counted.
+const SETTLEMENT_LOG_PATH = config.SETTLEMENT_LOG
+  ? path.resolve(__dirname, '..', config.SETTLEMENT_LOG)
+  : path.resolve(__dirname, '..', 'logs', 'credit_settlements.jsonl');
+
+function appendSettlement(key, slot, qty, action) {
+  // Never throws: a machine that cannot write its audit trail must still let
+  // the cashier settle the row in front of them.
+  try {
+    fs.mkdirSync(path.dirname(SETTLEMENT_LOG_PATH), { recursive: true });
+    const d = new Date();
+    const p = (n) => String(n).padStart(2, '0');
+    const stamp = `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} `
+                + `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+    fs.appendFileSync(SETTLEMENT_LOG_PATH,
+      JSON.stringify({ key, slot, qty, action, date_created: stamp }) + '\n', 'utf-8');
+  } catch (e) {
+    console.error(`[dashboard] Could not record settlement: ${e.message}`);
+  }
+}
+
 // Confirmed sales, archived by transaction_uploader.py before it deletes each
 // record. Read-only here.
 const SALES_ARCHIVE_DIR = config.SALES_ARCHIVE_DIR
@@ -466,6 +491,8 @@ app.post('/api/unclaimed/resolve', (req, res) => {
 
   resolvedKeys.add(key);
   saveResolved();
+  appendSettlement(key, parseInt(key.split('|')[0], 10),
+                   parseInt(req.body.qty, 10) || 0, action);
   console.log(`[dashboard] Unclaimed settled: ${key} action=${action}`);
   res.json({ success: true });
 });

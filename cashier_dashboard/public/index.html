@@ -1308,6 +1308,7 @@ button, .btn, .product-card, .kpi-card, .staged-card, .tab {
          + '<button class="btn btn-sm" data-key="' + it.key + '" data-qty="' + it.qty
          + '" data-act="rearm">Unlock Again</button>'
          + '<button class="btn btn-sm btn-outline" data-key="' + it.key
+         + '" data-qty="' + it.qty
          + '" data-act="writeoff">Write Off</button>'
          + '</div></div>';
     });
@@ -1443,12 +1444,6 @@ button, .btn, .product-card, .kpi-card, .staged-card, .tab {
     try {
       await fetch('/api/cancel-all', { method:'POST', headers:{'Content-Type':'application/json'} });
       toast('All cancelled', 'info');
-    } catch(e) { /* silent */ }
-  }
-
-  async function cancelQueueSlot(id) {
-    try {
-      await fetch('/api/cancel-queue', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({productId:id}) });
     } catch(e) { /* silent */ }
   }
 
@@ -1949,7 +1944,10 @@ button, .btn, .product-card, .kpi-card, .staged-card, .tab {
     const b = ev.target.closest('button[data-act]');
     if (!b) return;
     const body = { key: b.dataset.key, action: b.dataset.act };
-    if (b.dataset.act === 'rearm') body.qty = +b.dataset.qty;
+    // Sent for both actions: the re-arm needs it to arm the right number, and
+    // the write-off needs it recorded, because how many presses were lost is
+    // the whole point of the settlement log.
+    body.qty = +b.dataset.qty;
     try {
       const r = await (await fetch('/api/unclaimed/resolve', {
         method: 'POST',

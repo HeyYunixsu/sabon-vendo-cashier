@@ -396,8 +396,17 @@ static void process_command(AppState &state, const std::string &line,
           size_t p1 = input_str.find(',');
           int productId = std::stoi(input_str.substr(p1 + 1));
           if (productId >= 1 && productId <= TOTAL_SLOTS) {
-            while (!state.pendingQueue[productId].empty()) state.pendingQueue[productId].pop();
-            log_info("socket", "CANCEL_QUEUE slot " + std::to_string(productId) + ": queue cleared");
+            // Queued credits were paid for exactly like the armed ones. The
+            // armed credits do survive this command, but throwing the queue
+            // away without a record is the same hole in a quieter place.
+            int lost = 0;
+            while (!state.pendingQueue[productId].empty()) {
+              lost += state.pendingQueue[productId].front().qty;
+              state.pendingQueue[productId].pop();
+            }
+            pump_record_unclaimed(state, productId, lost, "cancelled");
+            log_info("socket", "CANCEL_QUEUE slot " + std::to_string(productId)
+                      + ": cleared " + std::to_string(lost) + " queued credits");
             broadcast_status(state);
           }
         }

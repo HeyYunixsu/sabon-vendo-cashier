@@ -480,6 +480,51 @@ void test_integration_cancel_sums_armed_and_queued()
     CLOSE_CLIENT(sock);
 }
 
+void test_integration_cancel_queue_records_the_queued_credits()
+{
+    // CANCEL_QUEUE leaves the armed credits alone -- the cashier is still
+    // mid-sale in front of the customer -- but the queued ones are money in
+    // the drawer just the same, and used to be dropped with no record.
+    reset_unclaimed_log();
+    ClientSock sock = connect_test_client();
+    CHECK(sock != INVALID_CLIENT_SOCK);
+    if (sock == INVALID_CLIENT_SOCK) return;
+    drain_connect_push(sock);
+
+    send_cmd(sock, "ARM,3,2");
+    CHECK(wait_for([]{ return g_test_state.armedQty[3] == 2; }));
+    g_test_state.pendingQueue[3].push(PendingArm(3, 4));
+
+    send_cmd(sock, "CANCEL_QUEUE,3");
+    CHECK(wait_for([]{ return g_test_state.pendingQueue[3].empty(); }));
+
+    // Only the queued 4 are written off; the 2 armed presses survive.
+    CHECK_EQ(g_test_state.armedQty[3], 2);
+    CHECK_EQ(count_lines(UNCLAIMED_TEST_LOG), 1);
+    CHECK(read_all(UNCLAIMED_TEST_LOG).find("\"qty\":4") != std::string::npos);
+    CHECK(read_all(UNCLAIMED_TEST_LOG).find("\"reason\":\"cancelled\"") != std::string::npos);
+
+    g_test_state.armedQty[3] = 0;
+    CLOSE_CLIENT(sock);
+}
+
+void test_integration_cancel_queue_on_an_empty_queue_records_nothing()
+{
+    // A stray CANCEL_QUEUE with nothing queued must not write a zero row.
+    reset_unclaimed_log();
+    ClientSock sock = connect_test_client();
+    CHECK(sock != INVALID_CLIENT_SOCK);
+    if (sock == INVALID_CLIENT_SOCK) return;
+    drain_connect_push(sock);
+
+    send_cmd(sock, "CANCEL_QUEUE,3");
+    CHECK(wait_for([]{ return g_test_state.pendingQueue[3].empty(); }));
+
+    CHECK_EQ(count_lines(UNCLAIMED_TEST_LOG), 0);
+
+    CLOSE_CLIENT(sock);
+}
+
 void test_integration_cancel_all_writes_one_row_per_slot()
 {
     reset_unclaimed_log();
@@ -875,6 +920,8 @@ void run_socket_integration_tests()
 
     RUN_TEST(test_integration_cancel_records_unclaimed_credit);
     RUN_TEST(test_integration_cancel_sums_armed_and_queued);
+    RUN_TEST(test_integration_cancel_queue_records_the_queued_credits);
+    RUN_TEST(test_integration_cancel_queue_on_an_empty_queue_records_nothing);
     RUN_TEST(test_integration_cancel_all_writes_one_row_per_slot);
     RUN_TEST(test_integration_cancel_all_idle_writes_nothing);
     teardown_unclaimed_log();
