@@ -202,7 +202,6 @@ be guessed.
 
 ```bash
 cd ~/Desktop/sabon-vendo-cashier
-chmod +x install_dependencies.sh setup_and_run.sh
 ./install_dependencies.sh 2>&1 | tee install_dependencies.log
 ```
 
@@ -387,6 +386,25 @@ the venv path never contained `coin_slot`.
 ---
 
 ## Troubleshooting
+
+### `git pull` aborts: "local changes would be overwritten"
+
+Usually `setup_and_run.sh` or `install_dependencies.sh`. Older revisions of this
+guide told you to `chmod +x` them; git tracks the executable bit, so that chmod
+registered as a modification and blocked every later pull. Both files now carry
+the executable bit in the repo and the chmod step is gone.
+
+Nothing of yours is at risk here -- the change is a file mode, not content:
+
+```bash
+cd ~/Desktop/sabon-vendo-cashier
+git status --short          # confirm only these scripts are listed
+git checkout -- setup_and_run.sh install_dependencies.sh
+git pull
+```
+
+If `git status` lists anything else, look before discarding it. `CONFIG/config.env`
+is gitignored and will never appear or be touched by a pull.
 
 ### apt: "Could not get lock"
 
