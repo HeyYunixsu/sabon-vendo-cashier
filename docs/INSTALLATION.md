@@ -12,7 +12,7 @@ doing them in the wrong order costs you a full rebuild.
 ```
 0. Prep          -> 1. Boot config (REBOOT)  -> 2. Get the code
 3. config.env    -> 4. Dependencies          -> 5. Build & launch
-6. Verify        -> 7. Calibrate sensors
+6. Verify        -> 7. Calibrate sensors    -> 7b. Calibrate pumps
 ```
 
 ---
