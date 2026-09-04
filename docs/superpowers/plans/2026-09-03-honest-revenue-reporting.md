@@ -1,5 +1,7 @@
 # Honest Revenue Reporting — Implementation Plan
 
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+
 **Goal:** The owner sees true per-machine revenue online, without relying on a
 cashier's word. Money taken but not handed over becomes visible as a
 discrepancy rather than disappearing.

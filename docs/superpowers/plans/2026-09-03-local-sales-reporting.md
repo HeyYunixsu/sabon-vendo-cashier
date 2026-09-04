@@ -1,5 +1,7 @@
 # Local Sales Reporting — Implementation Plan
 
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+
 **Goal:** Tap the "Today" card and see what actually sold — today's product mix
 as a pie, and a month-by-month trend. The owner reads performance off the
 machine itself, without waiting on the cloud portal or trusting a spoken
