@@ -106,7 +106,7 @@ the drawer short with nothing to explain it.
 
 | Key | Default | Description |
 |-----|---------|-------------|
-| `UNCLAIMED_LOG` | `<repo>/logs/unclaimed_credits.jsonl` | Credits paid for but never dispensed - expired at the timeout, or cancelled by the cashier: slot, amount, reason, time |
+| `UNCLAIMED_LOG` | `<repo>/logs/unclaimed_credits.jsonl` | Credits paid for but never dispensed - expired at the timeout, or cancelled by the cashier: slot, qty, amount, reason, time |
 
 An armed slot's credits are written off here if the customer never presses the
 button before `ARM_TIMEOUT_SECONDS` runs out (`reason: "timeout"`), or if the

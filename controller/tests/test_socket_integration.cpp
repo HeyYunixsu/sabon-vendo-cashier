@@ -24,6 +24,10 @@
 #include <cstring>
 #include <iostream>
 #include <sstream>
+#include <filesystem>
+#include <fstream>
+
+namespace fs = std::filesystem;
 
 // ---------------------------------------------------------------- platform ---
 
@@ -378,6 +382,146 @@ void test_integration_arm_queues_when_slot_busy()
     CLOSE_CLIENT(sock);
 }
 
+// ---------------------------------- CANCEL / CANCEL_ALL (unclaimed log) ---
+//
+// CANCEL and CANCEL_ALL sum armedQty[i] plus everything drained from
+// pendingQueue[i] into `lost`, then hand that to pump_record_unclaimed. The
+// tests in test_unclaimed.cpp call pump_record_unclaimed directly, so they
+// never exercise that arithmetic -- these do, over the real socket.
+
+static const std::string UNCLAIMED_TEST_DIR = "tests/tmp_socket_unclaimed";
+static const std::string UNCLAIMED_TEST_LOG = UNCLAIMED_TEST_DIR + "/unclaimed_credits.jsonl";
+
+static std::string read_all(const std::string &path)
+{
+    std::ifstream f(path);
+    std::stringstream buf;
+    buf << f.rdbuf();
+    return buf.str();
+}
+
+static int count_lines(const std::string &path)
+{
+    std::ifstream f(path);
+    int n = 0;
+    std::string line;
+    while (std::getline(f, line))
+        if (!line.empty()) n++;
+    return n;
+}
+
+// Fresh log directory and a clean slate for the slots each test touches --
+// mirrors fresh_state() in test_unclaimed.cpp, just against the shared
+// g_test_state these integration tests already use.
+static void reset_unclaimed_log()
+{
+    fs::remove_all(UNCLAIMED_TEST_DIR);
+    fs::create_directories(UNCLAIMED_TEST_DIR);
+    g_test_state.unclaimedLogPath = UNCLAIMED_TEST_LOG;
+    for (int i = 1; i <= TOTAL_SLOTS; i++) {
+        g_test_state.armedQty[i] = 0;
+        while (!g_test_state.pendingQueue[i].empty())
+            g_test_state.pendingQueue[i].pop();
+    }
+}
+
+static void teardown_unclaimed_log()
+{
+    fs::remove_all(UNCLAIMED_TEST_DIR);
+    g_test_state.unclaimedLogPath.clear();
+}
+
+void test_integration_cancel_records_unclaimed_credit()
+{
+    reset_unclaimed_log();
+    ClientSock sock = connect_test_client();
+    CHECK(sock != INVALID_CLIENT_SOCK);
+    if (sock == INVALID_CLIENT_SOCK) return;
+    drain_connect_push(sock);
+
+    send_cmd(sock, "ARM,2,3");
+    CHECK(wait_for([]{ return g_test_state.armedQty[2] == 3; }));
+
+    send_cmd(sock, "CANCEL,2");
+    CHECK(wait_for([]{ return g_test_state.armedQty[2] == 0; }));
+
+    CHECK_EQ(count_lines(UNCLAIMED_TEST_LOG), 1);
+    std::string body = read_all(UNCLAIMED_TEST_LOG);
+    CHECK(body.find("\"slot\":\"2\"") != std::string::npos);
+    CHECK(body.find("\"qty\":3") != std::string::npos);
+    CHECK(body.find("\"reason\":\"cancelled\"") != std::string::npos);
+
+    CLOSE_CLIENT(sock);
+}
+
+void test_integration_cancel_sums_armed_and_queued()
+{
+    reset_unclaimed_log();
+    ClientSock sock = connect_test_client();
+    CHECK(sock != INVALID_CLIENT_SOCK);
+    if (sock == INVALID_CLIENT_SOCK) return;
+    drain_connect_push(sock);
+
+    send_cmd(sock, "ARM,3,2");
+    CHECK(wait_for([]{ return g_test_state.armedQty[3] == 2; }));
+
+    // Stand in for a second ARM that queued behind a busy slot: those
+    // credits were paid for exactly like the armed ones, so a cancel must
+    // write both off together.
+    g_test_state.pendingQueue[3].push(PendingArm(3, 4));
+
+    send_cmd(sock, "CANCEL,3");
+    CHECK(wait_for([]{ return g_test_state.armedQty[3] == 0; }));
+
+    CHECK_EQ((int)g_test_state.pendingQueue[3].size(), 0);
+    CHECK_EQ(count_lines(UNCLAIMED_TEST_LOG), 1);
+    CHECK(read_all(UNCLAIMED_TEST_LOG).find("\"qty\":6") != std::string::npos);
+
+    CLOSE_CLIENT(sock);
+}
+
+void test_integration_cancel_all_writes_one_row_per_slot()
+{
+    reset_unclaimed_log();
+    ClientSock sock = connect_test_client();
+    CHECK(sock != INVALID_CLIENT_SOCK);
+    if (sock == INVALID_CLIENT_SOCK) return;
+    drain_connect_push(sock);
+
+    send_cmd(sock, "ARM,1,2");
+    CHECK(wait_for([]{ return g_test_state.armedQty[1] == 2; }));
+    send_cmd(sock, "ARM,5,3");
+    CHECK(wait_for([]{ return g_test_state.armedQty[5] == 3; }));
+
+    send_cmd(sock, "CANCEL_ALL");
+    CHECK(wait_for([]{ return g_test_state.armedQty[1] == 0 && g_test_state.armedQty[5] == 0; }));
+
+    // One row per slot, not one combined row: prices differ per product, so
+    // a single total could not be reconciled back to either one.
+    CHECK_EQ(count_lines(UNCLAIMED_TEST_LOG), 2);
+    std::string body = read_all(UNCLAIMED_TEST_LOG);
+    CHECK(body.find("\"slot\":\"1\"") != std::string::npos);
+    CHECK(body.find("\"slot\":\"5\"") != std::string::npos);
+
+    CLOSE_CLIENT(sock);
+}
+
+void test_integration_cancel_all_idle_writes_nothing()
+{
+    reset_unclaimed_log();
+    ClientSock sock = connect_test_client();
+    CHECK(sock != INVALID_CLIENT_SOCK);
+    if (sock == INVALID_CLIENT_SOCK) return;
+    drain_connect_push(sock);
+
+    send_cmd(sock, "CANCEL_ALL");
+    yield_to_server();   // absence check: nothing here to wait_for
+
+    CHECK_EQ(count_lines(UNCLAIMED_TEST_LOG), 0);
+
+    CLOSE_CLIENT(sock);
+}
+
 // ---------------------------------- WTRLVL command ---
 
 void test_integration_wtrlvl_sets_flags()
@@ -728,6 +872,13 @@ void run_socket_integration_tests()
     RUN_TEST(test_integration_arm_invalid_product_rejected);
     RUN_TEST(test_integration_arm_zero_qty_rejected);
     RUN_TEST(test_integration_arm_queues_when_slot_busy);
+
+    RUN_TEST(test_integration_cancel_records_unclaimed_credit);
+    RUN_TEST(test_integration_cancel_sums_armed_and_queued);
+    RUN_TEST(test_integration_cancel_all_writes_one_row_per_slot);
+    RUN_TEST(test_integration_cancel_all_idle_writes_nothing);
+    teardown_unclaimed_log();
+
     RUN_TEST(test_integration_wtrlvl_sets_flags);
     RUN_TEST(test_integration_wtrlvl_six_sensors);
     RUN_TEST(test_integration_wtrlvl_respects_inverted_polarity);
