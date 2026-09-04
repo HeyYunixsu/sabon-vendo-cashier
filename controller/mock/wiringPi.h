@@ -63,6 +63,27 @@ void pullUpDnControl(int pin, int pud);
 void digitalWrite(int pin, int value);
 int digitalRead(int pin);
 
+// ---------------------------------------------------------------------------
+// Mock button control
+//
+// digitalRead used to return LOW unconditionally, which means "pressed" for
+// these active-low buttons. Every button therefore read as held down forever:
+// the edge detector fired once at startup and never again, so no press could
+// ever be simulated and the mock could not exercise a dispense at all.
+//
+// Idle is HIGH now, and a press is asked for explicitly.
+// ---------------------------------------------------------------------------
+
+// In-process control, for tests linked against the mock.
+void mock_set_button(int pin, bool pressed);
+void mock_release_all_buttons(void);
+
+// Out-of-process control, for driving a running mock binary. Set the
+// environment variable MOCK_BUTTONS to a file path; write the BCM pin numbers
+// that are currently held to that file, space or comma separated. An empty or
+// missing file means nothing is pressed.
+
+
 void delay(unsigned int howLong);
 void delayMicroseconds(unsigned int howLong);
 

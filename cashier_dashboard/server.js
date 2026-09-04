@@ -69,6 +69,11 @@ for (let i = 1; i <= 6; i++) {
   };
 }
 
+// Sales cut short by an empty tank: charged in full, delivered in part.
+const INTERRUPTED_LOG_PATH = config.INTERRUPTED_LOG
+  ? path.resolve(__dirname, '..', config.INTERRUPTED_LOG)
+  : path.resolve(__dirname, '..', 'logs', 'interrupted_sales.jsonl');
+
 // Confirmed sales, archived by transaction_uploader.py before it deletes each
 // record. Read-only here.
 const SALES_ARCHIVE_DIR = config.SALES_ARCHIVE_DIR
@@ -639,6 +644,35 @@ app.get('/api/sales/today', (req, res) => {
     lastSaleAt: last ? last.at : null,
     archiveExists: fs.existsSync(SALES_ARCHIVE_DIR),
   });
+});
+
+// Today's interrupted sales. The customer paid in full and got a partial
+// pour, so someone has to settle it with them -- this is the only place that
+// event surfaces to a person.
+app.get('/api/interrupted', (req, res) => {
+  const entries = [];
+  const today = localDateString(new Date());
+  try {
+    if (fs.existsSync(INTERRUPTED_LOG_PATH)) {
+      for (const line of fs.readFileSync(INTERRUPTED_LOG_PATH, 'utf-8').split(/\r?\n/)) {
+        if (!line.trim()) continue;
+        let rec;
+        try { rec = JSON.parse(line); } catch (_) { continue; }
+        if (!String(rec.date_created || '').startsWith(today)) continue;
+        const slot = parseInt(rec.slot, 10);
+        entries.push({
+          slot,
+          name: (PRODUCTS[slot] && PRODUCTS[slot].name) || ('Slot ' + rec.slot),
+          amount: Number(rec.amount) || 0,
+          reason: rec.reason || 'unknown',
+          date_created: rec.date_created,
+        });
+      }
+    }
+  } catch (e) {
+    console.error(`[dashboard] Could not read interrupted log: ${e.message}`);
+  }
+  res.json({ entries: entries.reverse() });
 });
 
 app.get('/qr', (req, res) => {

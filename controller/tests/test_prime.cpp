@@ -2,6 +2,7 @@
 #include "pump_control.h"
 #include "hardware_config.h"
 #include "app_state.h"
+#include <wiringPi.h>
 #include <chrono>
 #include <filesystem>
 #include <fstream>
@@ -225,10 +226,10 @@ static void test_a_press_during_a_prime_is_denied_not_given_away()
 
     CHECK(pump_start_prime(s, 3) == PrimeResult::STARTED);
 
-    // The mock reads every button as held, so the loop will attempt a press as
-    // soon as the start cooldown expires.
-    std::this_thread::sleep_for(std::chrono::milliseconds(250));
+    // Hold the button as a customer would, mid-burst.
+    mock_set_button(pin_button[3], true);
     for (int i = 0; i < 8; i++) pump_loop(s);
+    mock_release_all_buttons();
 
     CHECK_EQ(s.armedQty[3], 1);                    // credit untouched
     CHECK_EQ(count_transactions(TEST_TXN_DIR), 0); // and nothing booked

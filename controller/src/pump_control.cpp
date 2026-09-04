@@ -135,6 +135,9 @@ static void executeDispenseTrigger(AppState &state, int pumpIdx) {
     }
 }
 
+// Defined below, beside the prime record it mirrors.
+static void appendInterruptedLog(AppState &state, int slot, double amount);
+
 // A slot that stops being busy must take its next queued ARM with it.
 // ARM queues rather than arms while slotBusy is set, so any path that clears
 // the flag without draining the queue strands credits a cashier already took
@@ -168,7 +171,33 @@ static void handlePump(PumpState &pump, AppState &state) {
             if (releaseSlot(state, pump.id))
                 saveStateToDisk(state, state.transactionDir);
         } else if (pump.isPumping) {
-            log_info("pump", "Pump " + std::to_string(pump.id) + ": STOPPED  reason=empty");
+            // The tank ran dry part-way through a customer's pour. Closing the
+            // dispense here rather than just switching the relay off: leaving
+            // it open recorded no sale at all, held the slot busy until a
+            // refill, and then booked the full amount dated to the refill --
+            // or lost it entirely if the controller restarted first. Every one
+            // of those outcomes leaves the drawer short with nothing to explain
+            // it, and the honest cashier carries the difference.
+            //
+            // Full price, because that is what the customer was charged. The
+            // partial pour is surfaced separately for a person to settle.
+            log_info("pump", "Pump " + std::to_string(pump.id)
+                      + ": INTERRUPTED  reason=empty  amount="
+                      + std::to_string(pump.amount));
+
+            if (pump.armedUnitsReserved > 0) pump.armedUnitsReserved--;
+            writeTransaction(state, pump.id, pump.amount, "");
+            appendInterruptedLog(state, pump.id, pump.amount);
+
+            pump.amount = 0;
+            pump.isPumping = false;
+            pump.postPressDeadline = std::chrono::steady_clock::time_point{};
+            // Zero the timer. Left running, remainingTime is still counting
+            // down when the tank is refilled, and the completion branch books
+            // the same sale a second time.
+            pump.timer = std::chrono::steady_clock::now();
+            releaseSlot(state, pump.id);
+            saveStateToDisk(state, state.transactionDir);
         }
         digitalWrite(pin_pump[pump.id], PUMP_TRIGGER_LOW);
     } else if (state.remainingTime[pump.id] > 0) {
@@ -223,6 +252,11 @@ void pump_reset_state() {
         pumps[i].id = i;
         pumps[i].timer = now;
     }
+    // The start cooldown is pump state too. Leaving it set meant the first
+    // press after a reset could be swallowed by a cooldown from before it --
+    // and since the button edge is consumed either way, no later press fired
+    // until the button was physically released.
+    g_last_pump_start = now - std::chrono::seconds(1);
 }
 
 void pump_setup(AppState &state) {
@@ -252,6 +286,9 @@ void pump_setup(AppState &state) {
     // every file in that directory to the cloud as a sale.
     if (config.count("PRIME_LOG")) state.primeLogPath = config["PRIME_LOG"];
     else state.primeLogPath = binDir + "/../logs/prime_events.jsonl";
+
+    if (config.count("INTERRUPTED_LOG")) state.interruptedLogPath = config["INTERRUPTED_LOG"];
+    else state.interruptedLogPath = binDir + "/../logs/interrupted_sales.jsonl";
 
     if (config.count("PRICES_FILE")) state.pricesPath = config["PRICES_FILE"];
     else state.pricesPath = binDir + "/../CONFIG/prices.conf";
@@ -454,6 +491,20 @@ static void appendPrimeLog(AppState &state, int slot, double seconds)
       << "," << q("seconds")    << ":" << seconds
       << "," << q("date_created") << ":" << q(format_current_time()) << "}";
     appendJsonLine(state.primeLogPath, j.str());
+}
+
+// A sale that was charged in full but only partly delivered. Not revenue data
+// -- the transaction already carries that -- this exists so the event reaches
+// a person instead of only a log file nobody reads.
+static void appendInterruptedLog(AppState &state, int slot, double amount)
+{
+    std::ostringstream j;
+    j << "{" << q("machine_id") << ":" << q(state.machineId)
+      << "," << q("slot")       << ":" << q(std::to_string(slot))
+      << "," << q("amount")     << ":" << amount
+      << "," << q("reason")     << ":" << q("tank_empty")
+      << "," << q("date_created") << ":" << q(format_current_time()) << "}";
+    appendJsonLine(state.interruptedLogPath, j.str());
 }
 
 const char *prime_result_text(PrimeResult r)

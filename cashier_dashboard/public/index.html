@@ -809,6 +809,13 @@ button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
   min-width: 62px; text-align: right;
 }
 .today-row.zero { opacity: .45; }
+.interrupted-row {
+  padding: 7px 0; border-bottom: 1px solid var(--border-default);
+  font-size: 11px; color: var(--status-caution);
+}
+.interrupted-row:last-child { border-bottom: none; }
+.interrupted-row .i-head { display: flex; justify-content: space-between; gap: 8px; font-weight: 600; }
+.interrupted-row .i-why { font-size: 9px; opacity: .85; margin-top: 2px; }
 .today-note {
   font-size: 10px; line-height: 1.6;
   color: var(--text-content-secondary); margin-top: 12px;
@@ -937,6 +944,7 @@ button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
     </section>
     <section id="attention-section" class="status-section" style="display:none;">
       <div class="section-label">Needs Attention</div>
+      <div id="interrupted-list"></div>
       <div id="unclaimed-list"></div>
     </section>
     <section id="alerts-section" class="status-section" style="display:none;">
@@ -1071,7 +1079,7 @@ button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
   let todayTmr = null;
   function scheduleTodayRefresh() {
     clearTimeout(todayTmr);
-    todayTmr = setTimeout(loadToday, 1500);
+    todayTmr = setTimeout(() => { loadToday(); loadInterrupted(); }, 1500);
   }
 
   // SSE
@@ -1290,7 +1298,12 @@ button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
   }
 
   function renderUnclaimed() {
-    if (!unclaimed.length) { $('unclaimed-list').innerHTML = '<span class="muted">--</span>'; $('attention-section').style.display = 'none'; return; }
+    if (!unclaimed.length) {
+      $('unclaimed-list').innerHTML = '';
+      // Only hide the panel if nothing else is in it.
+      if (!interrupted.length) $('attention-section').style.display = 'none';
+      return;
+    }
     let h = '';
     unclaimed.forEach((it, idx) => {
       h += '<div class="list-row" style="color:var(--status-caution);">';
@@ -1534,6 +1547,38 @@ button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
       invalid_slot: 'Unknown product.',
     };
     toast(why[result] || ('Could not clear air: ' + result), 'error');
+  }
+
+  // ---------------------------------------------------------------------
+  // Interrupted sales
+  //
+  // A tank ran dry part-way through a pour. The customer was charged in full,
+  // so the sale is recorded in full -- but they may not have received what
+  // they paid for, and only a person standing there can settle that.
+  // ---------------------------------------------------------------------
+  let interrupted = [];
+
+  async function loadInterrupted() {
+    try {
+      const d = await (await fetch('/api/interrupted')).json();
+      interrupted = d.entries || [];
+      renderInterrupted();
+    } catch (e) { /* the panel is not worth breaking the till for */ }
+  }
+
+  function renderInterrupted() {
+    let h = '';
+    interrupted.forEach((it) => {
+      const at = String(it.date_created || '').slice(11, 16);
+      h += '<div class="interrupted-row">'
+         + '<div class="i-head"><span>' + it.name + '</span>'
+         + '<span>₱' + it.amount + (at ? ' · ' + at : '') + '</span></div>'
+         + '<div class="i-why">tank ran dry mid-pour — charged in full, '
+         + 'check the customer got their product</div>'
+         + '</div>';
+    });
+    $('interrupted-list').innerHTML = h;
+    if (h) $('attention-section').style.display = 'block';
   }
 
   // ---------------------------------------------------------------------
@@ -1930,6 +1975,8 @@ button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
   connectSSE();
   loadInfo();
   loadToday();
+  loadInterrupted();
+  setInterval(loadInterrupted, 60000);
   // The archive is only written when the uploader confirms a sale, so a slow
   // link means today's figure lands late rather than never. Re-read on a slow
   // beat as well as on each completed dispense.

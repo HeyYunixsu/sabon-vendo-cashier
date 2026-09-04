@@ -87,6 +87,21 @@ written from the record the cloud acknowledged, so the two cannot drift, and
 the dashboard reads it plus anything still queued - a day stays complete even
 if the link has been down since morning.
 
+### Interrupted sales
+
+| Key | Default | Description |
+|-----|---------|-------------|
+| `INTERRUPTED_LOG` | `<repo>/logs/interrupted_sales.jsonl` | Dispenses cut short by an empty tank: slot, amount charged, reason, time |
+
+When a tank runs dry part-way through a pour the controller closes the
+dispense immediately - records the sale at full price, frees the slot, and
+appends here. The dashboard shows today's entries under **Needs Attention** so
+staff can settle the partial pour with the customer.
+
+Full price is deliberate: it is what the customer was charged. Recording less
+would under-report revenue, and recording nothing - the old behaviour - left
+the drawer short with nothing to explain it.
+
 ### Prices
 
 | Key | Default | Description |

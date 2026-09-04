@@ -50,6 +50,10 @@ struct AppState {
     // Saved prices, rewritten whenever someone edits them on the dashboard.
     std::string pricesPath;
 
+    // Dispenses cut short by an empty tank. Charged in full because the
+    // customer was, but the pour was partial, so a person has to see it.
+    std::string interruptedLogPath;
+
     // Append-only record of every price change. A price edit changes what
     // every future sale is worth, so it must never be silent.
     std::string priceLogPath;

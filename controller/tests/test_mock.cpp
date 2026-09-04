@@ -26,11 +26,35 @@ void test_wiringPiSetupSys_returns_zero() {
 
 // ------------------------------------------------------- GPIO functions ---
 
-void test_digitalRead_always_returns_LOW() {
-    // Mock always returns LOW — simulates unpressed buttons / idle pins
-    CHECK_EQ(digitalRead(0),  LOW);
+void test_digitalRead_idles_high() {
+    // Buttons are wired GPIO -> GND, so LOW means pressed. The mock used to
+    // return LOW unconditionally while its comment claimed that was "idle" --
+    // exactly backwards. Every button read as held forever, the edge detector
+    // fired once at startup and never again, and no press could be simulated.
+    mock_release_all_buttons();
+    CHECK_EQ(digitalRead(0),  HIGH);
+    CHECK_EQ(digitalRead(14), HIGH);
+    CHECK_EQ(digitalRead(27), HIGH);
+}
+
+void test_a_pressed_button_reads_low() {
+    mock_release_all_buttons();
+    mock_set_button(14, true);
+
     CHECK_EQ(digitalRead(14), LOW);
-    CHECK_EQ(digitalRead(27), LOW);
+    CHECK_EQ(digitalRead(15), HIGH);   // its neighbour is unaffected
+
+    mock_set_button(14, false);
+    CHECK_EQ(digitalRead(14), HIGH);
+}
+
+void test_release_all_clears_every_button() {
+    mock_set_button(14, true);
+    mock_set_button(15, true);
+    mock_release_all_buttons();
+
+    CHECK_EQ(digitalRead(14), HIGH);
+    CHECK_EQ(digitalRead(15), HIGH);
 }
 
 void test_pinMode_does_not_crash() {
@@ -110,7 +134,9 @@ void run_mock_tests() {
     RUN_TEST(test_wiringPiSetupGpio_returns_zero);
     RUN_TEST(test_wiringPiSetupPhys_returns_zero);
     RUN_TEST(test_wiringPiSetupSys_returns_zero);
-    RUN_TEST(test_digitalRead_always_returns_LOW);
+    RUN_TEST(test_digitalRead_idles_high);
+    RUN_TEST(test_a_pressed_button_reads_low);
+    RUN_TEST(test_release_all_clears_every_button);
     RUN_TEST(test_pinMode_does_not_crash);
     RUN_TEST(test_digitalWrite_does_not_crash);
     RUN_TEST(test_pullUpDnControl_does_not_crash);

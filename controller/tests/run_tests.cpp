@@ -27,6 +27,9 @@ void run_prime_tests();
 // Per-client prices, audited on every change
 void run_price_tests();
 
+// A tank running dry mid-dispense
+void run_dry_tank_tests();
+
 // Socket protocol integration tests (Phase 9/10)
 void run_socket_integration_tests();
 
@@ -51,6 +54,7 @@ int main()
     run_logging_tests();
     run_prime_tests();
     run_price_tests();
+    run_dry_tank_tests();
 
     // Integration tests run last — they bind a real socket on port 9901
     run_socket_integration_tests();
