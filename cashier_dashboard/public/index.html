@@ -138,6 +138,14 @@ body {
   font-size: 32px; font-weight: 700; line-height: 1;
   color: var(--text-content-primary);
 }
+/* The machine state is a phrase, not a figure. At 32px "Buttons Unlocked"
+   dwarfs the card it sits in and pushes the row taller than the others. */
+.kpi-card .kpi-value.kpi-text {
+  font-size: 16px; line-height: 1.25;
+  /* Reserve the two lines the longest state needs, so the card does not
+     change height as the machine moves between states. */
+  min-height: 40px; display: flex; align-items: center;
+}
 .kpi-card .kpi-sub {
   font-size: 10px; color: var(--text-content-secondary); margin-top: 2px;
 }
@@ -539,6 +547,7 @@ main {
   .kpi-card { padding: 10px 12px; }
   .kpi-card .kpi-label { font-size: 9px; }
   .kpi-card .kpi-value { font-size: 24px; }
+  .kpi-card .kpi-value.kpi-text { font-size: 18px; min-height: 34px; }
   .kpi-card .kpi-sub { font-size: 9px; }
   .grid { grid-template-columns: repeat(2, 1fr); grid-template-rows: repeat(3, 1fr); gap: 8px; }
   .product-card { flex-direction: column; align-items: stretch; gap: 10px; padding: 12px; min-height: auto; }
@@ -577,6 +586,7 @@ main {
 @media (max-width: 480px) {
   .kpi-row { grid-template-columns: repeat(2, 1fr); gap: 6px; }
   .kpi-card .kpi-value { font-size: 22px; }
+  .kpi-card .kpi-value.kpi-text { font-size: 15px; min-height: 34px; }
   .grid { grid-template-rows: repeat(3, 1fr); }
   .product-card { flex-direction: column; align-items: stretch; gap: 8px; padding: 10px; min-height: auto; }
   .product-icon { width: 100%; max-width: none; aspect-ratio: auto; height: 64px; border-radius: 8px; }
@@ -630,7 +640,10 @@ button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
    every sale. Confining them to pointer devices means touch simply never
    applies them -- no sticking, and no half-styled control either. */
 @media (hover: hover) {
-  #theme-toggle:hover { border-color: var(--border-strong); color: var(--accent-action); }
+  #btn-settings:hover { border-color: var(--border-strong); color: var(--accent-action); }
+  #settings-close:hover, #today-close:hover {
+    border-color: var(--status-negative); color: var(--status-negative);
+  }
   .staged-card .staged-card-remove:hover { color: var(--status-negative); }
   .qty-stepper .stepper-btn:hover { background: var(--accent-action); color: #fff; }
   #sale-strip .btn-outline:hover { border-color: var(--accent-action); color: var(--accent-action); }
@@ -688,6 +701,17 @@ button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
    Things a cashier touches rarely: theme, maintenance, machine identity.
    Kept behind a gear so the main screen stays about selling.
    =================================================================== */
+/* The status bar is space-between, so the right-hand group is pinned to the
+   edge and anything that changes width pushes its siblings. The clock does
+   exactly that as digits change, which walked the gear icon left and right.
+   Fixed box, tabular figures, so it never reflows. */
+#last-update {
+  font-variant-numeric: tabular-nums;
+  min-width: 62px;
+  text-align: right;
+  white-space: nowrap;
+}
+
 #btn-settings {
   background: none; border: 1px solid var(--border-default);
   border-radius: var(--radius-element); color: var(--text-content-secondary);
@@ -783,11 +807,16 @@ button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
   font-size: 10px; line-height: 1.6;
   color: var(--text-content-secondary); margin-top: 8px;
 }
-#settings-close {
-  background: none; border: none; cursor: pointer;
+#settings-close, #today-close {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 32px; height: 32px; padding: 0;
+  background: none; cursor: pointer;
+  border: 1px solid var(--border-default);
+  border-radius: 50%;
   color: var(--text-content-secondary);
-  font-size: 26px; line-height: 1; padding: 0 4px;
+  transition: all .15s;
 }
+#settings-close svg, #today-close svg { width: 14px; height: 14px; display: block; }
 .sheet-body { padding: 4px 16px 16px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
 .sheet-group { padding: 14px 0; border-bottom: 1px solid var(--border-default); }
 .sheet-group:last-child { border-bottom: none; }
@@ -839,7 +868,7 @@ button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
 <div class="kpi-row" id="kpi-row">
   <div class="kpi-card"><div class="kpi-label">Waiting to Dispense</div><div class="kpi-value" id="kpi-armed">0</div><div class="kpi-sub">presses not yet used</div></div>
   <div class="kpi-card"><div class="kpi-label">In Stock</div><div class="kpi-value" id="kpi-active" style="color:var(--status-positive);">6</div><div class="kpi-sub" id="kpi-active-sub">of 6 products</div></div>
-  <div class="kpi-card"><div class="kpi-label">Machine</div><div class="kpi-value" id="kpi-bundle">Ready</div><div class="kpi-sub" id="kpi-bundle-sub">waiting for a sale</div></div>
+  <div class="kpi-card"><div class="kpi-label">Machine</div><div class="kpi-value kpi-text" id="kpi-bundle">Ready</div><div class="kpi-sub" id="kpi-bundle-sub">waiting for a sale</div></div>
   <div class="kpi-card" id="kpi-today-card" role="button" tabindex="0"><div class="kpi-label">Today</div><div class="kpi-value" id="kpi-today">0</div><div class="kpi-sub">tap to see takings</div></div>
 </div>
 
@@ -890,7 +919,7 @@ button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
 <div id="today-sheet" hidden role="dialog" aria-modal="true" aria-labelledby="today-title">
   <div class="sheet-head">
     <span id="today-title">Today</span>
-    <button id="today-close" aria-label="Close">&times;</button>
+    <button id="today-close" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 5l14 14M19 5L5 19"/></svg></button>
   </div>
   <div class="sheet-body">
     <div class="today-total">
@@ -907,7 +936,7 @@ button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
 <div id="settings-sheet" hidden role="dialog" aria-modal="true" aria-labelledby="settings-title">
   <div class="sheet-head">
     <span id="settings-title">Settings</span>
-    <button id="settings-close" aria-label="Close">&times;</button>
+    <button id="settings-close" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 5l14 14M19 5L5 19"/></svg></button>
   </div>
   <div class="sheet-body">
 
@@ -1090,7 +1119,16 @@ button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
       $('offline-banner').style.display = 'block';
     }
     $('pause-indicator').classList.toggle('hidden', !S.paused);
-    if (S.lastUpdate) $('last-update').textContent = S.lastUpdate.toLocaleTimeString('en-US', { hour12: false });
+    if (S.lastUpdate) {
+      // Built by hand rather than toLocaleTimeString: en-US with hour12:false
+      // drops the leading zero before 10am, so the field changed width twice a
+      // day and nudged everything beside it.
+      const d = S.lastUpdate;
+      $('last-update').textContent =
+          String(d.getHours()).padStart(2, '0') + ':'
+        + String(d.getMinutes()).padStart(2, '0') + ':'
+        + String(d.getSeconds()).padStart(2, '0');
+    }
   }
 
   function updateKPIs() {
