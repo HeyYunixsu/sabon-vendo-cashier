@@ -308,6 +308,62 @@ are wired opposite to the others. All six must be wired the same way.
 
 ---
 
+## 7b. Calibrate the pumps
+
+Separate from the water sensors, and easy to skip because nothing complains.
+`calibrateProductN` sets how many **seconds** the pump runs per press, which is
+what decides how much liquid the customer gets for their money.
+
+**If the key is absent the controller uses compiled-in defaults measured on a
+different machine.** It boots clean, the dashboard looks right, the logs look
+right, and every pour is the wrong size. Check what is actually loaded:
+
+```bash
+sudo pm2 logs 01_Dispenser_Controller --lines 30 --nostream | grep "Slot "
+```
+
+`RUN_MS` is the duration in milliseconds. The compiled defaults are
+`2777, 1363, 1250, 2000, 2000, 2000` — if you see exactly those, nothing has
+been calibrated on this machine.
+
+### Measuring
+
+Use **Clear Air** in the dashboard's Settings, which runs one pump for
+`PRIME_SECONDS` (default 3) without recording a sale.
+
+1. Put a measuring cup under the nozzle for the slot you are calibrating.
+2. Prime once first, to fill the tube — air in the line ruins the measurement.
+3. Empty the cup, tap **Clear Air** once more, and measure what comes out.
+4. Work out the seconds for the volume you sell:
+
+```
+seconds = PRODUCTn_ML / (measured_ml / PRIME_SECONDS)
+```
+
+Worked example: slot 3 sells 60 ml (`PRODUCT3_ML = 60`), a 3-second prime
+yields 45 ml. Flow is 45 / 3 = 15 ml/s, so `seconds = 60 / 15 = 4.0`:
+
+```
+calibrateProduct3 = (5, 4.0)
+```
+
+The first number is ignored when `PRICE3` is set — leave it at 5.
+
+5. Repeat per slot. They genuinely differ: pump, tube length and how thick the
+   liquid is all change the flow rate, which is why these cannot be copied
+   between machines.
+6. Restart and confirm the new values took:
+
+```bash
+sudo pm2 restart 01_Dispenser_Controller
+sudo pm2 logs 01_Dispenser_Controller --lines 30 --nostream | grep "Slot "
+```
+
+7. Verify by selling one press and measuring it. It should land within a few
+   millilitres of `PRODUCTn_ML`.
+
+---
+
 ## Upgrading an existing Pi
 
 A `git pull` alone is **not enough** if you are coming from before the rename.
