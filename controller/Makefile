@@ -22,7 +22,7 @@ else
     TEST_LDFLAGS =
 endif
 
-.PHONY: all clean test run
+.PHONY: all clean test run tools
 
 # -----------------------------------------------------------------------
 # Main binary
@@ -50,6 +50,7 @@ clean:
 	rm -f *.o src/*.o mock/*.o tests/*.o tests/obj/*.o \
 	      *.d src/*.d mock/*.d tests/*.d tests/obj/*.d \
 	      tests/test_runner tests/test_runner.exe \
+	      tools/test_buttons tools/test_buttons.exe \
 	      $(EXE) *.gch includes/*.gch src/*.gch
 	-rmdir tests/obj 2>/dev/null || true
 
@@ -95,6 +96,14 @@ mock/wiringPi.o: mock/wiringPi.cpp
 test: $(TEST_OBJS) $(TEST_MODULE_OBJS)
 	$(CC) -o $(TEST_RUNNER) $(TEST_OBJS) $(TEST_MODULE_OBJS) $(TEST_LDFLAGS)
 	./$(TEST_RUNNER)
+
+# Standalone hardware diagnostics. Not part of `all` -- they need real GPIO,
+# so they only build and run on the Pi.
+tools: tools/test_buttons
+	@echo "Built tools/test_buttons -- run with: sudo ./tools/test_buttons"
+
+tools/test_buttons: tools/test_buttons.cpp
+	$(CC) -std=c++17 -Wall -o $@ $< -lwiringPi
 
 # Header dependencies discovered by -MMD. Leading '-' so a missing .d on a
 # first build is not an error.
