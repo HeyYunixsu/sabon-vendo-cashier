@@ -170,7 +170,7 @@ body {
 }
 #sale-strip .staged-card {
   display: grid; grid-template-columns: 1fr 22px;
-  grid-template-rows: auto auto;
+  grid-template-rows: auto auto auto;
   align-items: center;
   background: var(--bg-surface-secondary);
   border: 1px solid var(--accent-action); border-radius: 8px;
@@ -190,37 +190,22 @@ body {
   grid-column: 2; grid-row: 1 / 3;
   background: none; border: none; color: var(--text-content-secondary);
   cursor: pointer; font-size: 16px; line-height: 1;
-  padding: 4px; text-align: center; align-self: center;
+  padding: 4px; text-align: center; align-self: start;
+}
+.staged-card .staged-card-steps {
+  grid-column: 1 / 3; grid-row: 3;
+  display: flex; gap: 6px; margin-top: 6px;
+}
+.staged-card .staged-step {
+  flex: 1; height: 34px;
+  background: var(--bg-surface-tertiary); color: var(--text-content-primary);
+  border: 1px solid var(--border-default); border-radius: 6px;
+  font-size: 18px; font-weight: 700; line-height: 1; cursor: pointer;
+  font-family: 'Poppins', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 }
 .sale-controls {
   display: flex; align-items: center; gap: 10px; flex-shrink: 0;
 }
-.qty-stepper {
-  display: flex; align-items: center; gap: 0;
-  border: 1px solid var(--border-default); border-radius: 8px; overflow: hidden;
-  height: 44px; flex-shrink: 0;
-}
-.qty-stepper .stepper-btn {
-  width: 38px; height: 100%; border: none;
-  border-radius: 0; background: var(--bg-surface-tertiary);
-  color: var(--text-content-primary); cursor: pointer;
-  font-size: 18px; font-weight: 700; display: flex; align-items: center;
-  justify-content: center; font-family: 'Poppins', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  transition: all .15s;
-}
-.qty-stepper .stepper-btn:disabled { opacity: .25; pointer-events: none; }
-.qty-stepper input {
-  width: 48px; height: 100%; background: var(--bg-surface-secondary);
-  border: none; border-left: 1px solid var(--border-default);
-  border-right: 1px solid var(--border-default);
-  padding: 0 2px; color: var(--text-content-primary);
-  font-family: 'Poppins', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  font-size: 18px; font-weight: 700;
-  text-align: center; outline: none;
-  -moz-appearance: textfield;
-}
-.qty-stepper input::-webkit-outer-spin-button,
-.qty-stepper input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 #sale-strip .btn, #sale-strip .btn-confirm {
   height: 44px; padding: 0 18px; font-size: 13px; font-weight: 600;
   border-radius: 8px; line-height: 1;
@@ -587,8 +572,6 @@ main {
     flex-wrap: wrap; width: 100%; flex: 1 1 100%;
     gap: 8px; justify-content: flex-start;
   }
-  .qty-stepper { order: 1; }
-  #btn-stage { order: 2; flex: 1 1 auto; }
   #btn-clear-sale { order: 3; flex: 1 1 auto; }
   #btn-arm { order: 4; flex: 1 1 90px; }
   .sale-total { order: 5; flex: 0 0 auto; margin-left: auto; align-self: center; }
@@ -611,7 +594,6 @@ main {
   .btn { font-size: 12px; padding: 10px 14px; }
   .section-label { font-size: 10px; }
   #status-bar { font-size: 10px; }
-  .qty-stepper input { font-size: 16px; }
   .toast { font-size: 12px; padding: 10px 16px; }
 }
 
@@ -631,7 +613,7 @@ main {
 html, body { touch-action: manipulation; }
 
 button, input, select, textarea, a,
-.btn, .stepper-btn, .qty-stepper,
+.btn,
 .product-card, .kpi-card, .staged-card, .staged-card-remove,
 .list-row, .tab, .chip {
   touch-action: manipulation;
@@ -639,7 +621,7 @@ button, input, select, textarea, a,
 
 /* Double-tapping text selects it and flashes a highlight before the zoom is
    suppressed. Controls are not meant to be selectable. */
-button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
+button, .btn, .product-card, .kpi-card, .staged-card, .tab {
   -webkit-user-select: none;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
@@ -656,7 +638,6 @@ button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
     border-color: var(--status-negative); color: var(--status-negative);
   }
   .staged-card .staged-card-remove:hover { color: var(--status-negative); }
-  .qty-stepper .stepper-btn:hover { background: var(--accent-action); color: #fff; }
   #sale-strip .btn-outline:hover { border-color: var(--accent-action); color: var(--accent-action); }
   .product-card:hover { border-color: var(--border-strong); transform: translateY(-1px); }
   .btn-remove:hover { border-color: var(--status-negative); color: var(--status-negative); }
@@ -927,12 +908,6 @@ button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
 <div id="sale-strip">
   <div id="staged-items"><span class="muted">Tap a product, then set how many</span></div>
   <div class="sale-controls">
-    <div class="qty-stepper" id="qty-stepper">
-      <button class="stepper-btn" id="stepper-down">−</button>
-      <input type="text" id="qty-value" value="1" inputmode="numeric" pattern="[0-9]*" readonly>
-      <button class="stepper-btn" id="stepper-up">+</button>
-    </div>
-    <button id="btn-stage" class="btn btn-outline" disabled>Add</button>
     <button id="btn-clear-sale" class="btn btn-outline">Clear List</button>
     <button id="btn-arm" class="btn btn-primary" disabled>Unlock Buttons</button>
     <div id="sale-total" class="sale-total">0 presses</div>
@@ -1073,7 +1048,7 @@ button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
     phase: 0, bundleComplete: false,
     lastUpdate: null, connected: false,
   };
-  let selProduct = null, multiSelect = false, staged = [], unclaimed = [], saleCtr = 0, currentQty = 1;
+  let selProduct = null, multiSelect = false, staged = [], unclaimed = [], saleCtr = 0;
   let prevArmed = new Array(TOTAL + 1).fill(0);
   let prevBusy  = new Array(TOTAL + 1).fill(false);
   let prevArmedQty = new Array(TOTAL + 1).fill(0); // pulse-on-arm detection
@@ -1108,7 +1083,6 @@ button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
         staged = []; selProduct = null; multiSelect = false; unclaimed = [];
         loadToday();   // authoritative, and survives the reload that cleared the rest
         renderStaged(); updateArm();
-        $('btn-stage').disabled = true; currentQty = 1; $('qty-value').value = 1;
         refresh(); return;
       }
       if (e.data.startsWith('PRIME_ACK')) { onPrimeAck(e.data); return; }
@@ -1343,9 +1317,7 @@ button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
     stageItem(id, 1);
   }
 
-  function enableQtyStepper() { $('btn-stage').disabled = false; }
-  function stageItem(id, qtyOverride) {
-    const qty = qtyOverride != null ? qtyOverride : currentQty;
+  function stageItem(id, qty) {
     const ml = qty * (PRODUCT_ML[id] || 0);
     // Merge: if product already staged, add to existing qty
     const existing = staged.find(it => it.id === id);
@@ -1354,13 +1326,38 @@ button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
     renderStaged(); renderGrid(); updateArm();
   }
   function removeStaged(i) { staged.splice(i,1); renderStaged(); updateArm(); }
+  // Down to zero removes the item. A staged card showing 0x would be a thing
+  // the cashier has to tidy up by hand for no reason.
+  function adjustStaged(id, delta) {
+    const i = staged.findIndex(x => x.id === id);
+    if (i < 0) return;
+    const it = staged[i];
+    const next = it.qty + delta;
+    if (next < 1) { staged.splice(i, 1); }
+    else if (next > MAX_QTY) {
+      toast('Maximum ' + MAX_QTY + ' presses per product', 'caution');
+      return;
+    } else {
+      it.qty = next;
+      it.ml = next * (PRODUCT_ML[id] || 0);
+    }
+    renderStaged(); renderGrid(); updateArm();
+  }
   function renderStaged() {
     if (!staged.length) { $('staged-items').innerHTML = '<span class="muted">Tap a product, then set how many</span>'; $('sale-total').textContent = '0 presses'; return; }
     let pesos = 0, priced = true;
     let h = '', totalQty = 0;
     staged.forEach((it, i) => {
       totalQty += it.qty;
-      h += '<div class="staged-card"><button class="staged-card-remove" data-idx="'+i+'">&times;</button><span class="staged-card-name">'+it.name+'</span><span class="staged-card-qty">'+it.qty+'\xD7 \xB7 '+it.ml+'ml</span></div>';
+      h += '<div class="staged-card">'
+         + '<button class="staged-card-remove" data-idx="'+i+'">&times;</button>'
+         + '<span class="staged-card-name">'+it.name+'</span>'
+         + '<span class="staged-card-qty">'+it.qty+'\xD7 \xB7 '+it.ml+'ml</span>'
+         + '<div class="staged-card-steps">'
+         + '<button class="staged-step" data-id="'+it.id+'" data-delta="-1" aria-label="One less">&minus;</button>'
+         + '<button class="staged-step" data-id="'+it.id+'" data-delta="1" aria-label="One more">+</button>'
+         + '</div>'
+         + '</div>';
     });
     staged.forEach((it) => {
       if (prices[it.id] == null) priced = false;
@@ -1373,7 +1370,6 @@ button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
     // one for the other.
     const presses = totalQty + ' press' + (totalQty !== 1 ? 'es' : '');
     $('sale-total').textContent = priced ? '₱' + pesos + ' · ' + presses : presses;
-    $('staged-items').querySelectorAll('.staged-card-remove').forEach(b => b.addEventListener('click', () => removeStaged(+b.dataset.idx)));
   }
   function updateArm() {
     $('btn-arm').disabled = !staged.length;
@@ -1394,7 +1390,7 @@ button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
       const d = await r.json();
       if (d.success) {
         toast('Buttons unlocked: '+staged.map(i=>i.name+' ('+i.qty+'x)').join(', '), 'success');
-        staged = []; selProduct = null; $('btn-stage').disabled = true; currentQty = 1; $('qty-value').value = 1;
+        staged = []; selProduct = null;
         renderStaged(); renderGrid(); updateArm();
       } else {
         toast('Could not unlock: '+ (d.error || 'unknown'), 'error');
@@ -1952,25 +1948,14 @@ button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
   $('offline-retry').addEventListener('click', () => { connectSSE(); });
 
   // Sale events
-  // Stepper buttons
-  $('stepper-up').addEventListener('click', () => {
-    currentQty = Math.min(currentQty + 1, MAX_QTY);
-    $('qty-value').value = currentQty;
-  });
-  $('stepper-down').addEventListener('click', () => {
-    currentQty = Math.max(currentQty - 1, 1);
-    $('qty-value').value = currentQty;
-  });
-
-  // Stage button
-  $('btn-stage').addEventListener('click', () => {
-    if (multiSelect) {
-      const qty = currentQty;
-      for (let s = 1; s <= ACTIVE; s++) { if (!S.wlvl[s]) stageItem(s, qty); }
-      multiSelect = false; renderGrid();
-    } else if (selProduct !== null) {
-      stageItem(selProduct);
-    }
+  // Staged cards: -/+ steppers and the remove (x) button are both rebuilt on
+  // every renderStaged(), so bind once on the stable parent instead of on the
+  // buttons themselves.
+  $('staged-items').addEventListener('click', (ev) => {
+    const step = ev.target.closest('.staged-step');
+    if (step) { adjustStaged(+step.dataset.id, +step.dataset.delta); return; }
+    const rm = ev.target.closest('.staged-card-remove');
+    if (rm) { removeStaged(+rm.dataset.idx); return; }
   });
 
   // Select All
@@ -1985,7 +1970,6 @@ button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
   // Clear
   $('btn-clear-sale').addEventListener('click', () => {
     staged = []; selProduct = null; multiSelect = false;
-    $('btn-stage').disabled = true; currentQty = 1; $('qty-value').value = 1;
     renderStaged(); renderGrid(); updateArm();
   });
 
