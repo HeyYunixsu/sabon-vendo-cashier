@@ -54,6 +54,11 @@ struct AppState {
     // customer was, but the pour was partial, so a person has to see it.
     std::string interruptedLogPath;
 
+    // Credits a customer paid for that never became product -- expired or
+    // cancelled. Outside transactionDir on purpose: the uploader POSTs every
+    // file in there as a sale, which would book these as revenue.
+    std::string unclaimedLogPath;
+
     // Append-only record of every price change. A price edit changes what
     // every future sale is worth, so it must never be silent.
     std::string priceLogPath;

@@ -306,6 +306,9 @@ void pump_setup(AppState &state) {
     if (config.count("INTERRUPTED_LOG")) state.interruptedLogPath = config["INTERRUPTED_LOG"];
     else state.interruptedLogPath = binDir + "/../logs/interrupted_sales.jsonl";
 
+    if (config.count("UNCLAIMED_LOG")) state.unclaimedLogPath = config["UNCLAIMED_LOG"];
+    else state.unclaimedLogPath = binDir + "/../logs/unclaimed_credits.jsonl";
+
     if (config.count("PRICES_FILE")) state.pricesPath = config["PRICES_FILE"];
     else state.pricesPath = binDir + "/../CONFIG/prices.conf";
 
@@ -417,16 +420,27 @@ void pump_loop(AppState &state) {
         prevArmedQty[i] = state.armedQty[i];
     }
 
-    // 1c. 2-minute timeout — clear expired armed slots
+    // 1c. Arm timeout — write off and record expired armed slots
     for (int i = 1; i <= TOTAL_SLOTS; i++) {
         if (state.armedQty[i] > 0 && !state.slotBusy[i]) {
             auto armedFor = std::chrono::duration_cast<std::chrono::seconds>(
                 current_time - pumps[i].armTimestamp).count();
             if (armedFor >= state.armTimeoutSeconds) {
-                log_info("pump", "Slot " + std::to_string(i) + ": TIMEOUT  refunded "
-                          + std::to_string(state.armedQty[i]) + " credits");
+                // Queued credits were paid for exactly like the armed ones,
+                // so they are counted before the queue is thrown away.
+                int lost = state.armedQty[i];
+                while (!state.pendingQueue[i].empty()) {
+                    lost += state.pendingQueue[i].front().qty;
+                    state.pendingQueue[i].pop();
+                }
+
+                // This said "refunded" for as long as the code existed, and
+                // nothing was ever refunded.
+                log_info("pump", "Slot " + std::to_string(i) + ": TIMEOUT  wrote off "
+                          + std::to_string(lost) + " credits");
+                pump_record_unclaimed(state, i, lost, "timeout");
+
                 state.armedQty[i] = 0;
-                while (!state.pendingQueue[i].empty()) state.pendingQueue[i].pop();
                 saveStateToDisk(state, state.transactionDir);
             }
         }
@@ -522,6 +536,23 @@ static void appendInterruptedLog(AppState &state, int slot, double amount)
       << "," << q("reason")     << ":" << q("tank_empty")
       << "," << q("date_created") << ":" << q(format_current_time()) << "}";
     appendJsonLine(state.interruptedLogPath, j.str());
+}
+
+// Money is already in the drawer for these. Recording the qty and the price at
+// the time means a written-off credit still reconciles against the till later,
+// even after prices move.
+void pump_record_unclaimed(AppState &state, int slot, int qty, const std::string &reason)
+{
+    if (qty <= 0) return;
+
+    std::ostringstream j;
+    j << "{" << q("machine_id") << ":" << q(state.machineId)
+      << "," << q("slot")   << ":" << q(std::to_string(slot))
+      << "," << q("qty")    << ":" << qty
+      << "," << q("amount") << ":" << (qty * pump_get_price(slot))
+      << "," << q("reason") << ":" << q(reason)
+      << "," << q("date_created") << ":" << q(format_current_time()) << "}";
+    appendJsonLine(state.unclaimedLogPath, j.str());
 }
 
 const char *prime_result_text(PrimeResult r)

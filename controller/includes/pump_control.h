@@ -65,6 +65,10 @@ PriceResult pump_set_price(AppState &state, int slot, int pesos);
 const char *price_result_text(PriceResult r);
 int pump_get_price(int slot);
 
+// Records credits that were paid for but never dispensed. reason is "timeout"
+// or "cancelled". Called from the socket server as well as the pump loop.
+void pump_record_unclaimed(AppState &state, int slot, int qty, const std::string &reason);
+
 // Return every pump to its power-on state. pump_setup() calls this; tests call
 // it to get a clean slate, because pump state lives in module statics that
 // would otherwise leak between cases.
