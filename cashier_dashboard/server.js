@@ -432,6 +432,12 @@ app.post('/api/unclaimed/resolve', (req, res) => {
   const { key, action } = req.body;
   if (!key) return res.status(400).json({ success: false, error: 'missing key' });
 
+  // Only these two are handled below. Anything else -- a typo, a client bug,
+  // or the field being omitted -- must not fall through to being marked
+  // resolved: that would silently write off a credit nobody actually settled.
+  if (action !== 'rearm' && action !== 'writeoff')
+    return res.status(400).json({ success: false, error: 'bad action' });
+
   if (action === 'rearm') {
     const slot = parseInt(String(key).split('|')[0], 10);
     const qty = parseInt(req.body.qty, 10) || 1;

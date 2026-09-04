@@ -51,7 +51,7 @@ sabon-vendo-cashier/
 │   ├── server.js                    # Node.js Express server (port 80)
 │   ├── package.json                 # Single dependency: express ^4.21.0
 │   ├── CASHIER_DASHBOARD.md         # Older dashboard doc (some sections outdated)
-│   ├── .unclaimed_sales.json        # Persisted unclaimed sales (auto-created)
+│   ├── .resolved_credits.json       # Which unclaimed credits are settled (auto-created)
 │   ├── pm2-dashboard.log            # PM2 log (auto-created)
 │   │
 │   └── public/
@@ -135,7 +135,7 @@ A Node.js Express server (port 80) that:
 - Maintains a persistent TCP connection to `controller` (port 8080)
 - Proxies ARM/CANCEL commands from browser → controller over TCP
 - Broadcasts controller STATUS lines to all browsers via SSE
-- Tracks unclaimed sales (persisted to disk)
+- Reads the controller's unclaimed-credits log and settles entries against it
 - Provides a QR code endpoint for phone access
 
 ### 5.2 TCP Proxy to controller
@@ -159,9 +159,8 @@ Browser ──HTTP POST──► server.js ──TCP write──► controller (
 
 On client connect:
 1. Sends `data: connected\n\n` — triggers a full client-side state reset
-2. Pushes any existing unclaimed sales as `UNCLAIMED:slot,qty,timestamp`
-3. Starts a 15-second keep-alive heartbeat (`:keepalive\n\n`) to prevent browser timeout
-4. On `req.on('close')`: clears the keep-alive interval, removes client from `sseClients` Set
+2. Starts a 15-second keep-alive heartbeat (`:keepalive\n\n`) to prevent browser timeout
+3. On `req.on('close')`: clears the keep-alive interval, removes client from `sseClients` Set
 
 Thereafter, every `STATUS` line from controller is forwarded verbatim to all
 connected SSE clients, along with any `PRIME_ACK,<slot>,<result>` line so the
@@ -177,10 +176,11 @@ page can report why a prime was refused rather than appearing to do nothing.
 | `POST` | `/api/cancel` | `{productId}` | `{success}` | Cancel one armed slot |
 | `POST` | `/api/cancel-all` | `{}` | `{success}` | Cancel ALL armed slots + queues |
 | `POST` | `/api/cancel-queue` | `{productId}` | `{success}` | Clear pending queue for one slot |
-| `POST` | `/api/unclaimed/resolve` | `{slot, qty, action}` | `{success}` | Retry or dismiss unclaimed sale |
+| `GET` | `/api/unclaimed` | — | `{entries}` | Today's timed-out unclaimed credits |
+| `POST` | `/api/unclaimed/resolve` | `{key, action, qty}` | `{success}` | Settle one unclaimed credit (`rearm` or `writeoff`) |
 | `POST` | `/api/prime` | `{slot}` | `{success, slot, seconds}` | Run one pump briefly to clear air. **Records no sale** |
 | `GET` | `/api/prime` | — | `{seconds, today, todayTotal}` | Today's prime count per slot, read from `PRIME_LOG` |
-| `GET` | `/api/status/stream` | — | SSE stream | Live STATUS + UNCLAIMED events |
+| `GET` | `/api/status/stream` | — | SSE stream | Live STATUS |
 | `GET` | `/qr` | — | 302 redirect | QR code of LAN URL |
 
 **`/api/arm` — Batch mode (preferred):**
@@ -234,15 +234,23 @@ extend a waiting customer's run.
 
 **Double-click guard:** `processedSaleIds` is a Set of sale IDs. Duplicate `saleId` values return `{success: false, duplicate: true}`. The set is trimmed to 500 entries when it exceeds 1000.
 
-### 5.5 Unclaimed Sales
+### 5.5 Unclaimed Credits
 
-When a sale can't be completed (e.g., machine goes offline mid-transaction):
-- Stored in memory: `unclaimedSales[]` — each entry is `{slot, qty, time}`
-- Persisted to disk: `.unclaimed_sales.json` (loaded on startup)
-- Pushed to SSE clients: `UNCLAIMED:slot,qty,timestamp`
-- Resolved via `/api/unclaimed/resolve` with action `"retry"` (re-arms) or `"dismiss"` (removes)
-
-**Note:** The `amount` field was removed — qty is now a direct press count, not a peso amount.
+A credit is paid for but never dispensed — the customer's press timed out, or
+they cancelled before pressing:
+- The controller appends each one to `UNCLAIMED_LOG` (default
+  `logs/unclaimed_credits.jsonl`), an append-only JSONL log, with `reason` of
+  `timeout` or `cancelled`.
+- `GET /api/unclaimed` reads that log and returns only today's `timeout`
+  entries — a `cancelled` entry is recorded for review but deliberately does
+  not raise a row, or routine cancels would train staff to dismiss the panel
+  and hide the timeouts that matter.
+- Resolved via `POST /api/unclaimed/resolve` with `{key, action}`, where
+  `action` is `"rearm"` (re-arms the slot; no money changes hands, the
+  customer already paid) or `"writeoff"` (accepts the loss and dismisses the
+  row).
+- Settled keys persist to `cashier_dashboard/.resolved_credits.json`, since
+  the log itself is append-only and owned by the controller.
 
 ---
 

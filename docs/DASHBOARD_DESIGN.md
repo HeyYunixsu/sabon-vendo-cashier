@@ -24,7 +24,7 @@ cashier_dashboard/
 ├── server.js                    # Node.js Express server (port 80)
 ├── package.json                 # Only dependency: express ^4.21.0
 ├── CASHIER_DASHBOARD.md         # This file
-├── .unclaimed_sales.json        # Persisted unclaimed sales (auto-created)
+├── .resolved_credits.json       # Which unclaimed credits are settled (auto-created)
 ├── pm2-dashboard.log            # PM2 log (auto-created)
 └── public/
     ├── index.html               # THE ENTIRE UI — HTML + CSS + JS in one file (~1068 lines)
@@ -75,9 +75,8 @@ The server maintains a persistent TCP connection to `controller`. It acts as a *
 
 **Endpoint:** `GET /api/status/stream`
 
-Every connected browser gets a persistent SSE stream. On first connect:
-1. Sends `data: connected\n\n` (triggers a full client-side state reset)
-2. Pushes any existing unclaimed sales
+Every connected browser gets a persistent SSE stream. On first connect it sends
+`data: connected\n\n` (triggers a full client-side state reset).
 
 Thereafter, every `STATUS` line from controller is forwarded verbatim to all SSE clients.
 
@@ -89,7 +88,8 @@ Thereafter, every `STATUS` line from controller is forwarded verbatim to all SSE
 | `POST` | `/api/cancel` | `{productId}` | Cancel one armed slot |
 | `POST` | `/api/cancel-all` | `{}` | Cancel ALL armed slots + clear all queues |
 | `POST` | `/api/cancel-queue` | `{productId}` | Clear pending queue for one slot |
-| `POST` | `/api/unclaimed/resolve` | `{slot, qty, action}` | Retry or dismiss unclaimed sale |
+| `GET` | `/api/unclaimed` | — | Today's timed-out unclaimed credits |
+| `POST` | `/api/unclaimed/resolve` | `{key, action, qty}` | Settle one unclaimed credit (`rearm` or `writeoff`) |
 | `GET` | `/qr` | — | Redirects to a QR code of the LAN URL |
 | `GET` | `/api/status/stream` | — | SSE stream for live STATUS |
 
@@ -99,14 +99,24 @@ Thereafter, every `STATUS` line from controller is forwarded verbatim to all SSE
 
 **Double-click guard:** `processedSaleIds` Set stores sale IDs. Duplicate sale IDs are rejected with `{success: false, duplicate: true}`. The Set is trimmed when it exceeds 1000 entries.
 
-### 3.5 Unclaimed Sales
+### 3.5 Unclaimed Credits
 
-When a sale is armed but something goes wrong (e.g. machine goes offline mid-transaction), the sale is tracked in:
-- **In-memory:** `unclaimedSales[]` array
-- **On-disk:** `.unclaimed_sales.json` (survives server restarts)
-- **SSE:** Pushed to all connected browsers as `UNCLAIMED:<slot>,<qty>,<timestamp>`
+A credit is paid for but never dispensed — the customer's press timed out, or
+they cancelled before pressing. The controller appends each one to
+`UNCLAIMED_LOG` (default `logs/unclaimed_credits.jsonl`) as an append-only
+JSONL log, with a `reason` of `timeout` or `cancelled`.
 
-The dashboard shows these in the "Attention" section with Retry/Dismiss buttons.
+- `GET /api/unclaimed` reads that log and returns only today's `timeout`
+  entries. A `cancelled` entry is recorded for review but deliberately does
+  not raise a row — routine cancels would train staff to dismiss the panel
+  and hide the timeouts that matter.
+- `POST /api/unclaimed/resolve` settles one entry by `key` with `rearm`
+  (re-arms the slot; no money changes hands, the customer already paid) or
+  `writeoff` (accepts the loss and dismisses the row).
+- Settled keys persist in `cashier_dashboard/.resolved_credits.json`, since
+  the log itself is append-only and owned by the controller.
+
+The dashboard shows these in the "Needs Attention" section.
 
 ### 3.6 LAN URL & QR Code
 

@@ -33,5 +33,8 @@ controller/tests/test_runner
 # prime / purge events -- machine-local operational record, not source
 logs/
 
+# which unclaimed credits a cashier has settled -- per-deployment, like config.env
+cashier_dashboard/.resolved_credits.json
+
 # editor workspace files (local, per-developer)
 *.code-workspace
