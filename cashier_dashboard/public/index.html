@@ -356,6 +356,16 @@ main {
 .product-card .armed-qty.is-selected { color: var(--accent-action); }
 .product-card .armed-qty.is-busy   { color: var(--status-caution); }
 
+.product-card .staged-badge {
+  position: absolute; top: 6px; right: 6px;
+  min-width: 24px; height: 24px; padding: 0 7px;
+  border-radius: 12px;
+  background: var(--accent-action); color: #fff;
+  font-size: 13px; font-weight: 700; line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+  pointer-events: none;   /* the tap belongs to the card underneath */
+}
+
 .product-card .status-row {
   display: flex; align-items: center;
   gap: 6px; margin-top: 2px; font-size: 10px; font-weight: 500;
@@ -534,6 +544,7 @@ main {
 #toast.visible { opacity: 1; transform: translateX(-50%) translateY(0); }
 #toast.success { border-color: var(--status-positive); color: var(--status-positive); }
 #toast.error   { border-color: var(--status-negative); color: var(--status-negative); }
+#toast.caution { border-color: var(--status-caution); color: var(--status-caution); }
 
 /* ===================================================================
    RESPONSIVE
@@ -1191,35 +1202,36 @@ button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
     // innerHTML destroys the card under the user's finger, and a click only
     // fires if press and release land on the same element -- so a tap that
     // spanned a redraw was silently swallowed. Redraw only on real change.
-    let sig = selProduct + '|' + multiSelect;
+    let sig = '';
     for (let s = 1; s <= TOTAL; s++)
-      sig += '|' + (S.armedQty[s] || 0) + S.busy[s] + S.wlvl[s];
+      sig += '|' + (S.armedQty[s] || 0) + S.busy[s] + S.wlvl[s] + ':' + stagedQty(s);
     if (sig === gridSig) return;
     gridSig = sig;
 
     let h = '';
     for (let s = 1; s <= TOTAL; s++) {
       const act = s <= ACTIVE, armed = S.armedQty[s] || 0, busy = S.busy[s],
-            empty = S.wlvl[s], sel = multiSelect ? (!empty && act) : (selProduct === s);
+            empty = S.wlvl[s], inSale = stagedQty(s);
       let cls = 'product-card';
       if (!act) cls += ' inactive'; else if (busy) cls += ' busy';
-      else if (empty) cls += ' empty'; else if (armed > 0 && !sel) cls += ' armed';
-      if (sel) cls += ' selected';
+      else if (empty) cls += ' empty'; else if (armed > 0 && !inSale) cls += ' armed';
+      if (inSale) cls += ' selected';
 
       let dotHtml, dotColor;
       if (!act)      { dotHtml = '<span class="dot dot-neutral"></span> N/A';      dotColor = 'var(--text-content-secondary)'; }
       else if (busy) { dotHtml = '<span class="dot dot-caution"></span> Dispensing'; dotColor = 'var(--status-caution)'; }
       else if (empty){ dotHtml = '<span class="dot dot-negative"></span> Empty';   dotColor = 'var(--status-negative)'; }
-      else if (sel)  { dotHtml = '<span class="dot dot-accent"></span> Selected';  dotColor = 'var(--accent-action)'; }
+      else if (inSale) { dotHtml = '<span class="dot dot-accent"></span> In sale';   dotColor = 'var(--accent-action)'; }
       else if (armed){ dotHtml = '<span class="dot dot-positive"></span> Unlocked'; dotColor = 'var(--status-positive)'; }
       else           { dotHtml = '<span class="dot dot-neutral"></span> Ready';    dotColor = 'var(--text-content-secondary)'; }
 
       const justArmed = act && !prevArmedQty[s] && armed > 0;
       prevArmedQty[s] = armed;
-      const qCls = !act || armed === 0 ? 'is-zero' : (busy ? 'is-busy' : (sel ? 'is-selected' : 'is-armed'));
+      const qCls = !act || armed === 0 ? 'is-zero' : (busy ? 'is-busy' : (inSale ? 'is-selected' : 'is-armed'));
       const pulseCls = justArmed ? ' pulse-arm' : '';
 
       h += '<div class="'+cls+'" data-slot="'+s+'" data-product="'+s+'">';
+      if (inSale) h += '<div class="staged-badge">'+inSale+'</div>';
       h += '<div class="product-icon">'+PRODUCT_ICON[s]+'</div>';
       h += '<div class="text-panel">';
       h += '<div class="slot-num">SLOT '+String(s).padStart(2,'0')+'</div>';
@@ -1229,9 +1241,6 @@ button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
       h += '</div></div>';
     }
     $('grid-container').innerHTML = h;
-    // Safe to do here: the signature above includes multiSelect, so this runs
-    // on every change to it.
-    $('btn-select-all').textContent = multiSelect ? 'Unselect All' : 'Select All Products';
   }
 
   // Right panel
@@ -1316,21 +1325,22 @@ button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
   }
 
   // Sale
-  // Tapping the highlighted card again clears it. Without this the only way
-  // out of a selection was Clear List, which also throws away everything
-  // already staged -- far too blunt for "I picked the wrong one".
-  function selectProduct(id) {
-    if (!multiSelect && selProduct === id) { clearSelection(); return; }
-    multiSelect = false; selProduct = id;
-    renderGrid();
-    $('btn-stage').disabled = false;
+  // How many presses of this product are already in the sale. Drives both the
+  // card badge and the +/- controls.
+  function stagedQty(id) {
+    const it = staged.find(x => x.id === id);
+    return it ? it.qty : 0;
   }
 
-  // Clears only the highlight. Staged items are untouched.
-  function clearSelection() {
-    selProduct = null; multiSelect = false;
-    renderGrid();
-    $('btn-stage').disabled = true;
+  // One tap adds one press. Tapping again adds another -- stageItem merges by
+  // product id, so the sale strip shows one card with a rising count rather
+  // than a row per tap. Removing is the x on the staged card, or - at one.
+  function selectProduct(id) {
+    if (stagedQty(id) >= MAX_QTY) {
+      toast('Maximum ' + MAX_QTY + ' presses per product', 'caution');
+      return;
+    }
+    stageItem(id, 1);
   }
 
   function enableQtyStepper() { $('btn-stage').disabled = false; }
@@ -1341,7 +1351,6 @@ button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
     const existing = staged.find(it => it.id === id);
     if (existing) { existing.qty += qty; existing.ml += ml; }
     else { staged.push({ id, name: PRODUCT[id], qty, ml }); }
-    selProduct = null; $('btn-stage').disabled = true; currentQty = 1; $('qty-value').value = 1;
     renderStaged(); renderGrid(); updateArm();
   }
   function removeStaged(i) { staged.splice(i,1); renderStaged(); updateArm(); }
@@ -1966,10 +1975,11 @@ button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
 
   // Select All
   $('btn-select-all').addEventListener('click', () => {
-    if (multiSelect) { clearSelection(); return; }
-    multiSelect = true; selProduct = null;
-    renderGrid();
-    enableQtyStepper();
+    for (let s = 1; s <= ACTIVE; s++) {
+      if (S.wlvl[s]) continue;                    // tank empty
+      if (stagedQty(s) >= MAX_QTY) continue;
+      stageItem(s, 1);
+    }
   });
 
   // Clear
