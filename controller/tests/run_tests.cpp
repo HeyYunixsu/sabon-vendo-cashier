@@ -30,6 +30,9 @@ void run_price_tests();
 // A tank running dry mid-dispense
 void run_dry_tank_tests();
 
+// Armed credits that time out unclaimed
+void run_unclaimed_tests();
+
 // Socket protocol integration tests (Phase 9/10)
 void run_socket_integration_tests();
 
@@ -55,6 +58,7 @@ int main()
     run_prime_tests();
     run_price_tests();
     run_dry_tank_tests();
+    run_unclaimed_tests();
 
     // Integration tests run last — they bind a real socket on port 9901
     run_socket_integration_tests();

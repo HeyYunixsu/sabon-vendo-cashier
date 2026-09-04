@@ -3,6 +3,11 @@
 
 #include "app_state.h"
 
+// Parses ARM_TIMEOUT_SECONDS and clamps it to 30..1800. Returns 300 for
+// anything unparseable. Exposed so the clamp can be tested without a
+// config.env on disk.
+int clamp_arm_timeout(const std::string &raw);
+
 // Initialise GPIO, ISRs, load config.env into state, create transaction dir.
 void pump_setup(AppState &state);
 

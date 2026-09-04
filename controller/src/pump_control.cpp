@@ -259,6 +259,20 @@ void pump_reset_state() {
     g_last_pump_start = now - std::chrono::seconds(1);
 }
 
+int clamp_arm_timeout(const std::string &raw)
+{
+    int v = 300;
+    try {
+        v = std::stoi(raw);
+    } catch (const std::exception &) {
+        log_error("pump", "ARM_TIMEOUT_SECONDS is not a number - using 300");
+        return 300;
+    }
+    if (v < 30)   { log_error("pump", "ARM_TIMEOUT_SECONDS below 30 - using 30");     return 30;   }
+    if (v > 1800) { log_error("pump", "ARM_TIMEOUT_SECONDS above 1800 - using 1800"); return 1800; }
+    return v;
+}
+
 void pump_setup(AppState &state) {
     g_state_ptr = &state;
     pump_reset_state();
@@ -281,6 +295,8 @@ void pump_setup(AppState &state) {
         if (v > 15.0) { log_error("pump", "PRIME_SECONDS above 15 - using 15");  v = 15.0; }
         g_prime_seconds = v;
     }
+    if (config.count("ARM_TIMEOUT_SECONDS"))
+        state.armTimeoutSeconds = clamp_arm_timeout(config["ARM_TIMEOUT_SECONDS"]);
 
     // Prime events live outside transactionDir on purpose: the uploader sends
     // every file in that directory to the cloud as a sale.
@@ -406,7 +422,7 @@ void pump_loop(AppState &state) {
         if (state.armedQty[i] > 0 && !state.slotBusy[i]) {
             auto armedFor = std::chrono::duration_cast<std::chrono::seconds>(
                 current_time - pumps[i].armTimestamp).count();
-            if (armedFor >= 120) {
+            if (armedFor >= state.armTimeoutSeconds) {
                 log_info("pump", "Slot " + std::to_string(i) + ": TIMEOUT  refunded "
                           + std::to_string(state.armedQty[i]) + " credits");
                 state.armedQty[i] = 0;
@@ -416,11 +432,12 @@ void pump_loop(AppState &state) {
         }
     }
 
-    // 2. LED outputs with blink (last 10s of 120s timeout = 1Hz blink)
+    // 2. LED outputs with blink (last 10s before the timeout = 1Hz blink)
     for (int i = 1; i <= TOTAL_SLOTS; i++) {
         if (state.armedQty[i] > 0 && !state.slotBusy[i]) {
-            auto remaining = 120 - std::chrono::duration_cast<std::chrono::seconds>(
-                current_time - pumps[i].armTimestamp).count();
+            auto remaining = state.armTimeoutSeconds
+                - std::chrono::duration_cast<std::chrono::seconds>(
+                      current_time - pumps[i].armTimestamp).count();
             if (remaining <= 10 && remaining > 0) {
                 // Blink every 500ms
                 bool on = (std::chrono::duration_cast<std::chrono::milliseconds>(

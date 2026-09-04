@@ -134,6 +134,7 @@ quietly.
 |-----|---------|-------------|
 | `PRIME_SECONDS` | `3` | Length of one prime burst, in seconds. Clamped to `0.5`-`15` by the controller, because an over-long burst empties a gallon onto the floor with nobody at the machine |
 | `PRIME_LOG` | `<repo>/logs/prime_events.jsonl` | Where prime events are appended, one JSON object per line. **Must stay outside `TRANSACTION_DIR`** - the uploader treats every file in there as a sale to POST to the cloud |
+| `ARM_TIMEOUT_SECONDS` | `300` | How long an armed slot's button stays live before its credits are written off. Clamped to `30`-`1800` seconds by the controller - the button is physically live for the whole window, so raise it only as far as the counter actually needs |
 
 Priming clears air from a hose after a gallon change, so the next customer is
 not charged for a press that dispenses air. A prime moves product and records

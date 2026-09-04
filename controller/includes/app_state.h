@@ -58,6 +58,12 @@ struct AppState {
     // every future sale is worth, so it must never be silent.
     std::string priceLogPath;
 
+    // How long an armed credit stays live before it is written off. The button
+    // is physically live for this whole window, so a generous timeout is free
+    // product for whoever walks up to an unattended machine. Five minutes is
+    // the owner's call, 2026-09-04: long enough to fill several containers.
+    int armTimeoutSeconds = 300;
+
     long long remainingTime[TOTAL_SLOTS + 1] = {0};  // index 1-6
     // true = that slot's tank is empty, which blocks arming and stops a
     // running pump. Set from WTRLVL; which GPIO level counts as empty is
