@@ -678,6 +678,10 @@ button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
 }
 .prime-row:last-child { border-bottom: none; }
 .prime-row .prime-name { flex: 1; font-size: 11px; }
+.prime-row .prime-why {
+  display: block; font-size: 9px; margin-top: 1px;
+  color: var(--status-caution);
+}
 .prime-row .prime-count {
   font-size: 10px;
   color: var(--text-content-secondary);
@@ -992,7 +996,8 @@ button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
       <div class="maint-note">
         Removes air after a gallon change, so the next customer is not
         charged for a press that dispenses nothing. Runs
-        <span id="prime-secs">3</span>s per tap.
+        <span id="prime-secs">3</span>s per tap. Safe to use while a customer is
+        waiting &mdash; their credits are untouched.
         <strong>No sale is recorded</strong> &mdash; every run is logged.
       </div>
       <div id="prime-list"></div>
@@ -1442,23 +1447,30 @@ button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
     // so only redraw when something actually changed.
     let sig = String(primeArmedSlot) + '|' + S.paused + '|' + S.connected;
     for (let s = 1; s <= ACTIVE; s++)
-      sig += '|' + (primeCounts[s] || 0) + S.wlvl[s] + S.busy[s] + (S.armedQty[s] > 0);
+      sig += '|' + (primeCounts[s] || 0) + S.wlvl[s] + S.busy[s];
     if (sig === primeSig) return;
     primeSig = sig;
 
     let h = '';
     for (let s = 1; s <= ACTIVE; s++) {
       const n = primeCounts[s] || 0;
-      // Empty or occupied lines are refused by the controller anyway; saying
-      // so here stops staff tapping at a machine that will not answer.
-      const blocked = S.wlvl[s] || S.busy[s] || S.armedQty[s] > 0 || S.paused || !S.connected;
+      // Say WHY it cannot be pressed. A dead button with no explanation sends
+      // people hunting for a fault that is not there. Armed credits are no
+      // longer a reason -- priming beside a waiting customer is the whole point.
+      const why = !S.connected ? 'machine offline'
+                : S.paused     ? 'machine paused'
+                : S.wlvl[s]    ? 'tank empty — refill first'
+                : S.busy[s]    ? 'dispensing now'
+                : null;
       const armed = primeArmedSlot === s;
       h += '<div class="prime-row">'
-         + '<span class="prime-name">' + PRODUCT[s] + '</span>'
+         + '<span class="prime-name">' + PRODUCT[s]
+         + (why ? '<span class="prime-why">' + why + '</span>' : '')
+         + '</span>'
          + '<span class="prime-count' + (n > 0 ? ' busy' : '') + '">'
          + (n > 0 ? n + ' today' : '&mdash;') + '</span>'
          + '<button class="btn btn-sm' + (armed ? ' confirm' : '') + '" data-prime="' + s + '"'
-         + (blocked ? ' disabled' : '') + '>'
+         + (why ? ' disabled' : '') + '>'
          + (armed ? 'Tap again' : 'Clear Air') + '</button>'
          + '</div>';
     }
@@ -1515,7 +1527,7 @@ button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
     }
 
     const why = {
-      slot_busy:    name + ' still has presses waiting. Finish that sale first.',
+      slot_busy:    name + ' is dispensing right now. Try again in a moment.',
       slot_empty:   name + ' reads empty. Replace the gallon first.',
       paused:       'Machine is paused.',
       max_active:   'Two pumps already running. Try again in a moment.',

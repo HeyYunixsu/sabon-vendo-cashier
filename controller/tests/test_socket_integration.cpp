@@ -664,7 +664,7 @@ void test_integration_prime_reports_why_it_refused()
     CLOSE_CLIENT(sock);
 }
 
-void test_integration_prime_refused_for_an_armed_slot()
+void test_integration_prime_allowed_for_an_armed_slot()
 {
     reset_for_prime();
 
@@ -676,11 +676,12 @@ void test_integration_prime_refused_for_an_armed_slot()
     send_cmd(sock, "ARM,4,1");
     CHECK(wait_for([]{ return g_test_state.armedQty[4] > 0; }));
 
-    // Priming shares the pump timer with dispensing, so allowing this would
-    // extend the waiting customer's run and give away product.
+    // The case this exists for: a gallon is replaced while a customer still
+    // holds credits on that slot, and the hose now has air in it. Refusing
+    // here would send them a press of air and charge for it.
     std::string resp = send_and_recv(sock, "PRIME,4");
-    CHECK(resp.find("PRIME_ACK,4,slot_busy") != std::string::npos);
-    CHECK(g_test_state.slotBusy[4] == false);
+    CHECK(resp.find("PRIME_ACK,4,started") != std::string::npos);
+    CHECK_EQ(g_test_state.armedQty[4], 1);   // their credit is not spent
 
     send_cmd(sock, "CANCEL_ALL");
     yield_to_server();
@@ -742,7 +743,7 @@ void run_socket_integration_tests()
     // Prime last: it marks a slot busy, which earlier cases assume is clear.
     RUN_TEST(test_integration_prime_acknowledges_the_caller);
     RUN_TEST(test_integration_prime_reports_why_it_refused);
-    RUN_TEST(test_integration_prime_refused_for_an_armed_slot);
+    RUN_TEST(test_integration_prime_allowed_for_an_armed_slot);
     RUN_TEST(test_integration_malformed_prime_is_ignored);
 
     stop_integration_server();

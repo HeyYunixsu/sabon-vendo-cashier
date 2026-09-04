@@ -64,7 +64,11 @@ static std::chrono::time_point<std::chrono::steady_clock> g_last_pump_start =
 // ------------------------------------------------------------------------------
 // Dispense Trigger
 // ------------------------------------------------------------------------------
-static void executeDispenseTrigger(int pumpIdx) {
+// Takes the state it is to act on. It used to read a module-global pointer
+// set only by pump_setup(), so pump_loop(state) silently ignored its own
+// argument and wrote through whatever was last registered -- identical in
+// production, a dangling pointer anywhere else.
+static void executeDispenseTrigger(AppState &state, int pumpIdx) {
     auto current_time = std::chrono::steady_clock::now();
 
     if (std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -75,7 +79,6 @@ static void executeDispenseTrigger(int pumpIdx) {
     PumpState  &pump    = pumps[pumpIdx];
     Product    &product = productMap[pumpIdx];
     int         pump_pin = pin_pump[pumpIdx];
-    AppState   &state    = *g_state_ptr;
 
     int activePumps = 0;
     for (int i = 1; i <= TOTAL_SLOTS; i++)
@@ -86,7 +89,13 @@ static void executeDispenseTrigger(int pumpIdx) {
     bool isSlotEmpty    = state.slotEmpty[pumpIdx];
     bool isMachinePaused = state.paused;
 
-    if (state.armedQty[pumpIdx] > 0 && (!atleast2PumpOn || pumpAlreadyOn) &&
+    // A press during a prime would consume the credit, extend the prime's
+    // timer, and then reach the completion branch as a prime -- which writes
+    // no transaction. The customer would get product for free and the sale
+    // would never exist. Deny instead: the credit is untouched, and the burst
+    // is over in a few seconds.
+    if (state.armedQty[pumpIdx] > 0 && !pump.isPriming &&
+        (!atleast2PumpOn || pumpAlreadyOn) &&
         !isSlotEmpty && !isMachinePaused) {
 
         state.armedQty[pumpIdx]--;
@@ -118,6 +127,7 @@ static void executeDispenseTrigger(int pumpIdx) {
     } else {
         std::string reason = isMachinePaused ? "paused" :
                              isSlotEmpty     ? "empty" :
+                             pump.isPriming  ? "priming" :
                              (atleast2PumpOn && !pumpAlreadyOn) ? "max_active" :
                              "no_credit";
         log_info("pump", "Slot " + std::to_string(pumpIdx) + ": DENIED  reason=" + reason
@@ -335,7 +345,7 @@ void pump_loop(AppState &state) {
                 if (pumps[i].isPumping || pumps[i].processingTrigger) {
                     pumps[i].processingTrigger = false;
                     pumps[i].firstPressAfterArm = false;
-                    executeDispenseTrigger(i);
+                    executeDispenseTrigger(state, i);
                 }
             }
         } else {
@@ -526,12 +536,16 @@ PrimeResult pump_start_prime(AppState &state, int slot)
     // freshly refilled gallon, where the sensor already reads full.
     if (state.slotEmpty[slot]) return PrimeResult::SLOT_EMPTY;
 
-    // Priming shares pump.timer with dispensing, so starting one mid-sale
-    // would extend the customer's run and hand them extra product. A slot
-    // that owes anyone anything is off limits -- prime between sales.
-    if (state.armedQty[slot] > 0 || state.slotBusy[slot] ||
-        !state.pendingQueue[slot].empty())
-        return PrimeResult::SLOT_BUSY;
+    // Only a dispense actually in flight blocks a prime. Armed credits used to
+    // block it too, which got the real case exactly backwards: a gallon runs
+    // out mid-sale, staff replace it, and the hose now has air in it -- while
+    // the waiting customer still holds credits on that very slot. Refusing
+    // there meant their next press dispensed air and charged them for it,
+    // which is the thing this feature exists to prevent.
+    //
+    // Safe now because executeDispenseTrigger denies a press while priming, so
+    // the two can no longer overlap.
+    if (state.slotBusy[slot]) return PrimeResult::SLOT_BUSY;
 
     auto now = std::chrono::steady_clock::now();
     int activePumps = 0;

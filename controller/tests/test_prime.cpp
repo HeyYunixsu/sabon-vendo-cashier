@@ -181,26 +181,57 @@ static void test_prime_refused_on_an_empty_tank()
     CHECK(pump_start_prime(s, 5) == PrimeResult::STARTED);
 }
 
-static void test_prime_refused_when_the_slot_owes_a_customer()
+static void test_prime_allowed_while_a_customer_holds_credits()
 {
-    // Priming shares pump.timer with dispensing, so starting one mid-sale
-    // would extend the customer's run and hand them extra product.
+    // The case the feature exists for: a gallon runs out mid-sale, staff
+    // replace it, and the hose now has air -- while the waiting customer still
+    // holds credits on that slot. Refusing here would send them a press of air
+    // and charge for it.
     AppState s = fresh_state();
 
-    s.armedQty[1] = 1;
-    CHECK(pump_start_prime(s, 1) == PrimeResult::SLOT_BUSY);
+    s.armedQty[1] = 2;
+    CHECK(pump_start_prime(s, 1) == PrimeResult::STARTED);
+    CHECK_EQ(s.armedQty[1], 2);       // their credits are not spent by priming
 
-    s.armedQty[1] = 0;
+    // Queued credits are no obstacle either.
+    AppState t = fresh_state();
+    t.pendingQueue[2].push(PendingArm(2, 3));
+    CHECK(pump_start_prime(t, 2) == PrimeResult::STARTED);
+    CHECK_EQ((int)t.pendingQueue[2].size(), 1);
+}
+
+static void test_prime_refused_only_by_a_dispense_in_flight()
+{
+    // A pump actually running for a customer is the one thing that must not be
+    // interrupted -- the two share pump.timer.
+    AppState s = fresh_state();
+
     s.slotBusy[1] = true;
     CHECK(pump_start_prime(s, 1) == PrimeResult::SLOT_BUSY);
+    CHECK_EQ(count_lines(TEST_LOG_PATH), 0);
 
     s.slotBusy[1] = false;
-    s.pendingQueue[1].push(PendingArm(1, 2));
-    CHECK(pump_start_prime(s, 1) == PrimeResult::SLOT_BUSY);
+    CHECK(pump_start_prime(s, 1) == PrimeResult::STARTED);
+}
 
-    // A refusal must not have written a record or touched the queue.
-    CHECK_EQ(count_lines(TEST_LOG_PATH), 0);
-    CHECK_EQ((int)s.pendingQueue[1].size(), 1);
+static void test_a_press_during_a_prime_is_denied_not_given_away()
+{
+    // Without this the press would spend the credit, extend the prime's timer,
+    // and then reach the completion branch as a prime -- which writes no
+    // transaction. Product out, nothing recorded, and the customer's credit
+    // gone. Denying costs them a few seconds and nothing else.
+    AppState s = fresh_state();
+    s.armedQty[3] = 1;
+
+    CHECK(pump_start_prime(s, 3) == PrimeResult::STARTED);
+
+    // The mock reads every button as held, so the loop will attempt a press as
+    // soon as the start cooldown expires.
+    std::this_thread::sleep_for(std::chrono::milliseconds(250));
+    for (int i = 0; i < 8; i++) pump_loop(s);
+
+    CHECK_EQ(s.armedQty[3], 1);                    // credit untouched
+    CHECK_EQ(count_transactions(TEST_TXN_DIR), 0); // and nothing booked
 }
 
 static void test_prime_obeys_the_two_pump_rail_limit()
@@ -314,7 +345,9 @@ void run_prime_tests()
     RUN_TEST(test_prime_rejects_slots_off_the_machine);
     RUN_TEST(test_prime_refused_while_paused);
     RUN_TEST(test_prime_refused_on_an_empty_tank);
-    RUN_TEST(test_prime_refused_when_the_slot_owes_a_customer);
+    RUN_TEST(test_prime_allowed_while_a_customer_holds_credits);
+    RUN_TEST(test_prime_refused_only_by_a_dispense_in_flight);
+    RUN_TEST(test_a_press_during_a_prime_is_denied_not_given_away);
     RUN_TEST(test_prime_obeys_the_two_pump_rail_limit);
     RUN_TEST(test_prime_releases_the_slot_when_the_tank_reads_empty);
     RUN_TEST(test_a_completed_prime_frees_the_slot_and_books_nothing);
