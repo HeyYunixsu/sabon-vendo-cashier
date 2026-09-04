@@ -74,6 +74,31 @@ const INTERRUPTED_LOG_PATH = config.INTERRUPTED_LOG
   ? path.resolve(__dirname, '..', config.INTERRUPTED_LOG)
   : path.resolve(__dirname, '..', 'logs', 'interrupted_sales.jsonl');
 
+// Credits paid for but never dispensed. Written by the controller.
+const UNCLAIMED_LOG_PATH = config.UNCLAIMED_LOG
+  ? path.resolve(__dirname, '..', config.UNCLAIMED_LOG)
+  : path.resolve(__dirname, '..', 'logs', 'unclaimed_credits.jsonl');
+
+// Which entries a cashier has already dealt with. The log itself is
+// append-only and owned by the controller, so the dashboard keeps its own
+// note of what has been settled rather than rewriting history.
+const RESOLVED_FILE = path.resolve(__dirname, '.resolved_credits.json');
+let resolvedKeys = new Set();
+try {
+  if (fs.existsSync(RESOLVED_FILE))
+    resolvedKeys = new Set(JSON.parse(fs.readFileSync(RESOLVED_FILE, 'utf-8')));
+} catch (e) {
+  console.error(`[dashboard] Could not read resolved credits: ${e.message}`);
+}
+
+function saveResolved() {
+  try {
+    fs.writeFileSync(RESOLVED_FILE, JSON.stringify([...resolvedKeys]), 'utf-8');
+  } catch (e) {
+    console.error(`[dashboard] Could not save resolved credits: ${e.message}`);
+  }
+}
+
 // Confirmed sales, archived by transaction_uploader.py before it deletes each
 // record. Read-only here.
 const SALES_ARCHIVE_DIR = config.SALES_ARCHIVE_DIR
@@ -92,7 +117,6 @@ const PRICE_LOG_PATH = config.PRICE_LOG
 const sseClients = new Set();
 const processedSaleIds = new Set();      // double-click guard
 const localArmQueue = [];                // queued ARM commands (offline retry)
-const unclaimedSales = [];               // unclaimed / needs-attention
 let coinSocket = null;
 // True only between 'connect' and 'close'. A socket that is still connecting
 // is neither null nor destroyed, and write() on it silently buffers -- so
@@ -104,24 +128,6 @@ let statusBuffer = '';
 // defaults, config.env and the saved file in that order, so asking it is the
 // only way to avoid re-implementing that precedence here and drifting from it.
 let prices = {};
-
-// Persistence file for unclaimed sales
-const UNCLAIMED_FILE = path.resolve(__dirname, '.unclaimed_sales.json');
-try {
-  if (fs.existsSync(UNCLAIMED_FILE)) {
-    const saved = JSON.parse(fs.readFileSync(UNCLAIMED_FILE, 'utf-8'));
-    if (Array.isArray(saved)) unclaimedSales.push(...saved);
-    console.log(`[dashboard] Loaded ${saved.length} unclaimed sales from disk`);
-  }
-} catch (e) { /* ignore */ }
-
-function saveUnclaimed() {
-  try {
-    fs.writeFileSync(UNCLAIMED_FILE, JSON.stringify(unclaimedSales), 'utf-8');
-  } catch (e) {
-    console.error(`[dashboard] Failed to save unclaimed sales: ${e.message}`);
-  }
-}
 
 // ---------------------------------------------------------------------------
 // TCP client to controller
@@ -250,15 +256,6 @@ function broadcastSSE(data) {
   }
 }
 
-// Push unclaimed sales to SSE clients
-function pushUnclaimed(slot, qty) {
-  const ts = new Date().toISOString();
-  const msg = `UNCLAIMED:${slot},${qty},${ts}`;
-  for (const res of sseClients) {
-    try { res.write(`data: ${msg}\n\n`); } catch (_) {}
-  }
-}
-
 // ---------------------------------------------------------------------------
 // Express
 // ---------------------------------------------------------------------------
@@ -278,11 +275,6 @@ app.get('/api/status/stream', (req, res) => {
   res.write('data: connected\n\n');
   sseClients.add(res);
   console.log(`[dashboard] SSE client connected (${sseClients.size} total)`);
-
-  // Push existing unclaimed sales to new client
-  for (const u of unclaimedSales) {
-    res.write(`data: UNCLAIMED:${u.slot},${u.qty},${u.time}\n\n`);
-  }
 
   // Keep-alive heartbeat every 15s so the browser doesn't time out
   const keepAlive = setInterval(() => {
@@ -436,31 +428,30 @@ app.post('/api/prime', (req, res) => {
   res.json({ success: true, slot, seconds: PRIME_SECONDS });
 });
 
-// Resolve unclaimed sale
 app.post('/api/unclaimed/resolve', (req, res) => {
-  const { slot, qty, action } = req.body;
-  console.log(`[dashboard] Resolving unclaimed: slot=${slot} qty=${qty} action=${action}`);
+  const { key, action } = req.body;
+  if (!key) return res.status(400).json({ success: false, error: 'missing key' });
 
-  if (action === 'retry') {
-    // Re-arm the slot
-    sendToCoinSlot(`ARM,${slot},${qty}`);
+  if (action === 'rearm') {
+    const slot = parseInt(String(key).split('|')[0], 10);
+    const qty = parseInt(req.body.qty, 10) || 1;
+    // PRODUCTS is built from the PRODUCTn_* config keys, so a slot present
+    // there is a slot this machine actually has. server.js has no slot-count
+    // constant -- it hardcodes 6 in two loops -- and this avoids adding a third.
+    if (!PRODUCTS[slot])
+      return res.status(400).json({ success: false, error: 'bad slot' });
+    // No money changes hands: the customer already paid, the credit expired
+    // before they pressed. Fail loudly rather than marking it settled when
+    // the controller never heard us.
+    if (!sendNowOrFail(`ARM,${slot},${qty}`))
+      return res.status(503).json({ success: false, error: 'controller unreachable' });
   }
-  // Either way, remove from unclaimed list
-  const idx = unclaimedSales.findIndex(u => u.slot === slot && u.qty === qty);
-  if (idx >= 0) unclaimedSales.splice(idx, 1);
-  saveUnclaimed();
 
+  resolvedKeys.add(key);
+  saveResolved();
+  console.log(`[dashboard] Unclaimed settled: ${key} action=${action}`);
   res.json({ success: true });
 });
-
-// Track unclaimed sale (called internally or via SSE status parsing)
-function trackUnclaimed(slot, qty) {
-  const entry = { slot, qty, time: new Date().toISOString() };
-  unclaimedSales.push(entry);
-  saveUnclaimed();
-  pushUnclaimed(slot, qty);
-  console.log(`[dashboard] Unclaimed sale tracked: slot=${slot} qty=${qty}`);
-}
 
 // ---------------------------------------------------------------------------
 // Start
@@ -671,6 +662,41 @@ app.get('/api/interrupted', (req, res) => {
     }
   } catch (e) {
     console.error(`[dashboard] Could not read interrupted log: ${e.message}`);
+  }
+  res.json({ entries: entries.reverse() });
+});
+
+app.get('/api/unclaimed', (req, res) => {
+  const entries = [];
+  const today = localDateString(new Date());
+  try {
+    if (fs.existsSync(UNCLAIMED_LOG_PATH)) {
+      for (const line of fs.readFileSync(UNCLAIMED_LOG_PATH, 'utf-8').split(/\r?\n/)) {
+        if (!line.trim()) continue;
+        let rec;
+        try { rec = JSON.parse(line); } catch (_) { continue; }
+        if (!String(rec.date_created || '').startsWith(today)) continue;
+        // Cancels are recorded for review but do not raise a row -- see the
+        // design note in the plan. A panel full of routine cancels teaches
+        // staff to dismiss it without reading.
+        if (rec.reason !== 'timeout') continue;
+
+        const key = rec.slot + '|' + rec.date_created;
+        if (resolvedKeys.has(key)) continue;
+
+        const slot = parseInt(rec.slot, 10);
+        entries.push({
+          key,
+          slot,
+          name: (PRODUCTS[slot] && PRODUCTS[slot].name) || ('Slot ' + rec.slot),
+          qty: Number(rec.qty) || 0,
+          amount: Number(rec.amount) || 0,
+          date_created: rec.date_created,
+        });
+      }
+    }
+  } catch (e) {
+    console.error(`[dashboard] Could not read unclaimed log: ${e.message}`);
   }
   res.json({ entries: entries.reverse() });
 });
