@@ -23,7 +23,7 @@
 #include "utils.h"
 #include <wiringPi.h>
 #include <cstdio>
-#include <fstream>
+#include <sstream>
 #include <chrono>
 #include <algorithm>
 #include <mutex>
@@ -243,9 +243,19 @@ void pump_setup(AppState &state) {
     if (config.count("PRIME_LOG")) state.primeLogPath = config["PRIME_LOG"];
     else state.primeLogPath = binDir + "/../logs/prime_events.jsonl";
 
+    if (config.count("PRICES_FILE")) state.pricesPath = config["PRICES_FILE"];
+    else state.pricesPath = binDir + "/../CONFIG/prices.conf";
+
+    if (config.count("PRICE_LOG")) state.priceLogPath = config["PRICE_LOG"];
+    else state.priceLogPath = binDir + "/../logs/price_changes.jsonl";
+
     // Apply config.env pin/calibration overrides BEFORE logging the map,
     // otherwise the startup log reports compiled-in defaults, not real pins.
     init_hardware_config(config);
+
+    // Saved prices last: an edit made on the dashboard must outrank whatever
+    // config.env shipped with, or a restart would quietly undo it.
+    load_prices_file(state.pricesPath);
 
     log_info("pump", "6-Slot Independent Logic v4.0");
     for (int i = 1; i <= TOTAL_SLOTS; i++) {
@@ -253,7 +263,8 @@ void pump_setup(AppState &state) {
             + ": BTN=" + std::to_string(pin_button[i])
             + " PUMP=" + std::to_string(pin_pump[i])
             + " LED=" + std::to_string(pin_led[i])
-            + " RUN_MS=" + std::to_string((int)(productMap[i].durationSeconds * 1000)));
+            + " RUN_MS=" + std::to_string((int)(productMap[i].durationSeconds * 1000))
+            + " PRICE=" + std::to_string(productMap[i].coins));
     }
     log_info("pump", std::string("Water sensor: empty reads ")
         + (WATER_SENSOR_EMPTY_HIGH ? "HIGH" : "LOW")
@@ -418,21 +429,21 @@ void pump_loop(AppState &state) {
 // Prime / purge
 // ------------------------------------------------------------------------------
 
+// Wrap a value in JSON quotes. These records are written from a handful of
+// known fields, none of which contain quotes or backslashes.
+static std::string q(const std::string &v) { return "\"" + v + "\""; }
+
 // Append one non-revenue record. A prime dispenses product and books no sale,
 // so if it left no trace "I was only priming" would be an unfalsifiable
 // excuse and the honest-revenue number would stop being enforceable.
 static void appendPrimeLog(AppState &state, int slot, double seconds)
 {
-    if (state.primeLogPath.empty()) return;
-    std::ofstream f(state.primeLogPath, std::ios::app);
-    if (!f.is_open()) {
-        log_error("pump", "Could not append prime log: " + state.primeLogPath);
-        return;
-    }
-    f << "{\"machine_id\":\"" << state.machineId
-      << "\",\"slot\":\"" << slot
-      << "\",\"seconds\":" << seconds
-      << ",\"date_created\":\"" << format_current_time() << "\"}\n";
+    std::ostringstream j;
+    j << "{" << q("machine_id") << ":" << q(state.machineId)
+      << "," << q("slot")       << ":" << q(std::to_string(slot))
+      << "," << q("seconds")    << ":" << seconds
+      << "," << q("date_created") << ":" << q(format_current_time()) << "}";
+    appendJsonLine(state.primeLogPath, j.str());
 }
 
 const char *prime_result_text(PrimeResult r)
@@ -449,6 +460,61 @@ const char *prime_result_text(PrimeResult r)
 }
 
 double pump_prime_seconds() { return g_prime_seconds; }
+
+// ------------------------------------------------------------------------------
+// Prices
+// ------------------------------------------------------------------------------
+
+PriceResult pump_set_price(AppState &state, int slot, int pesos)
+{
+    if (slot < 1 || slot > TOTAL_SLOTS)  return PriceResult::SLOT_INVALID;
+    if (pesos < 0 || pesos > MAX_PRICE)  return PriceResult::PRICE_INVALID;
+
+    // A press books productMap[slot].coins at the moment the button is
+    // pressed. Changing the price between arming and pressing would charge the
+    // customer one figure and record another, so no sale may be in flight.
+    if (state.anyArmed()) return PriceResult::SALE_IN_PROGRESS;
+
+    const int previous = productMap[slot].coins;
+    if (!set_product_price(slot, pesos)) return PriceResult::PRICE_INVALID;
+
+    // Audit before persistence: if the write fails we still want the attempt
+    // on record, and the operator warned rather than left thinking it saved.
+    std::ostringstream j;
+    j << "{" << q("machine_id") << ":" << q(state.machineId)
+      << "," << q("slot")       << ":" << q(std::to_string(slot))
+      << "," << q("from")       << ":" << previous
+      << "," << q("to")         << ":" << pesos
+      << "," << q("date_created") << ":" << q(format_current_time()) << "}";
+    appendJsonLine(state.priceLogPath, j.str());
+
+    log_info("pump", "Slot " + std::to_string(slot) + ": PRICE "
+             + std::to_string(previous) + " -> " + std::to_string(pesos));
+
+    if (!save_prices_file(state.pricesPath)) {
+        log_error("pump", "Price applied but NOT saved -- it will revert on restart");
+        return PriceResult::NOT_SAVED;
+    }
+    return PriceResult::OK;
+}
+
+const char *price_result_text(PriceResult r)
+{
+    switch (r) {
+        case PriceResult::OK:               return "ok";
+        case PriceResult::SLOT_INVALID:     return "invalid_slot";
+        case PriceResult::PRICE_INVALID:    return "invalid_price";
+        case PriceResult::SALE_IN_PROGRESS: return "sale_in_progress";
+        case PriceResult::NOT_SAVED:        return "not_saved";
+    }
+    return "unknown";
+}
+
+int pump_get_price(int slot)
+{
+    if (slot < 1 || slot > TOTAL_SLOTS) return 0;
+    return productMap[slot].coins;
+}
 
 PrimeResult pump_start_prime(AppState &state, int slot)
 {

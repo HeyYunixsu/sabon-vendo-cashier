@@ -718,6 +718,31 @@ button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
   padding: 14px 16px; border-bottom: 1px solid var(--border-default);
   font-size: 14px; font-weight: 700;
 }
+.price-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 6px 0; border-bottom: 1px solid var(--border-default);
+}
+.price-row:last-of-type { border-bottom: none; }
+.price-row .price-name { flex: 1; font-size: 12px; }
+.price-row .peso { color: var(--text-content-secondary); font-size: 13px; }
+.price-row input {
+  width: 74px; height: 38px; text-align: center;
+  background: var(--bg-surface-tertiary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-element);
+  color: var(--text-content-primary);
+  /* 16px or iOS Safari zooms the whole page on focus. */
+  font-size: 16px; font-weight: 600;
+  font-family: 'Poppins', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  -moz-appearance: textfield;
+}
+.price-row input::-webkit-outer-spin-button,
+.price-row input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.price-row input.dirty { border-color: var(--status-caution); }
+.price-history {
+  font-size: 10px; line-height: 1.6;
+  color: var(--text-content-secondary); margin-top: 8px;
+}
 #settings-close {
   background: none; border: none; cursor: pointer;
   color: var(--text-content-secondary);
@@ -838,6 +863,19 @@ button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
     </div>
 
     <div class="sheet-group">
+      <div class="sheet-label">Prices &mdash; per press</div>
+      <div id="price-list"></div>
+      <div class="sheet-row" style="margin-top:6px;">
+        <span class="maint-note" style="margin:0;flex:1;">
+          Changing a price changes what every later sale is worth, so
+          <strong>each change is recorded</strong> with its old value.
+        </span>
+        <button id="btn-save-prices" class="btn btn-sm" disabled>Save</button>
+      </div>
+      <div id="price-history" class="price-history"></div>
+    </div>
+
+    <div class="sheet-group">
       <div class="sheet-label">Maintenance &mdash; cleared today: <span id="prime-today">0</span></div>
       <div class="maint-note">
         Removes air after a gallon change, so the next customer is not
@@ -928,6 +966,8 @@ button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
       }
       if (e.data.startsWith('UNCLAIMED:')) { addUnclaimed(e.data); return; }
       if (e.data.startsWith('PRIME_ACK')) { onPrimeAck(e.data); return; }
+      if (e.data.startsWith('PRICES:'))   { onPrices(e.data); return; }
+      if (e.data.startsWith('PRICE_ACK')) { onPriceAck(e.data); return; }
       parse(e.data);
     });
     es.addEventListener('error', () => { S.connected = false; refresh(); });
@@ -1158,12 +1198,23 @@ button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
   function removeStaged(i) { staged.splice(i,1); renderStaged(); updateArm(); }
   function renderStaged() {
     if (!staged.length) { $('staged-items').innerHTML = '<span class="muted">Tap a product, then set how many</span>'; $('sale-total').textContent = '0 presses'; return; }
+    let pesos = 0, priced = true;
     let h = '', totalQty = 0;
     staged.forEach((it, i) => {
       totalQty += it.qty;
       h += '<div class="staged-card"><button class="staged-card-remove" data-idx="'+i+'">&times;</button><span class="staged-card-name">'+it.name+'</span><span class="staged-card-qty">'+it.qty+'\xD7 \xB7 '+it.ml+'ml</span></div>';
     });
-    $('staged-items').innerHTML = h; $('sale-total').textContent = totalQty + ' press' + (totalQty !== 1 ? 'es' : '');
+    staged.forEach((it) => {
+      if (prices[it.id] == null) priced = false;
+      else pesos += prices[it.id] * it.qty;
+    });
+
+    $('staged-items').innerHTML = h;
+    // Presses stay: they tell the customer how many times to push the button.
+    // Pesos are what the cashier collects, so show both rather than trading
+    // one for the other.
+    const presses = totalQty + ' press' + (totalQty !== 1 ? 'es' : '');
+    $('sale-total').textContent = priced ? '₱' + pesos + ' · ' + presses : presses;
     $('staged-items').querySelectorAll('.staged-card-remove').forEach(b => b.addEventListener('click', () => removeStaged(+b.dataset.idx)));
   }
   function updateArm() {
@@ -1341,6 +1392,119 @@ button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
   }
 
   // ---------------------------------------------------------------------
+  // Prices
+  //
+  // Set per client, so they are edited here rather than compiled in. The
+  // controller owns the value and audits every change; this screen only
+  // proposes one. Nothing is applied until Save, and the controller can still
+  // refuse -- it will not move a price with a sale in progress.
+  // ---------------------------------------------------------------------
+  let prices = {}, priceDirty = false;
+
+  function onPrices(raw) {
+    try { prices = JSON.parse(raw.slice(7)) || {}; } catch (_) { return; }
+    // Never redraw over someone mid-edit; their unsaved figures would vanish.
+    if (!priceDirty) renderPrices();
+    renderStaged();
+  }
+
+  function renderPrices() {
+    const el = $('price-list');
+    if (!el || $('settings-sheet').hidden) return;
+    let h = '';
+    for (let s = 1; s <= ACTIVE; s++) {
+      const v = prices[s] != null ? prices[s] : '';
+      h += '<div class="price-row">'
+         + '<span class="price-name">' + PRODUCT[s] + '</span>'
+         + '<span class="peso">₱</span>'
+         + '<input type="number" inputmode="numeric" min="0" max="10000" step="1"'
+         + ' data-price="' + s + '" value="' + v + '" aria-label="' + PRODUCT[s] + ' price">'
+         + '</div>';
+    }
+    el.innerHTML = h;
+    priceDirty = false;
+    $('btn-save-prices').disabled = true;
+  }
+
+  function markPriceDirty(input) {
+    const slot = parseInt(input.dataset.price, 10);
+    const changed = String(prices[slot] != null ? prices[slot] : '') !== input.value.trim();
+    input.classList.toggle('dirty', changed);
+
+    priceDirty = false;
+    $('price-list').querySelectorAll('[data-price]').forEach((i) => {
+      if (i.classList.contains('dirty')) priceDirty = true;
+    });
+    $('btn-save-prices').disabled = !priceDirty;
+  }
+
+  async function savePrices() {
+    const body = {};
+    let bad = null;
+    $('price-list').querySelectorAll('[data-price]').forEach((i) => {
+      const slot = parseInt(i.dataset.price, 10);
+      const val = parseInt(i.value, 10);
+      if (!Number.isFinite(val) || val < 0 || val > 10000) { bad = PRODUCT[slot]; return; }
+      body[slot] = val;
+    });
+
+    if (bad) { toast('Price for ' + bad + ' is not a whole number of pesos', 'error'); return; }
+
+    $('btn-save-prices').disabled = true;
+    try {
+      const r = await fetch('/api/prices', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prices: body }),
+      });
+      const d = await r.json();
+      if (!d.success) {
+        toast(d.reason === 'controller_offline'
+              ? 'Machine unreachable — prices not changed'
+              : 'Prices rejected: ' + (d.reason || 'unknown'), 'error');
+        $('btn-save-prices').disabled = false;
+        return;
+      }
+      if (!d.changed) { toast('No price changed', 'info'); renderPrices(); return; }
+      // The controller answers each change with PRICE_ACK; wait for it rather
+      // than claiming success for something it may refuse.
+      priceDirty = false;
+    } catch (e) {
+      toast('Could not save prices: ' + e.message, 'error');
+      $('btn-save-prices').disabled = false;
+    }
+  }
+
+  function onPriceAck(raw) {
+    const p = raw.split(',');
+    const slot = parseInt(p[1], 10);
+    const result = (p[2] || '').trim();
+    const name = PRODUCT[slot] || ('Slot ' + slot);
+
+    if (result === 'ok') { toast(name + ' price saved', 'success'); loadPriceHistory(); return; }
+
+    const why = {
+      sale_in_progress: 'Cannot change prices while a sale is waiting. Finish or cancel it first.',
+      invalid_price:    name + ': price must be a whole number of pesos.',
+      invalid_slot:     'Unknown product.',
+      not_saved:        name + ' changed, but could NOT be saved — it will revert on restart.',
+    };
+    toast(why[result] || (name + ': ' + result), 'error');
+  }
+
+  async function loadPriceHistory() {
+    try {
+      const d = await (await fetch('/api/prices/history')).json();
+      const el = $('price-history');
+      if (!d.changes || !d.changes.length) { el.textContent = ''; return; }
+      const c = d.changes[0];
+      const name = PRODUCT[parseInt(c.slot, 10)] || ('Slot ' + c.slot);
+      el.textContent = 'Last change: ' + name + '  ₱' + c.from
+                     + ' → ₱' + c.to + '   ' + (c.date_created || '');
+    } catch (e) { /* history is context, not essential */ }
+  }
+
+  // ---------------------------------------------------------------------
   // Settings sheet
   // ---------------------------------------------------------------------
   function settingsOpen() { return !$('settings-sheet').hidden; }
@@ -1350,6 +1514,8 @@ button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
     $('settings-sheet').hidden = false;
     loadInfo();
     loadPrimeInfo();
+    loadPrices();
+    loadPriceHistory();
   }
 
   function closeSettings() {
@@ -1358,6 +1524,18 @@ button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
     primeSig = null;   // force a fresh draw next time it opens
     // Never leave a prime half-confirmed behind a closed sheet.
     disarmPrime();
+    // Unsaved price edits are discarded rather than silently kept: reopening
+    // to figures that were never applied is worse than losing the typing.
+    priceDirty = false;
+  }
+
+  async function loadPrices() {
+    try {
+      const d = await (await fetch('/api/prices')).json();
+      prices = d.prices || {};
+      renderPrices();
+      renderStaged();
+    } catch (e) { /* the panel still opens without them */ }
   }
 
   $('btn-settings').addEventListener('click', openSettings);
@@ -1417,6 +1595,12 @@ button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
     const b = e.target.closest('[data-idx]');
     if (b) resolveUnclaimed(+b.dataset.idx, b.dataset.act);
   });
+
+  $('price-list').addEventListener('input', (e) => {
+    const i = e.target.closest('[data-price]');
+    if (i) markPriceDirty(i);
+  });
+  $('btn-save-prices').addEventListener('click', savePrices);
 
   $('prime-list').addEventListener('click', (e) => {
     const b = e.target.closest('[data-prime]');

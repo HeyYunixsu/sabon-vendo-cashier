@@ -3,6 +3,8 @@ venv
 .venv
 config.env
 CONFIG/config.env
+# prices set on the machine itself -- per-deployment, like config.env
+CONFIG/prices.conf
 .env
 .vscode
 transaction/*.json
@@ -10,6 +12,8 @@ transaction/*.json
 *.gch
 copy_paste_log_from_rpi.txt
 *.o
+# make dependency files from -MMD, regenerated on every build
+*.d
 *.log
 *.aux
 *.exe

@@ -58,6 +58,11 @@ const PRIME_LOG_PATH = config.PRIME_LOG
   : path.resolve(__dirname, '..', 'logs', 'prime_events.jsonl');
 const PRIME_SECONDS = parseFloat(config.PRIME_SECONDS || '3');
 
+// Audit trail of price changes. Written by the controller; read-only here.
+const PRICE_LOG_PATH = config.PRICE_LOG
+  ? path.resolve(__dirname, '..', config.PRICE_LOG)
+  : path.resolve(__dirname, '..', 'logs', 'price_changes.jsonl');
+
 // ---------------------------------------------------------------------------
 // State
 // ---------------------------------------------------------------------------
@@ -72,6 +77,11 @@ let coinSocket = null;
 // checking the socket object alone reports a send that has not happened yet.
 let coinConnected = false;
 let statusBuffer = '';
+
+// Prices, in pesos per press, as reported by the controller. It resolves
+// defaults, config.env and the saved file in that order, so asking it is the
+// only way to avoid re-implementing that precedence here and drifting from it.
+let prices = {};
 
 // Persistence file for unclaimed sales
 const UNCLAIMED_FILE = path.resolve(__dirname, '.unclaimed_sales.json');
@@ -104,6 +114,7 @@ function connectToCoinSlot() {
   coinSocket.connect(SOCKET_PORT, SOCKET_IP, () => {
     console.log(`[dashboard] Connected to controller`);
     coinConnected = true;
+    sendToCoinSlot('GETPRICES');
     // Flush any locally queued ARM commands
     flushLocalQueue();
   });
@@ -115,6 +126,22 @@ function connectToCoinSlot() {
     for (const line of lines) {
       if (line.startsWith('STATUS')) {
         broadcastSSE(line);
+      } else if (line.startsWith('PRICES,')) {
+        const p = line.trim().split(',');
+        const next = {};
+        for (let i = 1; i < p.length; i++) {
+          const v = parseInt(p[i], 10);
+          if (Number.isFinite(v)) next[i] = v;
+        }
+        prices = next;
+        console.log(`[dashboard] prices: ${JSON.stringify(prices)}`);
+        broadcastSSE('PRICES:' + JSON.stringify(prices));
+      } else if (line.startsWith('PRICE_ACK')) {
+        console.log(`[dashboard] ${line.trim()}`);
+        broadcastSSE(line.trim());
+        // Re-read rather than trusting the value we sent: the controller may
+        // have refused it, or applied it without managing to save.
+        sendToCoinSlot('GETPRICES');
       } else if (line.startsWith('PRIME_ACK')) {
         // Forwarded so the page can say why a prime was refused. Without it
         // staff cannot tell a refusal from a dropped packet and retry blindly.
@@ -442,6 +469,64 @@ app.get('/api/info', (req, res) => {
     controllerConnected: coinConnected,
     primeSeconds: PRIME_SECONDS,
   });
+});
+
+// ---------------------------------------------------------------------------
+// Prices
+//
+// Set per client, so they are edited here rather than compiled in. The
+// controller owns the value, audits every change and persists it; this is
+// only the way in.
+// ---------------------------------------------------------------------------
+
+app.get('/api/prices', (req, res) => {
+  res.json({ prices, connected: coinConnected });
+});
+
+app.post('/api/prices', (req, res) => {
+  const body = (req.body && req.body.prices) || {};
+
+  // Validate everything before sending anything. A partly-applied price list
+  // would leave the machine charging a mix of old and new.
+  const changes = [];
+  for (const key of Object.keys(body)) {
+    const slot = parseInt(key, 10);
+    const price = parseInt(body[key], 10);
+    if (!Number.isFinite(slot) || slot < 1 || slot > 6)
+      return res.status(400).json({ success: false, reason: 'invalid_slot', slot: key });
+    if (!Number.isFinite(price) || price < 0 || price > 10000)
+      return res.status(400).json({ success: false, reason: 'invalid_price', slot });
+    if (prices[slot] !== price) changes.push([slot, price]);
+  }
+
+  if (!coinConnected)
+    return res.status(503).json({ success: false, reason: 'controller_offline' });
+
+  if (!changes.length)
+    return res.json({ success: true, changed: 0 });
+
+  for (const [slot, price] of changes) sendToCoinSlot(`SETPRICE,${slot},${price}`);
+  console.log(`[dashboard] SETPRICE x${changes.length}`);
+
+  // The controller answers each one asynchronously with PRICE_ACK over SSE,
+  // including a refusal if a sale is in progress.
+  res.json({ success: true, changed: changes.length });
+});
+
+// Recent price changes, newest first, straight from the controller's audit log.
+app.get('/api/prices/history', (req, res) => {
+  const out = [];
+  try {
+    if (fs.existsSync(PRICE_LOG_PATH)) {
+      for (const line of fs.readFileSync(PRICE_LOG_PATH, 'utf-8').split(/\r?\n/)) {
+        if (!line.trim()) continue;
+        try { out.push(JSON.parse(line)); } catch (_) { /* skip one bad line */ }
+      }
+    }
+  } catch (e) {
+    console.error(`[dashboard] Could not read price log: ${e.message}`);
+  }
+  res.json({ changes: out.reverse().slice(0, 20) });
 });
 
 app.get('/qr', (req, res) => {

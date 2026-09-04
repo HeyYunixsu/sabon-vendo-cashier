@@ -24,6 +24,9 @@ void run_logging_tests();
 // Prime / purge -- non-revenue maintenance dispense
 void run_prime_tests();
 
+// Per-client prices, audited on every change
+void run_price_tests();
+
 // Socket protocol integration tests (Phase 9/10)
 void run_socket_integration_tests();
 
@@ -47,6 +50,7 @@ int main()
     run_armed_state_tests();
     run_logging_tests();
     run_prime_tests();
+    run_price_tests();
 
     // Integration tests run last — they bind a real socket on port 9901
     run_socket_integration_tests();

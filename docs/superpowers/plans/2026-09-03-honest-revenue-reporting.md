@@ -47,28 +47,37 @@ Verified in the code before planning:
 
 ---
 
-## Task 1 — Put the real prices in (PARKED 2026-09-03: awaiting the six prices)
+## Task 1 — Put the real prices in (DONE 2026-09-04, differently)
 
-Every product currently reports `amount = 5`, because `amount` comes from the
-first number of `calibrateProductN`. With 100 ml Fabcon selling at ₱25 the cloud
-records 5, so the owner sees a fifth of the real revenue and any comparison
-against the cash drawer shows a fake surplus. **Until this is done, every figure
-downstream is wrong and no reconciliation is meaningful.**
+Every product reported `amount = 5`, because `amount` came from the first
+number of `calibrateProductN`. With 100 ml Fabcon selling at ₱25 the cloud
+recorded 5, so the owner saw a fifth of the real revenue.
 
-- [ ] Get the real price per press for slots 1-6
-- [ ] Set each as the first value: `calibrateProductN = (<price>, <seconds>)`
-- [ ] Leave the seconds untouched — that is the physical calibration and
-      changing it changes how much liquid comes out
-- [ ] `sudo pm2 restart 01_Dispenser_Controller`
-- [ ] Confirm from the startup log that each slot shows the expected RUN_MS
-- [ ] Dispense one press per slot and check the JSON in the transaction
-      directory carries the right `amount`
+This was parked waiting for six numbers. It was resolved instead by making the
+price a per-client setting rather than something baked into the build:
 
-No code change, no rebuild. This alone delivers the core goal.
+- [x] Split price from pour calibration: `PRICEn` in `config.env`, falling back
+      to `calibrateProductN`'s first value so field machines keep working
+- [x] Editable from the dashboard (Settings → Prices), no site visit
+- [x] Saved to `PRICES_FILE` and applied over `config.env` at startup, so an
+      on-site change is not undone by the next restart
+- [x] Every change appended to `PRICE_LOG` with slot, old value, new value and
+      time
+- [x] Refused while any sale is armed — a price that moved between arming and
+      pressing would charge one figure and record another
+- [x] Range-checked (0 to `MAX_PRICE`), whole pesos, so a stray zero is refused
+      rather than reported to the cloud
+- [x] The sale strip shows pesos alongside presses
 
-**Parked 2026-09-03** at the owner's request until the real prices are decided.
-Nothing here is blocked on engineering; the moment the six numbers exist this is
-a two-minute config edit.
+**The trade this makes.** A cashier who can change prices can lower one, sell
+at the old price and pocket the gap — and the cloud would show the lower
+figure as truth. The audit log does not prevent that; it makes it visible. That
+was the accepted trade for prices being set per client without a site visit.
+If it ever bites, the fix is to move price editing back behind the config file
+(the plumbing already supports it: delete `PRICES_FILE` and set `PRICEn`).
+
+**Still needed from the owner:** the actual six prices. The machinery no longer
+blocks on them, but until someone sets them, every product still reports ₱5.
 
 ---
 

@@ -1,6 +1,8 @@
 #include "hardware_config.h"
 #include "utils.h"
 #include <cstdio>
+#include <fstream>
+#include <sstream>
 #include <string>
 
 // ------------------------------------------------------------------------------
@@ -86,6 +88,85 @@ void init_hardware_config(const std::map<std::string, std::string> &config)
             if (parse_calibrate(it->second, c, s)) { coins = c; secs = s; }
             else log_error("hardware", "Could not parse " + key + ": " + it->second);
         }
+        // A separate PRICEn wins over calibrateProductN's first value. Price
+        // is commercial and changes with the market; seconds are physical and
+        // are set once at install. Keeping them in one tuple meant a price
+        // edit could fat-finger the pour duration.
+        std::string priceKey = "PRICE" + std::to_string(i);
+        auto pit = config.find(priceKey);
+        if (pit != config.end() && !pit->second.empty()) {
+            try {
+                int p = std::stoi(pit->second);
+                if (p >= 0 && p <= MAX_PRICE) coins = p;
+                else log_error("hardware", priceKey + " out of range: " + pit->second);
+            } catch (const std::exception &) {
+                log_error("hardware", "Could not parse " + priceKey + ": " + pit->second);
+            }
+        }
+
         productMap[i] = {i, coins, secs};
     }
+}
+
+// ------------------------------------------------------------------------------
+// Prices
+// ------------------------------------------------------------------------------
+
+bool set_product_price(int slot, int pesos)
+{
+    if (slot < 1 || slot > TOTAL_SLOTS) return false;
+    if (pesos < 0 || pesos > MAX_PRICE) return false;
+    productMap[slot].coins = pesos;
+    return true;
+}
+
+void load_prices_file(const std::string &path)
+{
+    if (path.empty()) return;
+    std::ifstream f(path);
+    if (!f.is_open()) return;   // nobody has edited prices on this machine yet
+
+    // Deliberately a flat "slot=price" list rather than JSON: it is read by
+    // the controller at boot, and a hand-repairable file beats a parser.
+    std::string line;
+    int applied = 0;
+    while (std::getline(f, line)) {
+        line = trim(line);
+        if (line.empty() || line[0] == '#') continue;
+        size_t eq = line.find('=');
+        if (eq == std::string::npos) continue;
+        try {
+            int slot  = std::stoi(trim(line.substr(0, eq)));
+            int pesos = std::stoi(trim(line.substr(eq + 1)));
+            if (set_product_price(slot, pesos)) applied++;
+            else log_error("hardware", "Ignored out-of-range price line: " + line);
+        } catch (const std::exception &) {
+            log_error("hardware", "Ignored malformed price line: " + line);
+        }
+    }
+    if (applied > 0)
+        log_info("hardware", "Applied " + std::to_string(applied)
+                 + " saved price(s) from " + path);
+}
+
+bool save_prices_file(const std::string &path)
+{
+    if (path.empty()) return false;
+
+    std::string parent = fs::path(path).parent_path().string();
+    if (!parent.empty() && !ensureDirectoryExists(parent)) return false;
+
+    std::ostringstream out;
+    out << "# Prices in pesos per press, set from the dashboard.\n";
+    out << "# Pour duration is NOT here -- see calibrateProductN in config.env.\n";
+    for (int i = 1; i <= TOTAL_SLOTS; i++)
+        out << i << " = " << productMap[i].coins << "\n";
+
+    std::ofstream f(path, std::ios::trunc);
+    if (!f.is_open()) {
+        log_error("hardware", "Could not write prices to " + path);
+        return false;
+    }
+    f << out.str();
+    return f.good();
 }

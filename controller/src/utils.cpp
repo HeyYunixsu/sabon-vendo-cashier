@@ -70,6 +70,23 @@ std::string format_current_time(std::chrono::system_clock::time_point time_point
   return ss.str();
 }
 
+bool appendJsonLine(const std::string &path, const std::string &json)
+{
+  if (path.empty()) return false;
+
+  std::string parent = fs::path(path).parent_path().string();
+  if (!parent.empty() && !ensureDirectoryExists(parent)) return false;
+
+  std::ofstream f(path, std::ios::app);
+  if (!f.is_open())
+  {
+    log_error("utils", "Could not append to " + path);
+    return false;
+  }
+  f << json << "\n";
+  return f.good();
+}
+
 bool ensureDirectoryExists(const std::string &path)
 {
   fs::path dirPath = path;

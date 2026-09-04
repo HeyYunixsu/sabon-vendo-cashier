@@ -41,6 +41,25 @@ const char *prime_result_text(PrimeResult r);
 // Burst length in seconds, as configured by PRIME_SECONDS.
 double pump_prime_seconds();
 
+// ---------------------------------------------------------------------------
+// Prices
+//
+// Set per client from the dashboard rather than compiled in. A change alters
+// what every future sale is worth, so each one is written to an append-only
+// audit log and persisted immediately.
+// ---------------------------------------------------------------------------
+enum class PriceResult {
+    OK,
+    SLOT_INVALID,
+    PRICE_INVALID,
+    SALE_IN_PROGRESS,   // credits are armed; the price a customer paid is owed
+    NOT_SAVED           // applied in memory but the file write failed
+};
+
+PriceResult pump_set_price(AppState &state, int slot, int pesos);
+const char *price_result_text(PriceResult r);
+int pump_get_price(int slot);
+
 // Return every pump to its power-on state. pump_setup() calls this; tests call
 // it to get a clean slate, because pump state lives in module statics that
 // would otherwise leak between cases.

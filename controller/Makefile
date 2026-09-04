@@ -1,5 +1,10 @@
 CC = g++
-CXXFLAGS = -std=c++17 -Wall -Wextra -Wno-unused-parameter -g -Iincludes
+# -MMD -MP emits a .d file per object listing the headers it included, so a
+# header edit rebuilds everything that reads it. Without this, changing a
+# struct in includes/ left stale objects compiled against the old layout and
+# linked happily -- fields were then read at the wrong offsets, which looks
+# like impossible logic failures rather than a build problem.
+CXXFLAGS = -std=c++17 -Wall -Wextra -Wno-unused-parameter -g -MMD -MP -Iincludes
 
 # Detect OS — affects main binary only
 ifeq ($(OS),Windows_NT)
@@ -43,6 +48,7 @@ run: $(EXE)
 
 clean:
 	rm -f *.o src/*.o mock/*.o tests/*.o tests/obj/*.o \
+	      *.d src/*.d mock/*.d tests/*.d tests/obj/*.d \
 	      tests/test_runner tests/test_runner.exe \
 	      $(EXE) *.gch includes/*.gch src/*.gch
 	-rmdir tests/obj 2>/dev/null || true
@@ -56,7 +62,7 @@ clean:
 # -----------------------------------------------------------------------
 
 # Test build always uses mock, regardless of host OS
-TEST_CXXFLAGS = -std=c++17 -Wall -Wextra -Wno-unused-parameter -g -Iincludes -Imock
+TEST_CXXFLAGS = -std=c++17 -Wall -Wextra -Wno-unused-parameter -g -MMD -MP -Iincludes -Imock
 
 TEST_OBJS = tests/run_tests.o \
             tests/test_utils.o \
@@ -64,7 +70,8 @@ TEST_OBJS = tests/run_tests.o \
             tests/test_transaction_json.o tests/test_app_state.o \
             tests/test_product_config.o tests/test_transaction_write.o \
             tests/test_module_linkage.o tests/test_input_validation.o tests/test_config_loading.o \
-            tests/test_armed_state.o tests/test_logging.o tests/test_prime.o \
+            tests/test_armed_state.o tests/test_logging.o \
+            tests/test_prime.o tests/test_prices.o \
             tests/test_socket_integration.o
 
 # Source modules compiled with mock support into tests/obj/
@@ -87,3 +94,9 @@ mock/wiringPi.o: mock/wiringPi.cpp
 test: $(TEST_OBJS) $(TEST_MODULE_OBJS)
 	$(CC) -o $(TEST_RUNNER) $(TEST_OBJS) $(TEST_MODULE_OBJS) $(TEST_LDFLAGS)
 	./$(TEST_RUNNER)
+
+# Header dependencies discovered by -MMD. Leading '-' so a missing .d on a
+# first build is not an error.
+-include $(OBJS:.o=.d)
+-include $(TEST_OBJS:.o=.d)
+-include $(TEST_MODULE_OBJS:.o=.d)

@@ -60,7 +60,33 @@ One button, one LED and one pump relay per slot, all independent.
 
 | Key | Example | Description |
 |-----|---------|-------------|
-| `calibrateProduct1`-`calibrateProduct6` | `(5, 2.777778)` | `(coins, seconds)` - how long that slot's pump runs per unit |
+| `calibrateProduct1`-`calibrateProduct6` | `(5, 2.777778)` | `(price, seconds)` - legacy pairing. The seconds are the pour calibration and are still read from here; the price is only used when `PRICEn` is absent |
+
+### Prices
+
+| Key | Default | Description |
+|-----|---------|-------------|
+| `PRICE1`-`PRICE6` | first value of `calibrateProductN` | Price per press, whole pesos. Becomes the transaction `amount` sent to the cloud |
+| `PRICES_FILE` | `<repo>/CONFIG/prices.conf` | Prices saved from the dashboard. **Overrides `PRICEn`** at startup |
+| `PRICE_LOG` | `<repo>/logs/price_changes.jsonl` | Append-only audit of every price change: slot, old value, new value, timestamp |
+
+Resolution order, last one wins:
+
+1. compiled defaults
+2. the first value of `calibrateProductN` (legacy layout)
+3. `PRICEn`
+4. `PRICES_FILE`
+
+Price and pour duration are deliberately separate keys. Price is commercial and
+changes with the market; duration is physical and set once at install. Keeping
+them in one tuple meant a price edit could fat-finger how much liquid comes out.
+
+Prices are editable from the dashboard (Settings -> Prices) so a client can set
+their own without a site visit. That is also a way to make sales look smaller
+than they were, so the controller refuses a change while any sale is armed, and
+writes every change to `PRICE_LOG` with the value it replaced. The log is the
+control: it cannot stop a price being lowered, only stop it being lowered
+quietly.
 
 ### Prime / purge
 

@@ -285,6 +285,49 @@ static void process_command(AppState &state, const std::string &line,
           saveStateToDisk(state, state.transactionDir);
         }
       }
+      else if (isFirstWordTest(client_buffer, "SETPRICE"))
+      {
+        // SETPRICE,<slot>,<pesos> -- prices are set per client, so they are
+        // editable rather than compiled in. Every change is audited by the
+        // controller, because it silently changes what all future sales are
+        // worth and that is exactly the lever someone skimming would reach for.
+        if (socket_count_commas(client_buffer) != 2)
+        {
+          log_error("socket", std::string("Malformed SETPRICE (expected 2 commas): ") + client_buffer);
+        }
+        else
+        {
+          std::string input_str(client_buffer);
+          size_t p1 = input_str.find(',');
+          size_t p2 = input_str.find(',', p1 + 1);
+          int slot  = std::stoi(input_str.substr(p1 + 1, p2 - (p1 + 1)));
+          int pesos = std::stoi(input_str.substr(p2 + 1));
+
+          PriceResult r = pump_set_price(state, slot, pesos);
+          std::string result = price_result_text(r);
+
+          if (r == PriceResult::OK)
+            log_info("socket", "SETPRICE slot " + std::to_string(slot)
+                     + " = " + std::to_string(pesos));
+          else
+            log_error("socket", "SETPRICE slot " + std::to_string(slot)
+                      + " refused: " + result);
+
+          std::string ack = "PRICE_ACK," + std::to_string(slot) + "," + result + "\n";
+          send(current_client_socket, ack.c_str(), ack.length(), 0);
+        }
+      }
+      else if (isFirstWordTest(client_buffer, "GETPRICES"))
+      {
+        // The controller is the single source of truth for prices: it resolves
+        // defaults, config.env and the saved file in that order. The dashboard
+        // asks rather than re-implementing that precedence and drifting.
+        std::string resp = "PRICES";
+        for (int i = 1; i <= TOTAL_SLOTS; i++)
+          resp += "," + std::to_string(pump_get_price(i));
+        resp += "\n";
+        send(current_client_socket, resp.c_str(), resp.length(), 0);
+      }
       else if (isFirstWordTest(client_buffer, "PRIME"))
       {
         // PRIME,<slot> -- run one pump for a short fixed burst to push air out

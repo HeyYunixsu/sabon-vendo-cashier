@@ -29,6 +29,11 @@ bool loadStateFromDisk(AppState &state, const std::string &dir);
 // Used to build config/transaction paths that are independent of CWD.
 std::string get_binary_dir();
 
+// Append one line of JSON to a file, creating the parent directory if needed.
+// Used for the append-only records that must survive the uploader: prime
+// events and price changes. Returns false if the line could not be written.
+bool appendJsonLine(const std::string &path, const std::string &json);
+
 // Structured logging — writes "[YYYY-MM-DD HH:MM:SS] [module] msg" to stdout/stderr.
 void log_info(const std::string &module, const std::string &msg);
 void log_error(const std::string &module, const std::string &msg);

@@ -28,7 +28,13 @@ extern int WATER_SENSOR_EMPTY_HIGH;
 
 struct Product {
     int id;
+    // Price per press, in whole pesos. Reaches the cloud as the transaction
+    // "amount". Named `coins` for the coin-slot era; kept because the field is
+    // referenced widely, but it is a price, not a coin count.
     int coins;
+    // How long the pump runs per press. Physical calibration set at install --
+    // deliberately NOT editable alongside price, so a price change can never
+    // alter how much liquid comes out.
     double durationSeconds;
 };
 
@@ -40,5 +46,31 @@ extern std::map<int, Product> productMap;
 const int TOTAL_SLOTS = 6;
 
 void init_hardware_config(const std::map<std::string, std::string> &config);
+
+// ---------------------------------------------------------------------------
+// Prices
+//
+// Set per client, so they live apart from the pin map and the pour
+// calibration. Resolution order, last one wins:
+//   1. compiled defaults
+//   2. calibrateProductN's first value  (legacy layout, still honoured)
+//   3. PRICEn in config.env
+//   4. the prices file, written when someone edits prices on the dashboard
+// ---------------------------------------------------------------------------
+
+// Highest accepted price, in pesos. A fat-fingered extra zero should be
+// refused rather than silently charged to the cloud report.
+const int MAX_PRICE = 10000;
+
+// Returns false if the slot or price is out of range; the price is unchanged.
+bool set_product_price(int slot, int pesos);
+
+// Overlay prices from `path`. Missing file is not an error -- it just means
+// nobody has edited prices on this machine yet.
+void load_prices_file(const std::string &path);
+
+// Persist all six prices to `path`. Returns false if it could not be written,
+// which matters: a price that is not saved silently reverts on restart.
+bool save_prices_file(const std::string &path);
 
 #endif

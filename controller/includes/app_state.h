@@ -47,6 +47,13 @@ struct AppState {
     // send to the cloud, and a prime is explicitly not a sale.
     std::string primeLogPath;
 
+    // Saved prices, rewritten whenever someone edits them on the dashboard.
+    std::string pricesPath;
+
+    // Append-only record of every price change. A price edit changes what
+    // every future sale is worth, so it must never be silent.
+    std::string priceLogPath;
+
     long long remainingTime[TOTAL_SLOTS + 1] = {0};  // index 1-6
     // true = that slot's tank is empty, which blocks arming and stops a
     // running pump. Set from WTRLVL; which GPIO level counts as empty is
