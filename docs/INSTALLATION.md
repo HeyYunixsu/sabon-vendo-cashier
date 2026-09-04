@@ -98,9 +98,20 @@ sudo reboot
 Verify after the reboot:
 
 ```bash
-raspi-gpio get 10,13,14,23,24,25    # each: func=INPUT pull=UP
-raspi-gpio get 6,12,15,16,17,18     # each: func=OUTPUT level=1
+pinctrl get 10,13,14,23,24,25    # each: ip, pu   (input, pull-up)
+pinctrl get 6,12,15,16,17,18     # each: op, hi   (output, driven high = pump OFF)
 ```
+
+> **`raspi-gpio: command not found`** — on Debian trixie (kernel 6.18+) the tool
+> was replaced by `pinctrl`, shipped in `raspi-utils`. Use the commands above.
+> On an older Pi OS the equivalents are `raspi-gpio get ...`, reporting
+> `func=INPUT pull=UP` and `func=OUTPUT level=1`. If neither is present,
+> `sudo apt install -y raspi-utils`.
+>
+> This check is worth doing rather than assuming. If the relay pins are not
+> driven high, five of the six pumps run dry for the first 30 seconds of every
+> boot, and nothing in the software will tell you. You can also confirm the
+> lines were appended at all with `tail -6 /boot/firmware/config.txt`.
 
 > **Water sensor pins are deliberately absent from this list.** They are pulled
 > up in Python instead. `RPi.GPIO` defaults to `PUD_OFF` and *actively writes*
