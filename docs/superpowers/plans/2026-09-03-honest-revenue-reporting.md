@@ -191,9 +191,13 @@ So it must be *non-revenue and visible*, never *unrecorded*.
       the pump never gets the release
 - [x] `isPriming` on the pump state so the completion branch skips
       `writeTransaction()` instead of writing a ₱0 sale
-- [x] Refuse while the slot is armed, busy, queued, or the machine is paused —
-      priming is a between-sales maintenance action, and sharing `pump.timer`
-      with a live dispense would corrupt the customer's run length
+- [x] Refuse only while a dispense is actually in flight, the tank is empty,
+      or the machine is paused. **Armed credits deliberately do NOT block a
+      prime** (revised 2026-09-04): a gallon running out mid-sale is precisely
+      when a waiting customer holds credits on that slot, so refusing there
+      sent them a press of air and charged for it — the exact failure this
+      feature exists to prevent. Safe because a press landing inside a prime
+      is now denied rather than given away for free.
 - [x] Keep the empty-tank guard — priming a genuinely dry tank runs the pump
       against air, which is what damages it
 - [x] Record every prime to a separate non-revenue log (slot, duration, time)
