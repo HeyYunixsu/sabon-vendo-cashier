@@ -906,7 +906,7 @@ button, .btn, .product-card, .kpi-card, .staged-card, .tab {
 
 <!-- Sale Strip (horizontal, full width) -->
 <div id="sale-strip">
-  <div id="staged-items"><span class="muted">Tap a product, then set how many</span></div>
+  <div id="staged-items"><span class="muted">Tap a product to add it</span></div>
   <div class="sale-controls">
     <button id="btn-clear-sale" class="btn btn-outline">Clear List</button>
     <button id="btn-arm" class="btn btn-primary" disabled>Unlock Buttons</button>
@@ -917,7 +917,7 @@ button, .btn, .product-card, .kpi-card, .staged-card, .tab {
 <main>
   <section style="min-width:0;">
     <div class="grid" id="grid-container"></div>
-    <button id="btn-select-all" class="btn btn-primary" style="margin-top:10px;width:100%;padding:12px;font-size:14px;">Select All Products</button>
+    <button id="btn-select-all" class="btn btn-outline" style="margin-top:10px;width:100%;padding:12px;font-size:14px;">Add One Of Each</button>
   </section>
 
   <aside id="right-panel">
@@ -1048,7 +1048,7 @@ button, .btn, .product-card, .kpi-card, .staged-card, .tab {
     phase: 0, bundleComplete: false,
     lastUpdate: null, connected: false,
   };
-  let selProduct = null, multiSelect = false, staged = [], unclaimed = [], saleCtr = 0;
+  let staged = [], unclaimed = [], saleCtr = 0;
   let prevArmed = new Array(TOTAL + 1).fill(0);
   let prevBusy  = new Array(TOTAL + 1).fill(false);
   let prevArmedQty = new Array(TOTAL + 1).fill(0); // pulse-on-arm detection
@@ -1080,7 +1080,7 @@ button, .btn, .product-card, .kpi-card, .staged-card, .tab {
         S.armedQty.fill(0); S.remaining.fill(0); S.wlvl.fill(false);
         S.busy.fill(false); S.queueDepth.fill(0); S.paused = false;
         S.phase = 0; S.bundleComplete = false;
-        staged = []; selProduct = null; multiSelect = false; unclaimed = [];
+        staged = []; unclaimed = [];
         loadToday();   // authoritative, and survives the reload that cleared the rest
         renderStaged(); updateArm();
         refresh(); return;
@@ -1344,7 +1344,7 @@ button, .btn, .product-card, .kpi-card, .staged-card, .tab {
     renderStaged(); renderGrid(); updateArm();
   }
   function renderStaged() {
-    if (!staged.length) { $('staged-items').innerHTML = '<span class="muted">Tap a product, then set how many</span>'; $('sale-total').textContent = '0 presses'; return; }
+    if (!staged.length) { $('staged-items').innerHTML = '<span class="muted">Tap a product to add it</span>'; $('sale-total').textContent = '0 presses'; return; }
     let pesos = 0, priced = true;
     let h = '', totalQty = 0;
     staged.forEach((it, i) => {
@@ -1390,7 +1390,7 @@ button, .btn, .product-card, .kpi-card, .staged-card, .tab {
       const d = await r.json();
       if (d.success) {
         toast('Buttons unlocked: '+staged.map(i=>i.name+' ('+i.qty+'x)').join(', '), 'success');
-        staged = []; selProduct = null;
+        staged = [];
         renderStaged(); renderGrid(); updateArm();
       } else {
         toast('Could not unlock: '+ (d.error || 'unknown'), 'error');
@@ -1958,18 +1958,22 @@ button, .btn, .product-card, .kpi-card, .staged-card, .tab {
     if (rm) { removeStaged(+rm.dataset.idx); return; }
   });
 
-  // Select All
+  // Genuinely all of them now. Empty and inactive slots are skipped -- staging
+  // a product the machine cannot pour only produces a refusal at Unlock time.
   $('btn-select-all').addEventListener('click', () => {
+    let added = 0;
     for (let s = 1; s <= ACTIVE; s++) {
       if (S.wlvl[s]) continue;                    // tank empty
       if (stagedQty(s) >= MAX_QTY) continue;
       stageItem(s, 1);
+      added++;
     }
+    if (!added) toast('Nothing available to add', 'caution');
   });
 
   // Clear
   $('btn-clear-sale').addEventListener('click', () => {
-    staged = []; selProduct = null; multiSelect = false;
+    staged = [];
     renderStaged(); renderGrid(); updateArm();
   });
 
