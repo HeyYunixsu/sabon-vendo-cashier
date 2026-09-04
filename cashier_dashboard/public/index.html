@@ -1081,6 +1081,7 @@ button, .btn, .product-card, .kpi-card, .staged-card, .tab {
         S.busy.fill(false); S.queueDepth.fill(0); S.paused = false;
         S.phase = 0; S.bundleComplete = false;
         staged = []; unclaimed = [];
+        unclaimedSig = null;  // force a fresh draw; the reset above may coincide with the last signature
         loadToday();   // authoritative, and survives the reload that cleared the rest
         renderStaged(); updateArm();
         refresh(); return;
@@ -1273,10 +1274,26 @@ button, .btn, .product-card, .kpi-card, .staged-card, .tab {
     }
   }
 
+  let unclaimedSig = null;
+
   function renderUnclaimed() {
+    // renderInterrupted() only ever sets #attention-section to display:block
+    // -- it never hides it. This function is the only place the hide happens,
+    // so that decision is made every call, unconditionally, before the redraw
+    // guard below. Putting it behind the guard would leave the panel stuck on
+    // screen forever if the last row settled on a refresh the guard suppressed.
+    $('attention-section').style.display = (unclaimed.length || interrupted.length) ? 'block' : 'none';
+
+    // STATUS arrives every 500ms and refresh() calls this each time. These
+    // rows carry Unlock Again / Write Off buttons -- a click only fires if
+    // press and release land on the same element, so an unguarded rebuild
+    // drops a real fraction of taps on the controls that settle the till.
+    let sig = interrupted.length + '|' + unclaimed.map(it => it.key + ':' + it.qty).join(',');
+    if (sig === unclaimedSig) return;
+    unclaimedSig = sig;
+
     if (!unclaimed.length) {
       $('unclaimed-list').innerHTML = '';
-      if (!interrupted.length) $('attention-section').style.display = 'none';
       return;
     }
     let h = '';
@@ -1295,7 +1312,6 @@ button, .btn, .product-card, .kpi-card, .staged-card, .tab {
          + '</div></div>';
     });
     $('unclaimed-list').innerHTML = h;
-    $('attention-section').style.display = 'block';
   }
 
   // Sale
@@ -1325,7 +1341,7 @@ button, .btn, .product-card, .kpi-card, .staged-card, .tab {
     else { staged.push({ id, name: PRODUCT[id], qty, ml }); }
     renderStaged(); renderGrid(); updateArm();
   }
-  function removeStaged(i) { staged.splice(i,1); renderStaged(); updateArm(); }
+  function removeStaged(i) { staged.splice(i,1); renderStaged(); renderGrid(); updateArm(); }
   // Down to zero removes the item. A staged card showing 0x would be a thing
   // the cashier has to tidy up by hand for no reason.
   function adjustStaged(id, delta) {
@@ -1406,11 +1422,24 @@ button, .btn, .product-card, .kpi-card, .staged-card, .tab {
   }
 
   async function cancelAll() {
-    // S.armedQty is an Array(TOTAL + 1) indexed from 1, not a map.
-    let n = 0;
-    for (let s = 1; s <= TOTAL; s++) n += (S.armedQty[s] || 0);
-    if (n > 0 && !confirm('Cancel ' + n + ' press' + (n !== 1 ? 'es' : '')
-        + ' the customer has already paid for?')) return;
+    // S.armedQty is an Array(TOTAL + 1) indexed from 1, not a map. CANCEL_ALL
+    // on the controller writes off armedQty PLUS everything drained from
+    // pendingQueue -- a slot can be busy (armedQty back to 0) with paid-for
+    // presses queued behind it, so counting only armedQty here would let a
+    // real write-off through with no prompt at all. queueDepth counts queued
+    // *entries*, not presses, so the two are named separately rather than
+    // summed as if they were the same unit.
+    let armed = 0, queued = 0;
+    for (let s = 1; s <= TOTAL; s++) {
+      armed += (S.armedQty[s] || 0);
+      queued += (S.queueDepth[s] || 0);
+    }
+    if (armed > 0 || queued > 0) {
+      const bits = [];
+      if (armed > 0) bits.push(armed + ' armed press' + (armed !== 1 ? 'es' : ''));
+      if (queued > 0) bits.push(queued + ' queued credit' + (queued !== 1 ? 's' : ''));
+      if (!confirm('Cancel ' + bits.join(' and ') + ' — already paid for?')) return;
+    }
     try {
       await fetch('/api/cancel-all', { method:'POST', headers:{'Content-Type':'application/json'} });
       toast('All cancelled', 'info');

@@ -22,6 +22,7 @@
 #include "transaction.h"
 #include "utils.h"
 #include <wiringPi.h>
+#include <cctype>
 #include <cstdio>
 #include <sstream>
 #include <chrono>
@@ -273,6 +274,27 @@ int clamp_arm_timeout(const std::string &raw)
     return v;
 }
 
+// See the comment on the declaration in pump_control.h: this exists so a
+// relative configured path resolves against the same base the dashboard
+// uses, instead of against the controller's own working directory.
+//
+// fs::path::is_absolute() cannot be used for this: on a Windows build it only
+// recognises a drive-letter form, so a Unix-style path like "/var/log/x" --
+// exactly what config.env holds on the Pi -- comes back "not absolute" when
+// the very same test runs on Windows. Both forms are checked by hand instead,
+// since this code builds and its tests run on Windows as well as the Pi.
+std::string resolve_config_path(const std::string &base, const std::string &value) {
+    if (value.empty()) return value;
+
+    bool unixAbsolute = value.front() == '/' || value.front() == '\\';
+    bool windowsAbsolute = value.size() >= 3
+        && std::isalpha(static_cast<unsigned char>(value[0]))
+        && value[1] == ':' && (value[2] == '/' || value[2] == '\\');
+    if (unixAbsolute || windowsAbsolute) return value;
+
+    return base + "/" + value;
+}
+
 void pump_setup(AppState &state) {
     g_state_ptr = &state;
     pump_reset_state();
@@ -300,19 +322,25 @@ void pump_setup(AppState &state) {
 
     // Prime events live outside transactionDir on purpose: the uploader sends
     // every file in that directory to the cloud as a sale.
-    if (config.count("PRIME_LOG")) state.primeLogPath = config["PRIME_LOG"];
+    //
+    // Each configured path below is resolved against binDir + "/.." (the repo
+    // root) when relative, so a relative value in config.env lands in the
+    // same place the dashboard looks for it. See resolve_config_path().
+    const std::string repoRoot = binDir + "/..";
+
+    if (config.count("PRIME_LOG")) state.primeLogPath = resolve_config_path(repoRoot, config["PRIME_LOG"]);
     else state.primeLogPath = binDir + "/../logs/prime_events.jsonl";
 
-    if (config.count("INTERRUPTED_LOG")) state.interruptedLogPath = config["INTERRUPTED_LOG"];
+    if (config.count("INTERRUPTED_LOG")) state.interruptedLogPath = resolve_config_path(repoRoot, config["INTERRUPTED_LOG"]);
     else state.interruptedLogPath = binDir + "/../logs/interrupted_sales.jsonl";
 
-    if (config.count("UNCLAIMED_LOG")) state.unclaimedLogPath = config["UNCLAIMED_LOG"];
+    if (config.count("UNCLAIMED_LOG")) state.unclaimedLogPath = resolve_config_path(repoRoot, config["UNCLAIMED_LOG"]);
     else state.unclaimedLogPath = binDir + "/../logs/unclaimed_credits.jsonl";
 
     if (config.count("PRICES_FILE")) state.pricesPath = config["PRICES_FILE"];
     else state.pricesPath = binDir + "/../CONFIG/prices.conf";
 
-    if (config.count("PRICE_LOG")) state.priceLogPath = config["PRICE_LOG"];
+    if (config.count("PRICE_LOG")) state.priceLogPath = resolve_config_path(repoRoot, config["PRICE_LOG"]);
     else state.priceLogPath = binDir + "/../logs/price_changes.jsonl";
 
     // Apply config.env pin/calibration overrides BEFORE logging the map,

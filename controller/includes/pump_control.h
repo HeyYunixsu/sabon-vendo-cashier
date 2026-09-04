@@ -8,6 +8,19 @@
 // config.env on disk.
 int clamp_arm_timeout(const std::string &raw);
 
+// Resolves a configured log/data path against `base` unless it is already
+// absolute. setup_and_run.sh runs the controller with cwd = <repo>/controller,
+// so a relative value stored verbatim resolves (via ordinary file I/O) against
+// that directory -- while the dashboard resolves the very same config key
+// against the repo root with path.resolve(__dirname, '..', value). With an
+// absolute path, or the key left unset, both agree; with a relative path they
+// silently diverge: the controller writes happily, the dashboard's
+// fs.existsSync() on its own resolved path comes back false, and a panel like
+// Needs Attention stays empty forever with no error anywhere. An empty
+// `value` (key not configured) is returned unchanged so callers can still
+// fall back to their own default. Exposed for testing without a config.env.
+std::string resolve_config_path(const std::string &base, const std::string &value);
+
 // Initialise GPIO, ISRs, load config.env into state, create transaction dir.
 void pump_setup(AppState &state);
 

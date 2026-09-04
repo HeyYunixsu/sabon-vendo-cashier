@@ -438,6 +438,12 @@ app.post('/api/unclaimed/resolve', (req, res) => {
   if (action !== 'rearm' && action !== 'writeoff')
     return res.status(400).json({ success: false, error: 'bad action' });
 
+  // Settling is idempotent: two devices can show the same row for up to their
+  // poll interval, and a second Unlock Again would arm a slot the customer has
+  // already been given back. The ordinary /api/arm path guards this with
+  // processedSaleIds; this one hands out unpaid-for presses, so it needs it more.
+  if (resolvedKeys.has(key)) return res.json({ success: true, already: true });
+
   if (action === 'rearm') {
     const slot = parseInt(String(key).split('|')[0], 10);
     const qty = parseInt(req.body.qty, 10) || 1;

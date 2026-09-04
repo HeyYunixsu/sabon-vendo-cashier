@@ -315,7 +315,7 @@ Theme toggle persists in `localStorage` key `sabon-theme`. Default on first visi
 ├──────────────────────────────────────────────────────────────┤
 │ KPI ROW   [Total Armed] [In Stock] [Phase] [Today]           │
 ├──────────────────────────────────────────────────────────────┤
-│ SALE STRIP  [Staged Items Grid]  [− 1 +] [Stage] [Clear] [Arm] [0 presses] │
+│ SALE STRIP  [Staged Items Grid — each card has − / + / ×] [Clear] [Arm] [0 presses] │
 ├───────────────────────────────────────┬──────────────────────┤
 │ PRODUCT GRID (3×2, photo cards)      │ RIGHT PANEL          │
 │ ┌────────┬──────────┐ ┌────────┬───┐ │ Armed (auto-hide)    │
@@ -326,7 +326,7 @@ Theme toggle persists in `localStorage` key `sabon-theme`. Default on first visi
 │ │        │ ● Armed  │ │        │   │ │                       │
 │ └────────┴──────────┘ └────────┴───┘ │                       │
 │ [same for slots 3-6, 2 rows of 3]    │                       │
-│ [Select All Products] button         │                       │
+│ [Add One Of Each] button (btn-outline)│                       │
 └───────────────────────────────────────┴──────────────────────┘
 ```
 
@@ -406,11 +406,8 @@ const S = {
 
 | Variable | Type | Description |
 |----------|------|-------------|
-| `selProduct` | `number\|null` | Currently selected product slot (1–6), or null |
-| `multiSelect` | `boolean` | "Select All" mode active |
 | `staged` | `Array` | Items staged for sale: `[{id, name, qty, ml}, ...]` |
 | `unclaimed` | `Array` | From SSE: `[{slot, qty, time}, ...]` |
-| `currentQty` | `number` | Stepper value (1–MAX_QTY=10) |
 | `saleCtr` | `number` | Incrementing counter for unique sale IDs |
 | `dispenseCount` | `number` | Total dispenses this session (counter) |
 | `prevBusy` | `Array[7]` | Previous busy snapshot for dispense edge detection |
@@ -483,14 +480,13 @@ If no STATUS data arrives after **4 seconds** (`!S.lastUpdate`), the dashboard p
 
 ### 6.11 Sale Flow
 
-1. **Select product** — Click a product card (only active, non-empty slots are clickable). Card gets blue border + glow.
-2. **Set quantity** — Use the ± stepper (1 to MAX_QTY=10). Default is 1 press.
-3. **Stage** — Click "Stage" button. Item appears as a card in the sale strip showing product name + "N× · Xml".
-4. **Merge behavior** — Staging the same product again adds to its existing qty (doesn't create a duplicate card).
-5. **Multi-select** — "Select All Products" button selects all active non-empty slots. Staging then stages ALL selected products at once.
-6. **Clear** — Removes all staged items.
-7. **Arm** — Sends `ARM_BATCH,slot1:qty1,slot2:qty2,...` via `/api/arm`. On success, clears staged items. On failure, shows error toast.
-8. **Customer dispenses** — Presses physical buttons on the vendo machine.
+1. **Tap product** — Click a product card (only active, non-empty slots are clickable). One tap stages one press immediately — no separate quantity step and no "Add" button.
+2. **Tap again to add more** — Tapping the same card again adds another press. `stageItem` merges by product id, so the sale strip shows one card per product with a rising count, e.g. "3× · 120ml", rather than a row per tap.
+3. **Adjust or remove** — Each staged card has `−` and `+`. `−` at a count of 1 removes the card; `×` removes it outright regardless of count.
+4. **Add One Of Each** — Stages one press of every active, in-stock product at once. Styled `btn-outline` since "Unlock Buttons" is the primary action in that column.
+5. **Clear** — Removes all staged items.
+6. **Arm** — Click "Unlock Buttons". Sends `ARM_BATCH,slot1:qty1,slot2:qty2,...` via `/api/arm`. On success, clears staged items. On failure, shows error toast.
+7. **Customer dispenses** — Presses physical buttons on the vendo machine.
 
 **Qty is press count, not peso amount.** There is no pricing logic in the dashboard. Each unit = one button press = one dispense cycle.
 
@@ -540,8 +536,9 @@ Fixed to bottom-center. Three variants: default (dark bg), `.success` (green bor
 | `connectSSE()` | Create EventSource, wire message/error handlers |
 | `parse(raw)` | Parse STATUS CSV line into `S` object |
 | `renderGrid()` | Generate product card HTML, attach click handlers |
-| `selectProduct(id)` | Select a product slot (exits multi-select mode) |
-| `stageItem(id)` | Add/merge product into staged array |
+| `selectProduct(id)` | Tap handler for a product card — stages one press of it |
+| `stageItem(id, qty)` | Add/merge product into staged array |
+| `adjustStaged(id, delta)` | ± one press on a staged card; removes the card below 1 |
 | `renderStaged()` | Render staged items in sale strip |
 | `removeStaged(i)` | Remove staged item by index |
 | `updateArm()` | Enable/disable Arm button, update its label |

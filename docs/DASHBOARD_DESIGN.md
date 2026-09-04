@@ -177,8 +177,8 @@ Overrides all color tokens. Toggled via the "LIGHT"/"DARK" button in the status 
 ├────────────────────────────────────────────────────┤
 │ KPI ROW: [Total Armed] [In Stock] [Phase] [Today]  │
 ├────────────────────────────────────────────────────┤
-│ SALE STRIP: [Staged Items Grid] [Qty Stepper]       │
-│             [Stage] [Clear] [Arm] [Total Presses]    │
+│ SALE STRIP: [Staged Items Grid — each card has − / + / ×] │
+│             [Clear] [Arm] [Total Presses]            │
 ├──────────────────────────────┬─────────────────────┤
 │ PRODUCT GRID (3×2)          │ RIGHT PANEL         │
 │ ┌──────┐ ┌──────┐ ┌──────┐ │ Armed (list rows)   │
@@ -187,7 +187,7 @@ Overrides all color tokens. Toggled via the "LIGHT"/"DARK" button in the status 
 │ ┌──────┐ ┌──────┐ ┌──────┐ │ Alerts               │
 │ │Slot04│ │Slot05│ │Slot06│ │ (all auto-hide when  │
 │ └──────┘ └──────┘ └──────┘ │  empty)              │
-│ [Select All Products]       │                      │
+│ [Add One Of Each] (btn-outline) │                 │
 └──────────────────────────────┴─────────────────────┘
 ```
 
@@ -223,22 +223,15 @@ Each product card (6 total, slot 6 is always inactive) has these visual states:
 
 ### 4.6 Sale Flow
 
-1. **Select product** — Click a product card (only active, non-empty slots are clickable)
-2. **Set quantity** — Use the qty stepper (±1 step, min 1, max `MAX_QTY`) to choose how many presses to arm. Each press dispenses that product's fixed calibrated ml. The stepper shows a read-only computed total (e.g. "3× · 120ml") so the cashier can see the total volume, but the underlying value sent to controller is always the press count, never a ml or peso figure
-3. **Item staged** — Click "Stage" to add a card to the sale strip with product name and qty (e.g. "3×"), plus × remove button
-4. **Add more products** — Repeat steps 1-3 for different products
-5. **"Select All" button** — Selects all active non-empty slots at once (multi-select mode). Setting a quantity and staging then applies that same qty to ALL selected products simultaneously
-6. **Arm** — Sends `ARM_BATCH,<slot1>:<qty1>,<slot2>:<qty2>,...` via the server to controller (wire format unchanged — `qty` is now entered directly rather than derived from a peso amount)
+1. **Tap product** — Click a product card (only active, non-empty slots are clickable). One tap stages one press immediately; there is no quantity step and no "Add" button.
+2. **Tap again for more** — Tapping the same card again adds another press. `stageItem` merges by product id, so the sale strip shows one card per product with a rising count (e.g. "3× · 120ml") rather than a row per tap. Each press dispenses that product's fixed calibrated ml; the underlying value sent to controller is always the press count, never a ml or peso figure
+3. **Item staged** — The card in the sale strip shows product name and qty (e.g. "3×"), plus `−`/`+` to adjust one press at a time and `×` to remove it outright
+4. **Add more products** — Repeat steps 1-2 for different products
+5. **"Add One Of Each" button** — Stages one press of every active, in-stock product at once. Styled `btn-outline` since "Unlock Buttons" is the primary action in that column
+6. **Arm** — Click "Unlock Buttons". Sends `ARM_BATCH,<slot1>:<qty1>,<slot2>:<qty2>,...` via the server to controller (wire format unchanged — `qty` is now entered directly rather than derived from a peso amount)
 7. **Customer dispenses** — Presses physical buttons on the vendo machine; each press consumes one unit of armed credit and triggers one calibrated pour. The machine pauses after each pour completes before the next press is accepted (reflected in the existing `busy` state — see §5.1)
 
-### 4.7 Multi-Select Mode
-
-Triggered by the "Select All Products" button below the grid. In multi-select mode:
-- All active non-empty product cards show as "selected" (blue border + glow)
-- Setting a quantity on the stepper and confirming stages ALL selected products at that quantity
-- Mode exits after staging
-
-### 4.8 Right Panel Sections
+### 4.7 Right Panel Sections
 
 All four sections auto-hide when empty (`display: none`):
 
@@ -250,7 +243,7 @@ All four sections auto-hide when empty (`display: none`):
 
 4. **Alerts** (red left border) — Lists empty slots (water level sensor triggered) and offline status. Shows alert count at top. Uses `alert-card` with red-tinted background.
 
-### 4.9 KPI Cards
+### 4.8 KPI Cards
 
 | KPI | Source | Color Accent |
 |---|---|---|
@@ -259,17 +252,17 @@ All four sections auto-hide when empty (`display: none`):
 | **Phase** | `S.phase`: 0=IDLE, 1=ARMED, 2=DISPENSING, 3=COMPLETE | Yellow top border |
 | **Today** | `dispenseCount` — incremented when `busy` transitions false→true | Purple top border |
 
-### 4.10 Status Bar
+### 4.9 Status Bar
 
 - **Left:** Connection status dot + "Online"/"Offline" + "Machine 001"
 - **Center:** "PAUSED" indicator (visible only when `S.paused === true`, yellow, pulsing)
 - **Right:** Theme toggle button + last update timestamp (HH:MM:SS)
 
-### 4.11 Offline Banner
+### 4.10 Offline Banner
 
 Shown when `S.connected === false`. Red-tinted background, "Machine unreachable." message with "Retry connection" link that calls `connectSSE()`.
 
-### 4.12 Toast Notifications
+### 4.11 Toast Notifications
 
 Fixed to bottom-center. Rises up with CSS transition. Three variants: default (dark), `.success` (green border), `.error` (red border). Auto-hides after 2.6 seconds.
 
@@ -300,8 +293,6 @@ const S = {
 
 | Variable | Type | Description |
 |---|---|---|
-| `selProduct` | `number|null` | Currently selected product slot (1-5) |
-| `multiSelect` | `boolean` | Multi-select mode active (from "Select All") |
 | `staged` | `Array` | Sale strip staged items: `[{id, name, qty, ml}, ...]` (`ml` is computed `qty × PRODUCT_ML[productId]`, display-only) |
 | `unclaimed` | `Array` | Unclaimed sales from SSE: `[{slot, qty, time}, ...]` |
 | `saleCtr` | `number` | Incrementing counter for unique sale IDs |
@@ -495,8 +486,8 @@ Edit the `:root` block for dark theme, `[data-theme="light"]` block for light th
 2. If it needs to reach controller, use `sendToCoinSlot(command)` 
 3. If it needs to push to browsers, use `broadcastSSE(data)`
 
-### Changing the quantity stepper
-No more preset buttons — quantity is set with a single stepper control (±1 step, min 1, max `MAX_QTY`). Adjust the cap by changing `MAX_QTY` (Section 9). If a product's calibrated volume changes, update its value in `PRODUCT_ML` — this only affects the read-only ml hint shown on staged items, not the `ARM_BATCH` payload.
+### Changing the per-press quantity control
+No preset buttons and no pre-stage stepper — tapping a product card stages one press, tapping again adds another, and each staged card has its own `−`/`+` to adjust by one press (min 1, removing the card below that; max `MAX_QTY`). Adjust the cap by changing `MAX_QTY` (Section 9). If a product's calibrated volume changes, update its value in `PRODUCT_ML` — this only affects the read-only ml hint shown on staged items, not the `ARM_BATCH` payload.
 
 ### Changing font files
 Replace `.woff2` files in `public/fonts/` and update the `@font-face` declarations (lines 15-22). Keep `font-display: swap` for performance.

@@ -73,6 +73,33 @@ static void test_timeout_value_is_clamped()
     CHECK_EQ(clamp_arm_timeout(""), 300);
 }
 
+static void test_resolve_config_path_joins_relative_paths()
+{
+    // Unset. A relative path must join to the base -- this is the case that
+    // used to silently split the controller (cwd = <repo>/controller) from
+    // the dashboard (resolves against the repo root) whenever a client set a
+    // relative PRIME_LOG/INTERRUPTED_LOG/UNCLAIMED_LOG/PRICE_LOG in config.env.
+    CHECK_EQ(resolve_config_path("/repo", "logs/prime_events.jsonl"), "/repo/logs/prime_events.jsonl");
+}
+
+static void test_resolve_config_path_leaves_absolute_paths_unchanged()
+{
+    // Unix-style absolute.
+    CHECK_EQ(resolve_config_path("/repo", "/var/log/prime_events.jsonl"), "/var/log/prime_events.jsonl");
+    // Windows-style absolute -- both slash directions. This code builds and
+    // runs its tests on Windows as well as the Pi.
+    CHECK_EQ(resolve_config_path("/repo", "C:\\logs\\prime_events.jsonl"), "C:\\logs\\prime_events.jsonl");
+    CHECK_EQ(resolve_config_path("/repo", "C:/logs/prime_events.jsonl"), "C:/logs/prime_events.jsonl");
+}
+
+static void test_resolve_config_path_empty_stays_empty()
+{
+    // An unconfigured key must stay empty so the caller's own default applies
+    // -- resolving "" against the base would otherwise silently point every
+    // unset log at the repo root itself.
+    CHECK_EQ(resolve_config_path("/repo", ""), "");
+}
+
 static void test_credits_expire_at_the_configured_time()
 {
     AppState s = fresh_state();
@@ -200,6 +227,9 @@ void run_unclaimed_tests()
     SUITE("Unclaimed credits");
 
     RUN_TEST(test_timeout_value_is_clamped);
+    RUN_TEST(test_resolve_config_path_joins_relative_paths);
+    RUN_TEST(test_resolve_config_path_leaves_absolute_paths_unchanged);
+    RUN_TEST(test_resolve_config_path_empty_stays_empty);
     RUN_TEST(test_credits_expire_at_the_configured_time);
     RUN_TEST(test_expired_credits_are_recorded);
     RUN_TEST(test_queued_credits_are_recorded_too);
