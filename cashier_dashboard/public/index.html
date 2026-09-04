@@ -1957,6 +1957,9 @@ button, .btn, .product-card, .kpi-card, .staged-card, .tab {
         body: JSON.stringify(body),
       })).json();
       if (!r.success) { toast(r.error || 'Could not settle that', 'error'); return; }
+      // Another device got there first. Saying "unlocked again" here would send
+      // the customer to press a button that carries no credit.
+      if (r.already) { toast('Already settled on another device', 'caution'); loadUnclaimed(); return; }
       toast(b.dataset.act === 'rearm' ? 'Button unlocked again' : 'Written off', 'success');
       loadUnclaimed();
     } catch (e) { toast('Could not settle that', 'error'); }

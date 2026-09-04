@@ -429,7 +429,12 @@ app.post('/api/prime', (req, res) => {
 });
 
 app.post('/api/unclaimed/resolve', (req, res) => {
-  const { key, action } = req.body;
+  // Coerced to a string before anything else touches it. resolvedKeys is a Set
+  // matched by value, so a non-string key -- an array from a stray script, say --
+  // would miss the idempotency check below on every repeat and re-arm the slot
+  // each time. The dashboard has no auth, so anything on the LAN can post here.
+  const key = String(req.body.key || '');
+  const action = req.body.action;
   if (!key) return res.status(400).json({ success: false, error: 'missing key' });
 
   // Only these two are handled below. Anything else -- a typo, a client bug,
