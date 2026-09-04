@@ -718,6 +718,46 @@ button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
   padding: 14px 16px; border-bottom: 1px solid var(--border-default);
   font-size: 14px; font-weight: 700;
 }
+/* Today's takings */
+#kpi-today-card { cursor: pointer; }
+#kpi-today-card .kpi-sub { text-decoration: underline dotted; text-underline-offset: 2px; }
+#today-sheet .sheet-body { padding-bottom: 20px; }
+.today-total {
+  display: flex; align-items: baseline; gap: 10px;
+  padding: 4px 0 12px;
+}
+.today-total .big {
+  font-family: 'Poppins', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-size: 30px; font-weight: 700; font-variant-numeric: tabular-nums;
+}
+.today-total .sub { font-size: 12px; color: var(--text-content-secondary); }
+.mix-bar {
+  display: flex; height: 14px; width: 100%; border-radius: var(--radius-pill);
+  overflow: hidden; background: var(--bg-surface-tertiary); margin-bottom: 12px;
+}
+.mix-bar span { height: 100%; }
+.today-row {
+  display: grid; grid-template-columns: 12px 1fr auto auto;
+  align-items: center; gap: 10px;
+  padding: 7px 0; border-bottom: 1px solid var(--border-default);
+  font-size: 12px;
+}
+.today-row:last-child { border-bottom: none; }
+.today-row .swatch { width: 10px; height: 10px; border-radius: 3px; }
+.today-row .t-presses {
+  font-variant-numeric: tabular-nums; color: var(--text-content-secondary);
+  font-size: 11px; min-width: 66px; text-align: right;
+}
+.today-row .t-pesos {
+  font-family: 'Poppins', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-weight: 600; font-variant-numeric: tabular-nums;
+  min-width: 62px; text-align: right;
+}
+.today-row.zero { opacity: .45; }
+.today-note {
+  font-size: 10px; line-height: 1.6;
+  color: var(--text-content-secondary); margin-top: 12px;
+}
 .price-row {
   display: flex; align-items: center; gap: 10px;
   padding: 6px 0; border-bottom: 1px solid var(--border-default);
@@ -800,7 +840,7 @@ button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
   <div class="kpi-card"><div class="kpi-label">Waiting to Dispense</div><div class="kpi-value" id="kpi-armed">0</div><div class="kpi-sub">presses not yet used</div></div>
   <div class="kpi-card"><div class="kpi-label">In Stock</div><div class="kpi-value" id="kpi-active" style="color:var(--status-positive);">6</div><div class="kpi-sub" id="kpi-active-sub">of 6 products</div></div>
   <div class="kpi-card"><div class="kpi-label">Machine</div><div class="kpi-value" id="kpi-bundle">Ready</div><div class="kpi-sub" id="kpi-bundle-sub">waiting for a sale</div></div>
-  <div class="kpi-card"><div class="kpi-label">Today</div><div class="kpi-value" id="kpi-today">0</div><div class="kpi-sub">dispenses completed</div></div>
+  <div class="kpi-card" id="kpi-today-card" role="button" tabindex="0"><div class="kpi-label">Today</div><div class="kpi-value" id="kpi-today">0</div><div class="kpi-sub">tap to see takings</div></div>
 </div>
 
 <!-- Sale Strip (horizontal, full width) -->
@@ -845,6 +885,23 @@ button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
     </section>
   </aside>
 </main>
+
+<div id="today-backdrop" hidden></div>
+<div id="today-sheet" hidden role="dialog" aria-modal="true" aria-labelledby="today-title">
+  <div class="sheet-head">
+    <span id="today-title">Today</span>
+    <button id="today-close" aria-label="Close">&times;</button>
+  </div>
+  <div class="sheet-body">
+    <div class="today-total">
+      <span class="big" id="today-pesos">&#8369;0</span>
+      <span class="sub" id="today-presses">0 presses</span>
+    </div>
+    <div class="mix-bar" id="today-mix"></div>
+    <div id="today-list"></div>
+    <div class="today-note" id="today-note"></div>
+  </div>
+</div>
 
 <div id="settings-backdrop" hidden></div>
 <div id="settings-sheet" hidden role="dialog" aria-modal="true" aria-labelledby="settings-title">
@@ -908,12 +965,12 @@ button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
 (function() {
   'use strict';
 
-  const PRODUCT = {
-    1: 'Detergent 1', 2: 'Detergent 2', 3: 'Fabcon 1',
-    4: 'Fabcon 2', 5: 'Zonrox 1', 6: 'Zonrox 2',
-  };
-  const PRODUCT_INITIAL = { 1:'D1', 2:'D2', 3:'F1', 4:'F2', 5:'Z1', 6:'Z2' };
-  const PRODUCT_ML = { 1: 75, 2: 75, 3: 60, 4: 60, 5: 100, 6: 100 };
+  // Placeholders only. The real names and volumes come from config.env via
+  // /api/info, because what is loaded in each slot differs per client -- these
+  // were hardcoded, so every machine claimed to sell the same six things.
+  let PRODUCT    = { 1:'Product 1', 2:'Product 2', 3:'Product 3',
+                     4:'Product 4', 5:'Product 5', 6:'Product 6' };
+  let PRODUCT_ML = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0 };
   const PRODUCT_ICON = {
     1: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3c4.2 4.6 6.5 8.1 6.5 11a6.5 6.5 0 0 1-13 0c0-2.9 2.3-6.4 6.5-11z"/></svg>',
     2: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3c4.2 4.6 6.5 8.1 6.5 11a6.5 6.5 0 0 1-13 0c0-2.9 2.3-6.4 6.5-11z"/></svg>',
@@ -935,7 +992,7 @@ button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
     phase: 0, bundleComplete: false,
     lastUpdate: null, connected: false,
   };
-  let selProduct = null, multiSelect = false, staged = [], unclaimed = [], saleCtr = 0, dispenseCount = 0, currentQty = 1;
+  let selProduct = null, multiSelect = false, staged = [], unclaimed = [], saleCtr = 0, currentQty = 1;
   let prevArmed = new Array(TOTAL + 1).fill(0);
   let prevBusy  = new Array(TOTAL + 1).fill(false);
   let prevArmedQty = new Array(TOTAL + 1).fill(0); // pulse-on-arm detection
@@ -949,6 +1006,14 @@ button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
     clearTimeout(toastTmr); toastTmr = setTimeout(() => el.className = '', 2600);
   }
 
+  // The uploader archives a sale a moment after the pump stops, so give it
+  // time before re-reading rather than racing it.
+  let todayTmr = null;
+  function scheduleTodayRefresh() {
+    clearTimeout(todayTmr);
+    todayTmr = setTimeout(loadToday, 1500);
+  }
+
   // SSE
   function connectSSE() {
     const es = new EventSource('/api/status/stream');
@@ -959,7 +1024,8 @@ button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
         S.armedQty.fill(0); S.remaining.fill(0); S.wlvl.fill(false);
         S.busy.fill(false); S.queueDepth.fill(0); S.paused = false;
         S.phase = 0; S.bundleComplete = false;
-        dispenseCount = 0; staged = []; selProduct = null; multiSelect = false; unclaimed = [];
+        staged = []; selProduct = null; multiSelect = false; unclaimed = [];
+        loadToday();   // authoritative, and survives the reload that cleared the rest
         renderStaged(); updateArm();
         $('btn-stage').disabled = true; currentQty = 1; $('qty-value').value = 1;
         refresh(); return;
@@ -985,9 +1051,11 @@ button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
     S.phase = parseInt(p[i++]) || 0;     // 0=IDLE, 1=ARMED, 2=DISPENSING, 3=COMPLETE
     S.bundleComplete = p[i] === '1';
 
-    // Count actual dispenses: busy false→true = button was pressed
+    // A pump finishing is the cue to re-read the day's takings. Counting the
+    // transitions here instead would count a line being cleared of air as a
+    // sale, and would reset to zero on every page reload.
     for (let s = 1; s <= ACTIVE; s++) {
-      if (S.busy[s] && !prevBusy[s]) dispenseCount++;
+      if (!S.busy[s] && prevBusy[s]) scheduleTodayRefresh();
       prevBusy[s] = S.busy[s];
     }
     S.lastUpdate = new Date(); refresh();
@@ -1041,7 +1109,8 @@ button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
     $('kpi-bundle-sub').textContent = S.bundleComplete ? 'all done!'
       : (S.phase === 0 ? 'waiting for a sale'
       : (S.phase === 1 ? 'customer can press now' : 'please wait...'));
-    $('kpi-today').textContent = dispenseCount;
+    // Today's figure comes from the sales archive via loadToday(), not from
+    // anything counted here.
   }
 
   // Grid
@@ -1392,6 +1461,87 @@ button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
   }
 
   // ---------------------------------------------------------------------
+  // Today's takings
+  //
+  // Read from the sales archive rather than counted in the browser. The old
+  // counter was a variable that reset on every reload -- and it counted any
+  // pump start, so clearing air from a line inflated the day's sales.
+  //
+  // Chosen to stay legible on an iPad in daylight and to a colour-blind
+  // reader: every slice is labelled, and colour never carries meaning alone.
+  // ---------------------------------------------------------------------
+  const MIX_COLOURS = ['#3B6DF0', '#34D399', '#FBBF24', '#F87171', '#8B5CF6', '#22D3EE'];
+  let todayPesos = 0, todayPresses = 0;
+
+  async function loadToday() {
+    try {
+      const d = await (await fetch('/api/sales/today')).json();
+      todayPesos = d.pesos || 0;
+      todayPresses = d.presses || 0;
+      $('kpi-today').textContent = '₱' + todayPesos;
+      renderToday(d);
+    } catch (e) { /* the machine still sells without its report */ }
+  }
+
+  function renderToday(d) {
+    if ($('today-sheet').hidden) return;
+
+    $('today-pesos').textContent = '₱' + (d.pesos || 0);
+    $('today-presses').textContent = (d.presses || 0) + ' press'
+                                   + ((d.presses || 0) !== 1 ? 'es' : '');
+
+    const rows = (d.products || []).slice().sort((a, b) => b.pesos - a.pesos);
+    const total = d.pesos || 0;
+
+    let bar = '';
+    rows.forEach((r) => {
+      if (!r.pesos || !total) return;
+      const pct = (r.pesos / total) * 100;
+      bar += '<span style="width:' + pct.toFixed(2) + '%;background:'
+           + MIX_COLOURS[(r.slot - 1) % MIX_COLOURS.length]
+           + '" title="' + r.name + '"></span>';
+    });
+    $('today-mix').innerHTML = bar;
+    $('today-mix').style.display = bar ? 'flex' : 'none';
+
+    let h = '';
+    rows.forEach((r) => {
+      const share = total ? Math.round((r.pesos / total) * 100) : 0;
+      h += '<div class="today-row' + (r.presses ? '' : ' zero') + '">'
+         + '<span class="swatch" style="background:'
+         + MIX_COLOURS[(r.slot - 1) % MIX_COLOURS.length] + '"></span>'
+         + '<span>' + r.name + '</span>'
+         + '<span class="t-presses">' + r.presses + ' ×'
+         + (r.presses && total ? '  · ' + share + '%' : '') + '</span>'
+         + '<span class="t-pesos">₱' + r.pesos + '</span>'
+         + '</div>';
+    });
+    $('today-list').innerHTML = h;
+
+    const note = $('today-note');
+    if (!d.presses) {
+      note.textContent = 'No sales recorded yet today.';
+    } else {
+      note.textContent = 'Counted when a pump finishes a press, so clearing air '
+                       + 'is not included. Each sale is recorded at the price in '
+                       + 'force at the time, so changing a price does not rewrite '
+                       + 'earlier takings.'
+                       + (d.lastSaleAt ? '  Last sale ' + d.lastSaleAt + '.' : '');
+    }
+  }
+
+  function openToday() {
+    $('today-backdrop').hidden = false;
+    $('today-sheet').hidden = false;
+    loadToday();
+  }
+
+  function closeToday() {
+    $('today-backdrop').hidden = true;
+    $('today-sheet').hidden = true;
+  }
+
+  // ---------------------------------------------------------------------
   // Prices
   //
   // Set per client, so they are edited here rather than compiled in. The
@@ -1538,16 +1688,38 @@ button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
     } catch (e) { /* the panel still opens without them */ }
   }
 
+  $('kpi-today-card').addEventListener('click', openToday);
+  $('kpi-today-card').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openToday(); }
+  });
+  $('today-close').addEventListener('click', closeToday);
+  $('today-backdrop').addEventListener('click', closeToday);
+
   $('btn-settings').addEventListener('click', openSettings);
   $('settings-close').addEventListener('click', closeSettings);
   $('settings-backdrop').addEventListener('click', closeSettings);
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && settingsOpen()) closeSettings();
+    if (e.key !== 'Escape') return;
+    if (settingsOpen()) closeSettings();
+    if (!$('today-sheet').hidden) closeToday();
   });
 
   async function loadInfo() {
     try {
       const d = await (await fetch('/api/info')).json();
+
+      if (d.products) {
+        for (const k of Object.keys(d.products)) {
+          const slot = parseInt(k, 10);
+          if (!(slot >= 1 && slot <= TOTAL)) continue;
+          if (d.products[k].name) PRODUCT[slot] = d.products[k].name;
+          PRODUCT_ML[slot] = d.products[k].ml || 0;
+        }
+        // The grid was drawn with placeholders; force it past the redraw guard.
+        gridSig = null; armedSig = null; primeSig = null;
+        refresh();
+      }
+
       $('info-machine').textContent = d.machineId || '--';
       $('machine-label').textContent = 'Machine ' + (d.machineId || '--');
       $('info-url').textContent = d.lanUrl || location.origin;
@@ -1658,6 +1830,11 @@ button, .btn, .stepper-btn, .product-card, .kpi-card, .staged-card, .tab {
   renderGrid();
   connectSSE();
   loadInfo();
+  loadToday();
+  // The archive is only written when the uploader confirms a sale, so a slow
+  // link means today's figure lands late rather than never. Re-read on a slow
+  // beat as well as on each completed dispense.
+  setInterval(loadToday, 60000);
 
   // Skeleton timeout: if no STATUS data after 4s, show demo
   setTimeout(() => {

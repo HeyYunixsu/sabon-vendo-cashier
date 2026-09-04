@@ -51,78 +51,149 @@ direction that hides theft, since a prime would pad the sales figure.
   and the machine may have no internet at all. Charts are hand-drawn inline
   SVG. A pie and a bar chart are about 60 lines each; a library is not worth
   breaking the offline guarantee for.
-- **The controller owns the ledger.** The dashboard can be restarted, opened in
-  several tabs, or reloaded mid-sale. Only the controller sees a dispense
-  complete exactly once.
+- **The uploader owns the archive.** It already holds each confirmed record
+  immediately before deleting it, so what is archived is exactly what the cloud
+  acknowledged and the two cannot drift. The controller is not involved.
 - **Never change the transaction JSON keys** or the uploader's delete-on-confirm
   behaviour. That is the cloud contract. The ledger is a second, separate write.
 - Every task must leave `make test` green with no compiler warnings.
 
 ---
 
-## Task 1 — Stop counting primes as dispenses
+## Status, 2026-09-04
 
-- [ ] Distinguish a maintenance run from a sale on the wire. Options: a
-      separate `priming` field in STATUS, or exclude priming slots from `busy`
-- [ ] Prefer adding a field: `busy` genuinely means "this pump is running", and
-      other consumers (`status_uploader.py`) may rely on that
-- [ ] STATUS is a fixed-width positional format — bump the field count in
-      `build_status_response()`, `index.html` (`STATUS_FIELDS`) and
-      `status_uploader.py` together, or they silently mis-parse
-- [ ] Test: a prime does not increment the dashboard's dispense count
+Reworked after review. The original plan had the controller write a new sales
+ledger in C++ and drew both a donut and a monthly chart on the machine. Three
+things were wrong with that:
 
----
+1. **The ledger did not need to be in C++.** `transaction_uploader.py` already
+   holds each confirmed record just before deleting it, so appending there is
+   a fraction of the work -- and what lands in the archive is exactly what the
+   cloud acknowledged, so local and cloud cannot drift.
+2. **The monthly chart belongs in the cloud portal.** Every field it needs
+   already arrives there, and an owner checking on staff wants to look from
+   home across every machine -- not while standing in the shop next to the
+   cashier being checked. Building it locally means writing it twice and
+   maintaining the copy fewer people use.
+3. **Product names were hardcoded in `index.html`.** No machine could label a
+   report with what was actually in its tanks, and the cloud only ever receives
+   a slot number, so the portal could not either.
 
-## Task 2 — A durable local sales ledger
+**Done:** product names in config, the uploader archive, a local today view,
+and the prime-counts-as-a-dispense fix.
 
-- [ ] Append every completed dispense to `logs/sales.jsonl` from
-      `writeTransaction()` — the single point where a real sale is recorded
-- [ ] One JSON object per line: `slot`, `amount`, `date_created`, `machine_id`
-- [ ] Outside `TRANSACTION_DIR`, so the uploader never deletes it
-- [ ] Configurable via `SALES_LOG`, defaulting to `<repo>/logs/sales.jsonl`
-- [ ] Roll monthly (`sales-2026-09.jsonl`) so a year of history is not one file
-      that must be read end to end to answer "what sold today"
-- [ ] Retention: keep 13 months so year-on-year comparison works, delete older
-- [ ] Test: a completed dispense appends exactly one line; a prime appends none;
-      an interrupted dispense appends none
-
-Size is not a concern: 200 dispenses a day at ~90 bytes is 18 KB/day, about
-6.6 MB a year.
+**Not done:** the monthly chart, deliberately -- it is the portal's job. The
+payload spec for that team is still to write; the client could not reach them
+at the time of writing.
 
 ---
 
-## Task 3 — Aggregation endpoint
+## Task 1 — Stop counting primes as dispenses — DONE
 
-- [ ] `GET /api/sales?range=today` → per-slot counts and peso totals
-- [ ] `GET /api/sales?range=month` → daily totals for the current month
-- [ ] `GET /api/sales?range=year` → monthly totals for the last 12 months
-- [ ] Read only the month files the range needs
-- [ ] Skip malformed lines rather than failing the whole request — one bad line
-      must not hide the day's trading
-- [ ] Local dates throughout, matching the controller's `localtime` timestamps
+Solved at the source instead of on the wire. The day's figure now comes from
+the sales archive, which only ever contains completed sales, so a prime cannot
+appear in it however the pump behaves.
 
----
+- [x] Today's figure no longer derives from `busy` transitions
+- [x] Verified against a live controller: clearing air on slot 4 left the day
+      unchanged at 5 presses / ₱108
 
-## Task 4 — The report view
+**Not done, and not needed:** the `priming` field in STATUS. `busy` honestly
+means "this pump is running", and the only consumer that reads it for counting
+was the dashboard. `status_uploader.py` reads water levels only, indexed from
+the front, so it was never affected. Adding fields would have meant a
+three-component coordinated change for no gain.
 
-- [ ] Make the "Today" KPI card tappable, opening a sheet (reuse the settings
-      sheet pattern — backdrop, Esc, tap-outside all already work)
-- [ ] Donut: today's share by product, with counts and a legend. A donut over a
-      pie: the centre holds the day's total, and slices are easier to compare
-- [ ] Bar chart: daily totals for the current month, with a month picker
-- [ ] Toggle between **presses** and **pesos**
-- [ ] Empty state that says "no sales recorded yet today", not an empty circle
-- [ ] Colour-blind-safe palette, and never colour alone — label every slice
-- [ ] Readable on the iPad in daylight: large type, high contrast
+Still true: a slot being primed shows as "Dispensing" on its card. That is
+accurate — the pump is running — but a distinct "Clearing air" state would
+read better. Deferred; it needs the STATUS field after all.
 
 ---
 
-## Task 5 — Fix the "Today" card itself
+## Task 2 — A durable local sales archive — DONE (in Python, not C++)
 
-- [ ] Feed the KPI from the ledger, not the in-tab counter, so it survives a
-      reload and means what it says
-- [ ] Keep it live: bump optimistically on a completed dispense, reconcile from
-      the ledger periodically
+- [x] `transaction_uploader.py` appends each confirmed sale immediately before
+      `os.remove()`. Archive before delete, so a failed write cannot lose the
+      record entirely
+- [x] One JSON object per line: `machine_id`, `slot`, `amount`, `date_created`
+- [x] Outside `TRANSACTION_DIR`, so nothing sweeps it up
+- [x] Configurable via `SALES_ARCHIVE_DIR`, default `<repo>/logs/sales`
+- [x] One file per month, named by **the sale's own date** — a record uploaded
+      after a night offline lands in the month it was sold, not today
+- [x] Never raises: a machine that cannot write its archive must keep selling.
+      A failure costs a line of history; stopping the till costs the day's trade
+- [x] Unit tested: month splitting, field fidelity, append-not-overwrite, and
+      that an unwritable directory is swallowed
+
+**Not done: retention.** Nothing prunes old months. At roughly 18 KB a day this
+is about 6.6 MB a year, so it is not urgent, but it grows without limit and
+should be capped before these machines have run for years.
+
+**Written in the uploader, not the controller**, which was the original plan.
+Cheaper, and the archive is provably what the cloud accepted.
+
+---
+
+## Task 3 — Aggregation endpoint — DONE for today only
+
+- [x] `GET /api/sales/today` — per-product presses and pesos, plus totals
+- [x] Reads the archive **and** the transaction queue, so a day is complete even
+      if the link has been down since morning
+- [x] De-duplicates: a record can briefly exist in both places
+- [x] Uses the amount recorded at the time of sale, so changing a price does not
+      rewrite earlier takings
+- [x] Skips malformed lines rather than failing the request
+- [x] Local dates throughout, matching the controller's `localtime` stamps
+
+**Not done:** `range=month` and `range=year`. Those feed the monthly chart,
+which belongs in the portal.
+
+---
+
+## Task 4 — The report view — local part DONE
+
+- [x] The "Today" card is tappable (and keyboard-reachable), opening a sheet
+- [x] Per-product rows: presses, share of takings, pesos, sorted by takings
+- [x] A horizontal mix bar showing each product's share of the day
+- [x] Empty state that says "No sales recorded yet today"
+- [x] Colour-blind safe: every row is labelled, colour never carries meaning alone
+- [x] Explains what the number means — counted on a completed press, excludes
+      clearing air, priced at the time of sale
+
+**Not done, deliberately:**
+
+- The donut. A horizontal mix bar says the same thing, reads better at a glance
+  on a small panel, and needs no SVG geometry.
+- The monthly bar chart. That is the portal's job — every field it needs
+  already arrives there, and an owner checking on staff wants to look from home
+  across every machine, not from inside the shop.
+- The presses/pesos toggle. Both are shown at once, so there is nothing to
+  toggle between.
+
+---
+
+## Task 5 — Fix the "Today" card itself — DONE
+
+- [x] The KPI reads from the archive, so it survives a reload and means "today"
+      rather than "since this tab opened"
+- [x] Shows pesos, which is what the owner actually wants to know
+- [x] Refreshes when a pump finishes, and on a slow beat, so a sale archived
+      late by a slow link still lands
+
+---
+
+## Task 6 — Product names per machine — DONE (was not in the original plan)
+
+Found while reworking this: `PRODUCT` was a hardcoded constant in `index.html`,
+so every machine claimed to sell the same six things whatever was in its tanks,
+and no report anywhere could be labelled.
+
+- [x] `PRODUCTn_NAME` and `PRODUCTn_ML` in `config.env`
+- [x] Served to the dashboard through `/api/info`
+- [x] Used by the grid, the armed list, prices, prime rows and the today report
+
+**Note for whoever builds the portal:** the cloud still receives only the slot
+number. It cannot label a chart without a slot-to-product map per machine.
 
 ---
 

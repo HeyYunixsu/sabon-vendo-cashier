@@ -58,6 +58,23 @@ const PRIME_LOG_PATH = config.PRIME_LOG
   : path.resolve(__dirname, '..', 'logs', 'prime_events.jsonl');
 const PRIME_SECONDS = parseFloat(config.PRIME_SECONDS || '3');
 
+// What each slot actually holds. Different clients stock different products,
+// so this cannot be assumed -- it used to be a hardcoded list in the browser,
+// which meant every machine claimed to sell the same six things.
+const PRODUCTS = {};
+for (let i = 1; i <= 6; i++) {
+  PRODUCTS[i] = {
+    name: config[`PRODUCT${i}_NAME`] || `Product ${i}`,
+    ml: parseInt(config[`PRODUCT${i}_ML`] || '0', 10) || 0,
+  };
+}
+
+// Confirmed sales, archived by transaction_uploader.py before it deletes each
+// record. Read-only here.
+const SALES_ARCHIVE_DIR = config.SALES_ARCHIVE_DIR
+  ? path.resolve(__dirname, '..', config.SALES_ARCHIVE_DIR)
+  : path.resolve(__dirname, '..', 'logs', 'sales');
+
 // Audit trail of price changes. Written by the controller; read-only here.
 const PRICE_LOG_PATH = config.PRICE_LOG
   ? path.resolve(__dirname, '..', config.PRICE_LOG)
@@ -463,6 +480,7 @@ function getLanUrl() {
 // when someone is looking at one of several machines.
 app.get('/api/info', (req, res) => {
   res.json({
+    products: PRODUCTS,
     machineId: config.machineId || 'unknown',
     lanUrl: getLanUrl(),
     controllerHost: `${SOCKET_IP}:${SOCKET_PORT}`,
@@ -527,6 +545,100 @@ app.get('/api/prices/history', (req, res) => {
     console.error(`[dashboard] Could not read price log: ${e.message}`);
   }
   res.json({ changes: out.reverse().slice(0, 20) });
+});
+
+// ---------------------------------------------------------------------------
+// Local sales report
+//
+// The machine keeps no memory of its own trading otherwise: every transaction
+// file is deleted the moment the cloud accepts it. This reads the archive the
+// uploader leaves behind, plus anything still queued, so a day is complete
+// even if the link has been down since morning.
+// ---------------------------------------------------------------------------
+
+function localDateString(d) {
+  return `${d.getFullYear()}-`
+       + `${String(d.getMonth() + 1).padStart(2, '0')}-`
+       + `${String(d.getDate()).padStart(2, '0')}`;
+}
+
+// Every sale recorded for `day` (YYYY-MM-DD), from the archive and the queue.
+function readSalesForDay(day) {
+  const sales = [];
+  const seen = new Set();
+
+  const take = (rec) => {
+    const when = String(rec.date_created || '');
+    if (!when.startsWith(day)) return;
+    // A record can be in both places for the moment between upload and delete.
+    const key = `${rec.slot}|${when}|${rec.amount}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    sales.push({ slot: parseInt(rec.slot, 10), amount: Number(rec.amount) || 0, at: when });
+  };
+
+  try {
+    const file = path.join(SALES_ARCHIVE_DIR, `sales-${day.slice(0, 7)}.jsonl`);
+    if (fs.existsSync(file)) {
+      for (const line of fs.readFileSync(file, 'utf-8').split(/\r?\n/)) {
+        if (!line.trim()) continue;
+        // One damaged line must not hide the rest of the day's trading.
+        try { take(JSON.parse(line)); } catch (_) { /* skip */ }
+      }
+    }
+  } catch (e) {
+    console.error(`[dashboard] Could not read sales archive: ${e.message}`);
+  }
+
+  // Not yet uploaded, so not yet archived -- but sold all the same.
+  try {
+    const dir = config.TRANSACTION_DIR;
+    if (dir && fs.existsSync(dir)) {
+      for (const name of fs.readdirSync(dir)) {
+        if (!name.endsWith('.json')) continue;
+        try {
+          take(JSON.parse(fs.readFileSync(path.join(dir, name), 'utf-8')));
+        } catch (_) { /* skip */ }
+      }
+    }
+  } catch (e) {
+    console.error(`[dashboard] Could not read transaction queue: ${e.message}`);
+  }
+
+  return sales;
+}
+
+app.get('/api/sales/today', (req, res) => {
+  const day = typeof req.query.day === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(req.query.day)
+    ? req.query.day
+    : localDateString(new Date());
+
+  const sales = readSalesForDay(day);
+
+  const bySlot = {};
+  for (let i = 1; i <= 6; i++) {
+    bySlot[i] = { slot: i, name: PRODUCTS[i].name, presses: 0, pesos: 0, price: prices[i] };
+  }
+  let presses = 0, pesos = 0;
+  for (const sale of sales) {
+    if (!bySlot[sale.slot]) continue;
+    bySlot[sale.slot].presses += 1;
+    // The amount recorded at the time of sale, not today's price. A price
+    // change must not rewrite what yesterday was worth.
+    bySlot[sale.slot].pesos += sale.amount;
+    presses += 1;
+    pesos += sale.amount;
+  }
+
+  const last = sales.reduce((a, b) => (!a || b.at > a.at ? b : a), null);
+  res.json({
+    day,
+    presses,
+    pesos,
+    products: Object.values(bySlot),
+    lastSaleAt: last ? last.at : null,
+    archiveExists: fs.existsSync(SALES_ARCHIVE_DIR),
+  });
 });
 
 app.get('/qr', (req, res) => {

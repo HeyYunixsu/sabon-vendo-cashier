@@ -17,6 +17,43 @@ BASE_URL = os.getenv("API_BASE_URL", "https://office.dynamicglobalsoft.com:1232"
 
 api_endpoint = f"{BASE_URL}/api/v1/auth/machine/transaction"
 
+# Where confirmed sales are kept locally, one JSON object per line, one file
+# per month. Without this the machine has no memory of its own trading: every
+# record is deleted the moment the cloud accepts it, so the transaction
+# directory is empty seconds after a sale and nothing can answer "what sold
+# today" on site or if the client ever leaves the service.
+#
+# Written here rather than in the controller on purpose. What lands in the
+# archive is exactly what the cloud acknowledged, so the two cannot drift.
+SALES_ARCHIVE_DIR = os.getenv(
+    "SALES_ARCHIVE_DIR",
+    str(current_dir / ".." / "logs" / "sales"),
+)
+
+
+def archive_sale(record):
+    """Append one confirmed sale to this month's archive.
+
+    Never raises: a machine that cannot write its archive must keep selling
+    and keep uploading. A failure here costs a line of local history, and
+    stopping the till would cost the day's trade.
+    """
+    try:
+        os.makedirs(SALES_ARCHIVE_DIR, exist_ok=True)
+        # Group by the sale's own date, not today's, so a record uploaded
+        # after a night offline lands in the month it was actually sold.
+        month = str(record.get("dateCreated", ""))[:7] or time.strftime("%Y-%m")
+        path = os.path.join(SALES_ARCHIVE_DIR, f"sales-{month}.jsonl")
+        with open(path, "a", encoding="utf-8") as f:
+            f.write(json.dumps({
+                "machine_id":   record.get("machineId"),
+                "slot":         record.get("slot"),
+                "amount":       record.get("amount"),
+                "date_created": record.get("dateCreated"),
+            }) + "\n")
+    except Exception as archive_error:
+        print(f"Could not archive sale locally: {archive_error}")
+
 def send_data_to_api(api_url, data_payload):
     """
     Sends data as a JSON payload in a POST request to a REST API.
@@ -147,6 +184,11 @@ def track_incoming_files(watch_directory):
 
                         # print(paths)
                         for p in paths:
+                            # Archive before deleting. The other order would
+                            # lose the sale entirely if the write failed.
+                            record = next((r for pp, r in records if pp == p), None)
+                            if record:
+                                archive_sale(record)
                             os.remove(p)
                             print(f"Source file '{p}' has been deleted.")
                             time.sleep(0.05)

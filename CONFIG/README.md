@@ -62,6 +62,31 @@ One button, one LED and one pump relay per slot, all independent.
 |-----|---------|-------------|
 | `calibrateProduct1`-`calibrateProduct6` | `(5, 2.777778)` | `(price, seconds)` - legacy pairing. The seconds are the pour calibration and are still read from here; the price is only used when `PRICEn` is absent |
 
+### Products
+
+| Key | Example | Description |
+|-----|---------|-------------|
+| `PRODUCT1_NAME`-`PRODUCT6_NAME` | `Fabcon 1` | What is loaded in that slot. Shown on the dashboard and used to label the local sales report |
+| `PRODUCT1_ML`-`PRODUCT6_ML` | `60` | Millilitres per press, for display only. The pump is timed by `calibrateProductN` |
+
+These were hardcoded in `index.html`, so every machine claimed to sell the same
+six things regardless of what was actually in the tanks. They are per client
+now. **The cloud receives only the slot number**, so keep a record of which
+product each slot holds on each machine - otherwise a report built elsewhere
+can only say "slot 3".
+
+### Local sales archive
+
+| Key | Default | Description |
+|-----|---------|-------------|
+| `SALES_ARCHIVE_DIR` | `<repo>/logs/sales` | Where `transaction_uploader.py` appends each confirmed sale, one JSON object per line, one file per month |
+
+The uploader deletes every transaction file the moment the cloud accepts it, so
+without this the machine remembers nothing of its own trading. The archive is
+written from the record the cloud acknowledged, so the two cannot drift, and
+the dashboard reads it plus anything still queued - a day stays complete even
+if the link has been down since morning.
+
 ### Prices
 
 | Key | Default | Description |
