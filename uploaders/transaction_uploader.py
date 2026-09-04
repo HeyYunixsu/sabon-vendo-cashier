@@ -30,6 +30,20 @@ SALES_ARCHIVE_DIR = os.getenv(
     str(current_dir / ".." / "logs" / "sales"),
 )
 
+# Where the controller drops each sale. This used to be the bare relative path
+# "../transaction", which ignored TRANSACTION_DIR entirely -- so the one key the
+# install guide insists you set correctly did nothing here, and the uploader
+# silently depended on being launched from the right working directory.
+#
+# On a fresh Pi the directory does not exist at all: git cannot store an empty
+# directory, and the controller only creates it when it writes its first sale.
+# The uploader would then exit on FileNotFoundError and PM2 would restart it in
+# a loop until somebody happened to make a sale.
+TRANSACTION_DIR = os.getenv(
+    "TRANSACTION_DIR",
+    str(current_dir / ".." / "transaction"),
+)
+
 
 def archive_sale(record):
     """Append one confirmed sale to this month's archive.
@@ -202,11 +216,26 @@ def track_incoming_files(watch_directory):
                 
             time.sleep(1)  # Polling interval
         except FileNotFoundError as dir_error:
-            print(f"Error: Directory not found at {watch_directory} - {dir_error}")
-            break
+            # Do not exit. Exiting here made PM2 restart the process in a tight
+            # loop until it gave up and marked it errored, which reads as "the
+            # uploader is broken" when the real state is "the directory is not
+            # there yet". Recreate it and carry on -- a sale written while this
+            # process is down would otherwise sit unsent.
+            print(f"Directory missing at {watch_directory} - {dir_error}; recreating")
+            try:
+                os.makedirs(watch_directory, exist_ok=True)
+            except Exception as make_error:
+                print(f"Could not create {watch_directory}: {make_error}")
+            time.sleep(5)
         except Exception as runtime_error:
             print(f"A runtime issue occurred during file tracking: {runtime_error}")
             time.sleep(5)
 if __name__ == "__main__":
-    target_directory = "../transaction" # Replace with your actual directory path
-    track_incoming_files(target_directory)
+    # Created up front so a fresh machine does not depend on the controller
+    # having made a sale first, and resolved from TRANSACTION_DIR so the
+    # uploader and the controller always agree on one directory.
+    try:
+        os.makedirs(TRANSACTION_DIR, exist_ok=True)
+    except Exception as setup_error:
+        print(f"Could not create {TRANSACTION_DIR}: {setup_error}")
+    track_incoming_files(TRANSACTION_DIR)

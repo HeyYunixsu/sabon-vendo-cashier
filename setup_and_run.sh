@@ -139,6 +139,17 @@ setup_venv() {
 
 setup_venv "uploaders"
 
+# Git cannot store an empty directory, so a fresh clone has no transaction/ and
+# the uploader has nothing to watch. The controller creates it on its first
+# sale, but that is too late: the uploader starts first and would sit restarting
+# until somebody made one. Honour TRANSACTION_DIR so this matches wherever the
+# controller and the uploader are actually pointed.
+TXN_DIR="$(sed -n 's/^[[:space:]]*TRANSACTION_DIR[[:space:]]*=[[:space:]]*//p' \
+           "$SCRIPT_DIR/CONFIG/config.env" 2>/dev/null | tail -1 | tr -d '\r')"
+TXN_DIR="${TXN_DIR:-$SCRIPT_DIR/transaction}"
+mkdir -p "$TXN_DIR"
+log "Transaction directory ready: $TXN_DIR"
+
 # --------------------------------------------------------------------------- #
 # 3. Register processes with PM2
 # --------------------------------------------------------------------------- #
