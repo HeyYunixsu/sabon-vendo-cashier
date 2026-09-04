@@ -102,6 +102,18 @@ Full price is deliberate: it is what the customer was charged. Recording less
 would under-report revenue, and recording nothing - the old behaviour - left
 the drawer short with nothing to explain it.
 
+### Unclaimed credits
+
+| Key | Default | Description |
+|-----|---------|-------------|
+| `UNCLAIMED_LOG` | `<repo>/logs/unclaimed_credits.jsonl` | Credits paid for but never dispensed - expired at the timeout, or cancelled by the cashier: slot, amount, reason, time |
+
+An armed slot's credits are written off here if the customer never presses the
+button before `ARM_TIMEOUT_SECONDS` runs out (`reason: "timeout"`), or if the
+cashier cancels the sale first (`reason: "cancelled"`). Neither is a sale, so
+this file must stay outside `TRANSACTION_DIR` - the uploader treats every file
+in there as a sale to POST to the cloud.
+
 ### Prices
 
 | Key | Default | Description |

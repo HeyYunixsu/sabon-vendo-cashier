@@ -365,12 +365,21 @@ static void process_command(AppState &state, const std::string &line,
       }
       else if (isFirstWordTest(client_buffer, "CANCEL_ALL"))
       {
+        int total = 0;
         for (int i = 1; i <= TOTAL_SLOTS; i++) {
+          int lost = state.armedQty[i];
+          while (!state.pendingQueue[i].empty()) {
+            lost += state.pendingQueue[i].front().qty;
+            state.pendingQueue[i].pop();
+          }
+          // One row per slot, not one for the batch: the price differs per
+          // product, so a single total could not be reconciled back.
+          pump_record_unclaimed(state, i, lost, "cancelled");
           state.armedQty[i] = 0;
-          while (!state.pendingQueue[i].empty()) state.pendingQueue[i].pop();
+          total += lost;
         }
         if (!state.anyArmed()) { state.phase = TxnPhase::IDLE; state.bundleComplete = false; }
-        log_info("socket", "CANCEL_ALL: all armed slots cleared");
+        log_info("socket", "CANCEL_ALL: cleared " + std::to_string(total) + " credits");
         broadcast_status(state);
         saveStateToDisk(state, state.transactionDir);
       }
@@ -406,10 +415,17 @@ static void process_command(AppState &state, const std::string &line,
           size_t p1 = input_str.find(',');
           int productId = std::stoi(input_str.substr(p1 + 1));
           if (productId >= 1 && productId <= TOTAL_SLOTS) {
+            int lost = state.armedQty[productId];
+            while (!state.pendingQueue[productId].empty()) {
+              lost += state.pendingQueue[productId].front().qty;
+              state.pendingQueue[productId].pop();
+            }
+            pump_record_unclaimed(state, productId, lost, "cancelled");
+
             state.armedQty[productId] = 0;
-            while (!state.pendingQueue[productId].empty()) state.pendingQueue[productId].pop();
             if (!state.anyArmed()) { state.phase = TxnPhase::IDLE; state.bundleComplete = false; }
-            log_info("socket", "CANCEL slot " + std::to_string(productId) + ": armed cleared");
+            log_info("socket", "CANCEL slot " + std::to_string(productId)
+                      + ": cleared " + std::to_string(lost) + " credits");
             broadcast_status(state);
             saveStateToDisk(state, state.transactionDir);
           }

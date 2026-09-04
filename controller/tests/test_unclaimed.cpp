@@ -173,6 +173,28 @@ static void test_a_dispensing_slot_does_not_expire()
     CHECK_EQ(count_lines(TEST_LOG), 0);
 }
 
+static void test_cancelled_credits_are_recorded()
+{
+    AppState s = fresh_state();
+    pump_record_unclaimed(s, 4, 2, "cancelled");
+
+    CHECK_EQ(count_lines(TEST_LOG), 1);
+    const std::string body = read_all(TEST_LOG);
+    CHECK(body.find("\"reason\":\"cancelled\"") != std::string::npos);
+    CHECK(body.find("\"slot\":\"4\"") != std::string::npos);
+    CHECK(body.find("\"amount\":50") != std::string::npos);   // 2 x 25
+}
+
+static void test_cancelling_nothing_records_nothing()
+{
+    // Cancel All on an idle machine is a common stray tap. It must not write
+    // a row saying zero credits went missing.
+    AppState s = fresh_state();
+    pump_record_unclaimed(s, 4, 0, "cancelled");
+
+    CHECK_EQ(count_lines(TEST_LOG), 0);
+}
+
 void run_unclaimed_tests()
 {
     SUITE("Unclaimed credits");
@@ -184,6 +206,8 @@ void run_unclaimed_tests()
     RUN_TEST(test_one_timeout_writes_one_record);
     RUN_TEST(test_an_idle_machine_records_nothing);
     RUN_TEST(test_a_dispensing_slot_does_not_expire);
+    RUN_TEST(test_cancelled_credits_are_recorded);
+    RUN_TEST(test_cancelling_nothing_records_nothing);
 
     fs::remove_all(TEST_DIR);
     init_hardware_config({});
