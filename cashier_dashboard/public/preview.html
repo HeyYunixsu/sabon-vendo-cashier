@@ -285,7 +285,7 @@ body {
 /* Clear List throws the sale away. Red, but outlined rather than filled:
    Cancel All is filled red and voids credits a customer has already paid for.
    Losing typing and losing money should not look equally grave. */
-#btn-clear-sale {
+#sale-strip #btn-clear-sale {
   border-color: var(--status-negative);
   color: var(--status-negative);
 }
@@ -302,6 +302,8 @@ body {
   display: flex; align-items: center; justify-content: center;
   height: 44px; font-weight: 700; font-variant-numeric: tabular-nums;
   overflow: hidden; text-overflow: ellipsis;
+  border: 1px solid var(--border-default); border-radius: 8px;
+  background: var(--bg-surface-tertiary);
 }
 
 /* Status-only right panel */
@@ -498,6 +500,7 @@ main > section > .grid { flex: 1; min-height: 0; }
   flex: 0 0 260px; min-height: 0; overflow: hidden auto;
   transition: flex-basis .28s ease, opacity .22s ease;
 }
+main.panel-hidden { gap: 0; }
 main.panel-hidden #right-panel {
   flex-basis: 0; opacity: 0; overflow: hidden;
   /* Not just transparent: a zero-width column must not keep taking taps. */
@@ -802,7 +805,9 @@ button, .btn, .product-card, .staged-card, .tab {
   .btn-remove:hover { border-color: var(--status-negative); color: var(--status-negative); }
   .btn-primary:hover { background: var(--accent-action-hover); }
   .btn-outline:hover { border-color: var(--border-strong); color: var(--accent-action); }
-  #btn-clear-sale:hover { background: var(--status-negative); color: #fff; border-color: var(--status-negative); }
+  /* Clear List is deliberately exempt: it stays red border, red text, never
+     filled and never recoloured, so it reads the same on every device. */
+  #sale-strip #btn-clear-sale:hover { border-color: var(--status-negative); color: var(--status-negative); background: transparent; }
   #btn-select-all:hover { background: var(--accent-action); color: #fff; }
   .btn-sm:hover { border-color: var(--border-strong); color: var(--accent-action); }
   .btn-sm.retry:hover { background: var(--accent-action); color: #fff; }
