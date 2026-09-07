@@ -2036,6 +2036,12 @@ button, .btn, .product-card, .kpi-card, .staged-card, .tab {
   renderGrid();
   connectSSE();
   loadInfo();
+  // Prices were only fetched when the Settings sheet was opened, so on a fresh
+  // page load every product looked unpriced and the sale strip fell back to a
+  // press count -- the cashier had no idea what to charge unless they happened
+  // to open Settings first. They are needed on the very first sale, so they
+  // are fetched at startup.
+  loadPrices();
   loadToday();
   loadInterrupted();
   setInterval(loadInterrupted, 60000);
