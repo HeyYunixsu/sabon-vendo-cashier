@@ -17,6 +17,7 @@ int PUMP_TRIGGER_HIGH = 0;
 int PUMP_TRIGGER_LOW  = 1;
 
 int WATER_SENSOR_EMPTY_HIGH = 1;
+bool product_calibrated[TOTAL_SLOTS + 1] = {false};
 
 std::map<int, int> pin_pump {
     {1, PUMP1}, {2, PUMP2}, {3, PUMP3}, {4, PUMP4}, {5, PUMP5}, {6, PUMP6}
@@ -83,9 +84,10 @@ void init_hardware_config(const std::map<std::string, std::string> &config)
         double secs  = defaults[i].seconds;
         std::string key = "calibrateProduct" + std::to_string(i);
         auto it = config.find(key);
+        product_calibrated[i] = false;
         if (it != config.end()) {
             int c; double s;
-            if (parse_calibrate(it->second, c, s)) { coins = c; secs = s; }
+            if (parse_calibrate(it->second, c, s)) { coins = c; secs = s; product_calibrated[i] = true; }
             else log_error("hardware", "Could not parse " + key + ": " + it->second);
         }
         // A separate PRICEn wins over calibrateProductN's first value. Price

@@ -26,6 +26,7 @@ extern int PUMP_TRIGGER_LOW;   // HIGH (1) turns pump OFF
 // if a full slot reports empty on real hardware.
 extern int WATER_SENSOR_EMPTY_HIGH;
 
+
 struct Product {
     int id;
     // Price per press, in whole pesos. Reaches the cloud as the transaction
@@ -44,6 +45,12 @@ extern std::map<int, int> pin_button;
 extern std::map<int, Product> productMap;
 
 const int TOTAL_SLOTS = 6;
+// True where calibrateProductN was present in config.env. False means the slot
+// is pouring on a compiled-in default measured on a different machine, which
+// looks identical in every log and every screen -- the pump runs, the sale
+// records, and only the volume in the customer's bottle is wrong.
+extern bool product_calibrated[TOTAL_SLOTS + 1];
+
 
 void init_hardware_config(const std::map<std::string, std::string> &config);
 

@@ -358,7 +358,25 @@ void pump_setup(AppState &state) {
             + " PUMP=" + std::to_string(pin_pump[i])
             + " LED=" + std::to_string(pin_led[i])
             + " RUN_MS=" + std::to_string((int)(productMap[i].durationSeconds * 1000))
-            + " PRICE=" + std::to_string(productMap[i].coins));
+            + " PRICE=" + std::to_string(productMap[i].coins)
+            + (product_calibrated[i] ? "" : "  [UNCALIBRATED]"));
+    }
+
+    // An uncalibrated slot is the quietest fault this machine has. The pump
+    // runs, the LED lights, the sale records at the right price, the cloud
+    // gets its transaction -- and the customer walks away with the wrong
+    // amount of liquid, because the pour time came from a different machine's
+    // tubing. Nothing else in the system will ever mention it, so it is said
+    // here, loudly, on every boot until someone measures the pumps.
+    std::string uncal;
+    for (int i = 1; i <= TOTAL_SLOTS; i++)
+        if (!product_calibrated[i]) uncal += (uncal.empty() ? "" : ",") + std::to_string(i);
+    if (!uncal.empty()) {
+        log_error("pump", "NOT CALIBRATED: slot(s) " + uncal
+                  + " have no calibrateProductN in config.env and are pouring "
+                    "compiled-in defaults measured on another machine.");
+        log_error("pump", "  Every press on those slots dispenses the wrong volume. "
+                          "See docs/INSTALLATION.md section 7b to measure them.");
     }
     log_info("pump", std::string("Water sensor: empty reads ")
         + (WATER_SENSOR_EMPTY_HIGH ? "HIGH" : "LOW")

@@ -129,6 +129,30 @@ void test_led6_pin_is_7()  { CHECK_EQ(LED6, 7);  }
 
 // ---------------------------------------------------------- entry point ---
 
+static void test_uncalibrated_slots_are_flagged()
+{
+    // The quietest fault this machine has: an uncalibrated slot pumps, lights
+    // its LED, records the sale at the right price and uploads it. Only the
+    // volume is wrong. Nothing else reports it, so the flag has to be right.
+    init_hardware_config({});
+    for (int i = 1; i <= TOTAL_SLOTS; i++)
+        CHECK_EQ(product_calibrated[i], false);
+
+    init_hardware_config({{"calibrateProduct2", "(5, 4.0)"},
+                          {"calibrateProduct5", "(5, 1.5)"}});
+    CHECK_EQ(product_calibrated[2], true);
+    CHECK_EQ(product_calibrated[5], true);
+    CHECK_EQ(product_calibrated[1], false);
+    CHECK_EQ(product_calibrated[6], false);
+
+    // A malformed value is not calibration. It falls back to the compiled
+    // default, so it must be reported exactly like an absent one.
+    init_hardware_config({{"calibrateProduct3", "not a tuple"}});
+    CHECK_EQ(product_calibrated[3], false);
+
+    init_hardware_config({});
+}
+
 void run_hardware_tests() {
     SUITE("hardware_config");
     RUN_TEST(test_pump1_pin_is_15);
@@ -156,4 +180,5 @@ void run_hardware_tests() {
     RUN_TEST(test_led4_pin_is_22);
     RUN_TEST(test_led5_pin_is_19);
     RUN_TEST(test_led6_pin_is_7);
+    RUN_TEST(test_uncalibrated_slots_are_flagged);
 }
