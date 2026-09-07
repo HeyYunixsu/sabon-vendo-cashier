@@ -954,6 +954,36 @@ body.proposed .product-card { min-height: 0; }
 body.proposed #right-panel { min-height: 0; overflow-y: auto; }
 body.proposed main { min-height: 0; }
 body.proposed #viewport { overflow: hidden; }
+
+/* 4. The KPI row folds into the header. Three of its four cards repeated what
+      the product grid already shows -- armed counts, stock, machine state --
+      for about 100px of vertical space, roughly a third of the grid's budget.
+      Only Today was unique, and it comes from the sales archive. */
+body.proposed .kpi-row { display: none; }
+
+/* "Online" goes: the full-width offline banner already says it, and the state
+   chip absorbs it as one of its states. The machine id goes too -- Settings
+   has it, and it never changes while someone is watching. */
+body.proposed #machine-status,
+body.proposed #machine-label { display: none; }
+
+#chips { display: none; }
+body.proposed #chips { display: flex; align-items: center; gap: 14px; }
+.chip { display: flex; align-items: baseline; gap: 6px; white-space: nowrap; }
+.chip-k {
+  font-size: 10px; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--text-content-secondary);
+}
+.chip-v {
+  font-weight: 700; font-size: 15px; color: var(--text-content-primary);
+  /* Reserved width and tabular figures. A chip that resized as its number
+     changed would reintroduce the shift we just spent the day removing --
+     and it would do it in the header, next to the gear icon that started it. */
+  font-variant-numeric: tabular-nums; min-width: 34px; text-align: right;
+}
+.chip-state .chip-v { min-width: 118px; text-align: left; color: var(--status-positive); }
+.chip-today .chip-v { min-width: 76px; cursor: pointer; }
+.chip-today:hover .chip-v { color: var(--accent-action); }
 </style>
 <body class="proposed">
 
@@ -961,7 +991,7 @@ body.proposed #viewport { overflow: hidden; }
 <header id="status-bar">
   <div class="status-left">
     <span id="machine-status"><span class="dot dot-positive"></span> Online</span>
-    <span id="machine-label">Machine 23</span>
+    <span id="machine-label">Machine 23</span><span id="chips"><span class="chip"><span class="chip-k">Waiting</span><span class="chip-v">4</span></span><span class="chip"><span class="chip-k">Stock</span><span class="chip-v">6/6</span></span><span class="chip chip-state"><span class="chip-v">Ready</span></span><span class="chip chip-today" role="button" tabindex="0"><span class="chip-v">&#8369;1,240</span></span></span>
   </div>
   <div class="status-center">
     <span id="pause-indicator" class="hidden" style="color:var(--status-caution);font-weight:600;">PAUSED</span>
