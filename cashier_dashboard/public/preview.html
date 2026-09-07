@@ -64,7 +64,11 @@
 
 body {
   max-width: 1280px; margin: 0 auto;
-  min-height: 100dvh;
+  /* Commit to the viewport rather than growing past it. min-height let the
+     body get taller than the screen, which is what forced the page to scroll
+     and pushed the product grid out of sight on load. The cashier should see
+     every product and every button without scrolling. */
+  height: 100dvh;
   padding: 10px 14px; display: flex; flex-direction: column;
   user-select: none; -webkit-user-select: none;
   cursor: default;
@@ -83,7 +87,9 @@ body {
   background: var(--bg-surface-secondary);
   border: 1px solid var(--border-default);
   border-radius: 10px;
-  padding: 10px 18px; margin-bottom: 10px; flex-shrink: 0;
+  /* Trimmed from 10px: the chips are 30px pills now and carry their own
+     padding, so the bar keeps roughly its old height rather than growing. */
+  padding: 6px 14px; margin-bottom: 10px; flex-shrink: 0;
   font-family: 'Poppins', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; font-size: 12px;
   color: var(--text-content-secondary);
 }
@@ -113,45 +119,54 @@ body {
 /* ===================================================================
    KPI ROW (3-4 summary blocks)
    =================================================================== */
-.kpi-row {
-  display: grid; grid-template-columns: repeat(4, 1fr);
-  gap: 10px; margin-bottom: 10px; flex-shrink: 0;
-}
-.kpi-card {
-  background: var(--bg-surface-secondary);
+/* The KPI row folded into the header. Three of its four cards repeated what
+   the product grid already shows -- armed counts, stock, machine state -- for
+   about 100px of vertical space, roughly a third of the grid's budget. Only
+   Today was unique, since it comes from the sales archive rather than STATUS. */
+#chips { display: flex; align-items: center; gap: 8px; }
+.chip {
+  display: flex; align-items: baseline; gap: 7px; white-space: nowrap;
+  background: var(--bg-surface-tertiary);
   border: 1px solid var(--border-default);
-  border-radius: 10px;
-  padding: 12px 18px; min-height: 80px;
-  border-top: 3px solid transparent;
+  border-radius: var(--radius-pill);
+  padding: 5px 12px;
 }
-.kpi-card:nth-child(1) { border-top-color: var(--accent-action); }
-.kpi-card:nth-child(2) { border-top-color: var(--status-positive); }
-.kpi-card:nth-child(3) { border-top-color: var(--status-caution); }
-.kpi-card:nth-child(4) { border-top-color: #8B5CF6; }
-.kpi-card .kpi-label {
-  font-family: 'Poppins', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; font-size: 10px;
-  font-weight: 500; text-transform: uppercase; letter-spacing: 0.04em;
-  color: var(--text-content-secondary); margin-bottom: 2px;
+.chip-k {
+  font-size: 10px; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--text-content-secondary);
 }
-.kpi-card .kpi-value {
-  font-family: 'Poppins', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  font-size: 32px; font-weight: 700; line-height: 1;
-  color: var(--text-content-primary);
-  /* These tick on the 500ms status beat. Proportional digits differ in width,
-     so a figure changing would resize its card and shuffle the row. */
-  font-variant-numeric: tabular-nums;
+.chip-v {
+  font-weight: 700; font-size: 15px; color: var(--text-content-primary);
+  /* Reserved width and tabular figures. A chip that resized as its number
+     changed would put the layout shift back in the header, right beside the
+     gear icon that started all this. */
+  font-variant-numeric: tabular-nums; min-width: 26px; text-align: right;
 }
-/* The machine state is a phrase, not a figure. At 32px "Buttons Unlocked"
-   dwarfs the card it sits in and pushes the row taller than the others. */
-.kpi-card .kpi-value.kpi-text {
-  font-size: 16px; line-height: 1.25;
-  /* Reserve the two lines the longest state needs, so the card does not
-     change height as the machine moves between states. */
-  min-height: 40px; display: flex; align-items: center;
+/* The state is a phrase, so it reads left and reserves the width of the
+   longest one ("Buttons Unlocked") rather than jumping between them. */
+.chip-state .chip-v { min-width: 118px; text-align: left; }
+
+/* Waiting only earns attention while a customer still owes presses. At zero
+   it stays quiet like the others, so a lit chip means something. */
+.chip-waiting.is-live { border-color: var(--accent-action); }
+.chip-waiting.is-live .chip-v { color: var(--accent-action); }
+
+/* Today is the one figure not visible anywhere else on the screen -- it comes
+   from the sales archive, not from STATUS -- and the only chip you can tap.
+   Filling it is what earns it that difference; the rest stay quiet so this
+   one reads first. */
+.chip-today {
+  background: var(--accent-action); border-color: transparent;
+  cursor: pointer; padding: 5px 14px;
 }
-.kpi-card .kpi-sub {
-  font-size: 10px; color: var(--text-content-secondary); margin-top: 2px;
+.chip-today .chip-k { color: rgba(255, 255, 255, .78); }
+.chip-today .chip-v { color: #fff; font-size: 16px; min-width: 72px; }
+.chip-today .chev { color: rgba(255, 255, 255, .8); font-size: 10px; margin-left: 1px; }
+.chip-today:hover { background: var(--accent-action-hover); }
+.chip-today:focus-visible {
+  outline: 2px solid var(--text-content-primary); outline-offset: 2px;
 }
+
 
 /* ===================================================================
    MAIN LAYOUT
@@ -285,18 +300,39 @@ body {
 .status-section .list-row { padding: 4px 0; font-size: 11px; }
 .status-section .list-val { font-size: 13px; }
 
-main {
-  display: grid; grid-template-columns: 1fr 260px;
-  gap: 12px; flex: 1; min-height: 0;
+/* Only the two pages scroll. The header and sale strip stay put above them,
+   which is what lets a page be exactly one screenful -- with the chrome inside
+   the scroller, main had to shrink to make room for the Today panel instead of
+   the panel becoming a page of its own. */
+#viewport { flex: 1; display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+#pages {
+  flex: 1; min-height: 0; overflow-y: auto;
+  display: flex; flex-direction: column;
+  scroll-behavior: smooth;
 }
+/* Each page is exactly the scroller's height, so Today is a second screenful
+   you travel down to rather than a strip wedged under the products. */
+#pages > main, #pages > #today-panel { flex: 0 0 auto; min-height: 100%; }
+
+/* Flex, not grid: flex-basis animates reliably everywhere, and the right
+   panel has to be able to collapse to nothing. */
+main { display: flex; gap: 12px; min-height: 0; }
+/* The products take whatever the right panel is not using. */
+main > section { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+/* Fill the section rather than sitting at content height and leaving dead
+   space beneath -- the six cards spread over the whole area. */
+main > section > .grid { flex: 1; min-height: 0; }
 
 /* ===================================================================
    PRODUCT GRID
    =================================================================== */
 .grid {
   display: grid; grid-template-columns: repeat(3, 1fr);
+  /* No min-height. The rows are 1fr, so the cards simply take whatever is
+     left once the header, the sale strip and the Select All button have had
+     their share -- a floor here would push the page past the screen again. */
   grid-template-rows: repeat(2, 1fr); gap: 8px;
-  min-height: 300px;
+  min-height: 0;
 }
 .product-card {
   background: var(--bg-surface-secondary);
@@ -305,7 +341,9 @@ main {
   user-select: none; -webkit-tap-highlight-color: transparent;
   transition: border-color .2s, box-shadow .2s, transform .2s;
   display: flex; align-items: center; gap: 16px;
-  padding: 16px; min-height: 100px; position: relative;
+  /* Same reason as the grid: no floor, so the cards fit the space rather
+     than dictating it. */
+  padding: 16px; min-height: 0; position: relative;
 }
 .product-card.armed {
   border-color: var(--status-positive);
@@ -420,7 +458,25 @@ main {
 /* ===================================================================
    RIGHT PANEL
    =================================================================== */
-#right-panel { display: flex; flex-direction: column; gap: 10px; }
+/* Slides in only when it has something to say. Empty, it was 260px of nothing
+   holding the product cards narrower than they needed to be; a sale is also
+   exactly when the cashier wants the armed list, so the panel arriving is the
+   same event as the products making room for it.
+   Scrolls internally too, so a run of alerts cannot push the page taller and
+   undo the one-screen fit. */
+#right-panel {
+  display: flex; flex-direction: column; gap: 10px;
+  flex: 0 0 260px; min-height: 0; overflow: hidden auto;
+  transition: flex-basis .28s ease, opacity .22s ease;
+}
+main.panel-hidden #right-panel {
+  flex-basis: 0; opacity: 0; overflow: hidden;
+  /* Not just transparent: a zero-width column must not keep taking taps. */
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  #right-panel { transition: none; }
+}
 #right-panel section {
   background: var(--bg-surface-secondary);
   border: 1px solid var(--border-default);
@@ -484,7 +540,12 @@ main {
 }
 .btn-primary { background: var(--accent-action); color: #fff; }
 .btn-primary:disabled { opacity: .25; pointer-events: none; }
-.btn-outline { flex: 1; background: transparent; border: 1px solid var(--border-default); color: var(--text-content-secondary); }
+/* No flex here. This is a colour variant, and a layout property on it was
+   invisible while every outline button sat in a flex row -- but the product
+   section is a flex column now, so "Add One Of Each" grew to 169px and ate
+   the space the product grid was meant to fill. Buttons that do need to
+   stretch say so where they are used. */
+.btn-outline { background: transparent; border: 1px solid var(--border-default); color: var(--text-content-secondary); }
 .btn-lg { padding: 16px 24px; font-size: 15px; }
 .btn-block { display: block; width: 100%; }
 .btn-sm {
@@ -600,12 +661,6 @@ main {
   #status-bar { flex-wrap: wrap; gap: 10px; font-size: 11px; padding: 10px 14px; }
   #status-bar .status-left, #status-bar .status-right { gap: 10px; }
   main { grid-template-columns: 1fr; gap: 12px; }
-  .kpi-row { grid-template-columns: repeat(4, 1fr); gap: 8px; }
-  .kpi-card { padding: 10px 12px; }
-  .kpi-card .kpi-label { font-size: 9px; }
-  .kpi-card .kpi-value { font-size: 24px; }
-  .kpi-card .kpi-value.kpi-text { font-size: 18px; min-height: 34px; }
-  .kpi-card .kpi-sub { font-size: 9px; }
   .grid { grid-template-columns: repeat(2, 1fr); grid-template-rows: repeat(3, 1fr); gap: 8px; }
   .product-card { flex-direction: column; align-items: stretch; gap: 10px; padding: 12px; min-height: auto; }
   .product-icon { width: 100%; max-width: none; aspect-ratio: auto; height: 80px; border-radius: 8px; }
@@ -637,9 +692,6 @@ main {
 }
 
 @media (max-width: 480px) {
-  .kpi-row { grid-template-columns: repeat(2, 1fr); gap: 6px; }
-  .kpi-card .kpi-value { font-size: 22px; }
-  .kpi-card .kpi-value.kpi-text { font-size: 15px; min-height: 34px; }
   .grid { grid-template-rows: repeat(3, 1fr); }
   .product-card { flex-direction: column; align-items: stretch; gap: 8px; padding: 10px; min-height: auto; }
   .product-icon { width: 100%; max-width: none; aspect-ratio: auto; height: 64px; border-radius: 8px; }
@@ -677,14 +729,14 @@ html, body { touch-action: manipulation; }
 
 button, input, select, textarea, a,
 .btn,
-.product-card, .kpi-card, .staged-card, .staged-card-remove,
+.product-card, .staged-card, .staged-card-remove,
 .list-row, .tab, .chip {
   touch-action: manipulation;
 }
 
 /* Double-tapping text selects it and flashes a highlight before the zoom is
    suppressed. Controls are not meant to be selectable. */
-button, .btn, .product-card, .kpi-card, .staged-card, .tab {
+button, .btn, .product-card, .staged-card, .tab {
   -webkit-user-select: none;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
@@ -987,14 +1039,19 @@ body.proposed #chips { display: flex; align-items: center; gap: 14px; }
 </style>
 <body class="proposed">
 
-<div id="viewport" style="flex:1;display:flex;flex-direction:column;min-height:0;overflow:auto;">
+<div id="viewport">
 <header id="status-bar">
+  <!-- These carry the same ids the KPI cards did, so every writer keeps
+       working. "Online" and the machine id are gone: the offline banner
+       already announces a dropped link, the state chip absorbs offline and
+       paused as states of its own, and Settings shows the machine id. -->
   <div class="status-left">
-    <span id="machine-status"><span class="dot dot-positive"></span> Online</span>
-    <span id="machine-label">Machine 23</span><span id="chips"><span class="chip"><span class="chip-k">Waiting</span><span class="chip-v">4</span></span><span class="chip"><span class="chip-k">Stock</span><span class="chip-v">6/6</span></span><span class="chip chip-state"><span class="chip-v">Ready</span></span><span class="chip chip-today" role="button" tabindex="0"><span class="chip-v">&#8369;1,240</span></span></span>
-  </div>
-  <div class="status-center">
-    <span id="pause-indicator" class="hidden" style="color:var(--status-caution);font-weight:600;">PAUSED</span>
+    <span id="chips">
+      <span class="chip chip-waiting" id="chip-waiting"><span class="chip-k">Waiting</span><span class="chip-v" id="kpi-armed">0</span></span>
+      <span class="chip"><span class="chip-k">Stock</span><span class="chip-v" id="kpi-active">6/6</span></span>
+      <span class="chip chip-state"><span class="chip-v" id="kpi-bundle">Ready</span></span>
+      <span class="chip chip-today" id="kpi-today-card" role="button" tabindex="0" aria-expanded="false" aria-controls="today-panel"><span class="chip-k">Today</span><span class="chip-v" id="kpi-today">&#8369;0</span><span class="chev">&#9662;</span></span>
+    </span>
   </div>
   <div class="status-right">
     <button id="btn-settings" aria-label="Settings" title="Settings">
@@ -1009,12 +1066,6 @@ body.proposed #chips { display: flex; align-items: center; gap: 14px; }
 </div>
 
 <!-- KPI Row -->
-<div class="kpi-row" id="kpi-row">
-  <div class="kpi-card"><div class="kpi-label">Waiting to Dispense</div><div class="kpi-value" id="kpi-armed">4</div><div class="kpi-sub">presses not yet used</div></div>
-  <div class="kpi-card"><div class="kpi-label">In Stock</div><div class="kpi-value" id="kpi-active" style="color:var(--status-positive);">6</div><div class="kpi-sub" id="kpi-active-sub">of 6 products</div></div>
-  <div class="kpi-card"><div class="kpi-label">Machine</div><div class="kpi-value kpi-text" id="kpi-bundle">Ready</div><div class="kpi-sub" id="kpi-bundle-sub">waiting for a sale</div></div>
-  <div class="kpi-card" id="kpi-today-card" role="button" tabindex="0" aria-expanded="false" aria-controls="today-panel"><div class="kpi-label">Today</div><div class="kpi-value" id="kpi-today">&#8369;1,240</div><div class="kpi-sub" id="kpi-today-sub">tap to see takings <span class="chev">&#9662;</span></div></div>
-</div>
 
 <!-- Sale Strip (horizontal, full width) -->
 <div id="sale-strip">
@@ -1026,7 +1077,8 @@ body.proposed #chips { display: flex; align-items: center; gap: 14px; }
   </div>
 </div>
 
-<main>
+<div id="pages">
+<main class="panel-hidden">
   <section style="min-width:0;">
     <div class="grid" id="grid-container"><div class="product-card selected" data-slot="1"><div class="staged-badge">3</div><div class="product-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M9 3h6v3l2 3v12H7V9l2-3z"/><path d="M7 13h10"/></svg></div><div class="text-panel"><div class="slot-num">SLOT 01</div><div class="product-name">Ariel Powder</div><div class="armed-qty is-selected">3</div><div class="status-row" style="color:var(--accent-action)"><span class="dot dot-accent"></span> In sale</div></div></div><div class="product-card selected" data-slot="2"><div class="staged-badge">1</div><div class="product-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M9 3h6v3l2 3v12H7V9l2-3z"/><path d="M7 13h10"/></svg></div><div class="text-panel"><div class="slot-num">SLOT 02</div><div class="product-name">Downy Blue</div><div class="armed-qty is-selected">1</div><div class="status-row" style="color:var(--accent-action)"><span class="dot dot-accent"></span> In sale</div></div></div><div class="product-card" data-slot="3"><div class="product-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M9 3h6v3l2 3v12H7V9l2-3z"/><path d="M7 13h10"/></svg></div><div class="text-panel"><div class="slot-num">SLOT 03</div><div class="product-name">Fabcon</div><div class="armed-qty is-zero">0</div><div class="status-row" style="color:var(--text-content-secondary)"><span class="dot dot-neutral"></span> Ready</div></div></div><div class="product-card" data-slot="4"><div class="product-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M9 3h6v3l2 3v12H7V9l2-3z"/><path d="M7 13h10"/></svg></div><div class="text-panel"><div class="slot-num">SLOT 04</div><div class="product-name">Zonrox 1</div><div class="armed-qty is-zero">0</div><div class="status-row" style="color:var(--text-content-secondary)"><span class="dot dot-neutral"></span> Ready</div></div></div><div class="product-card" data-slot="5"><div class="product-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M9 3h6v3l2 3v12H7V9l2-3z"/><path d="M7 13h10"/></svg></div><div class="text-panel"><div class="slot-num">SLOT 05</div><div class="product-name">Zonrox 2</div><div class="armed-qty is-zero">0</div><div class="status-row" style="color:var(--text-content-secondary)"><span class="dot dot-neutral"></span> Ready</div></div></div><div class="product-card" data-slot="6"><div class="product-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M9 3h6v3l2 3v12H7V9l2-3z"/><path d="M7 13h10"/></svg></div><div class="text-panel"><div class="slot-num">SLOT 06</div><div class="product-name">Surf Rose</div><div class="armed-qty is-zero">0</div><div class="status-row" style="color:var(--text-content-secondary)"><span class="dot dot-neutral"></span> Ready</div></div></div></div>
     <button id="btn-select-all" class="btn btn-outline" style="margin-top:10px;width:100%;padding:12px;font-size:14px;">Add One Of Each</button>
@@ -1069,6 +1121,7 @@ body.proposed #chips { display: flex; align-items: center; gap: 14px; }
     <div class="today-note" id="today-note"></div>
   </div>
 </section>
+</div>
 
 <div id="settings-backdrop" hidden></div>
 <div id="settings-sheet" hidden role="dialog" aria-modal="true" aria-labelledby="settings-title">

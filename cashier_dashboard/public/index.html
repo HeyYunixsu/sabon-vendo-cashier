@@ -540,7 +540,12 @@ main.panel-hidden #right-panel {
 }
 .btn-primary { background: var(--accent-action); color: #fff; }
 .btn-primary:disabled { opacity: .25; pointer-events: none; }
-.btn-outline { flex: 1; background: transparent; border: 1px solid var(--border-default); color: var(--text-content-secondary); }
+/* No flex here. This is a colour variant, and a layout property on it was
+   invisible while every outline button sat in a flex row -- but the product
+   section is a flex column now, so "Add One Of Each" grew to 169px and ate
+   the space the product grid was meant to fill. Buttons that do need to
+   stretch say so where they are used. */
+.btn-outline { background: transparent; border: 1px solid var(--border-default); color: var(--text-content-secondary); }
 .btn-lg { padding: 16px 24px; font-size: 15px; }
 .btn-block { display: block; width: 100%; }
 .btn-sm {
