@@ -1,0 +1,1146 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Sabon Vendo</title>
+<style>
+/* ===================================================================
+   Sabon Vendo — Cashier Dashboard
+   Token naming: bg-surface-primary, text-content-secondary, etc.
+   Breakpoints: 1440px desktop / 768px tablet / 375px mobile
+   =================================================================== */
+
+/* Poppins loaded locally — fully offline */
+@font-face { font-family: 'Inter'; src: url('fonts/inter-v20-latin-regular.woff2') format('woff2'); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Inter'; src: url('fonts/inter-v20-latin-500.woff2') format('woff2'); font-weight: 500; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Inter'; src: url('fonts/inter-v20-latin-600.woff2') format('woff2'); font-weight: 600; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Inter'; src: url('fonts/inter-v20-latin-700.woff2') format('woff2'); font-weight: 700; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Poppins'; src: url('fonts/poppins-v24-latin-regular.woff2') format('woff2'); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Poppins'; src: url('fonts/poppins-v24-latin-500.woff2') format('woff2'); font-weight: 500; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Poppins'; src: url('fonts/poppins-v24-latin-600.woff2') format('woff2'); font-weight: 600; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Poppins'; src: url('fonts/poppins-v24-latin-700.woff2') format('woff2'); font-weight: 700; font-style: normal; font-display: swap; }
+
+:root {
+  --bg-surface-primary:   #0B0E14;
+  --bg-surface-secondary: #141925;
+  --bg-surface-tertiary:  #1C2333;
+  --border-default:       #232A3B;
+  --border-strong:        #3B6DF0;
+  --text-content-primary: #F5F7FA;
+  --text-content-secondary: #8A93A6;
+  --text-content-inverse: #0B0E14;
+  --accent-action:        #3B6DF0;
+  --accent-action-hover:  #507DF4;
+  --status-positive:      #34D399;
+  --status-caution:       #FBBF24;
+  --status-negative:      #F87171;
+  --status-neutral:       #4B5263;
+  --radius-container:     14px;
+  --radius-element:       8px;
+  --radius-pill:          999px;
+  --space-unit: 8px;
+  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-size: 14px;
+  color: var(--text-content-primary);
+  background: var(--bg-surface-primary);
+}
+[data-theme="light"] {
+  --bg-surface-primary:   #F3F4F6;
+  --bg-surface-secondary: #FFFFFF;
+  --bg-surface-tertiary:  #F0F1F3;
+  --border-default:       #D1D5DB;
+  --border-strong:        #3B6DF0;
+  --text-content-primary: #1A1A1A;
+  --text-content-secondary: #6B7280;
+  --text-content-inverse: #FFFFFF;
+  --status-positive:      #16A34A;
+  --status-caution:       #D97706;
+  --status-negative:      #DC2626;
+  --status-neutral:       #9CA3AF;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  max-width: 1280px; margin: 0 auto;
+  min-height: 100dvh;
+  padding: 10px 14px; display: flex; flex-direction: column;
+  user-select: none; -webkit-user-select: none;
+  cursor: default;
+  font-size: 15px;
+}
+
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-default); border-radius: 3px; }
+
+/* ===================================================================
+   HEADER
+   =================================================================== */
+#status-bar {
+  display: flex; justify-content: space-between; align-items: center;
+  background: var(--bg-surface-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: 10px;
+  padding: 10px 18px; margin-bottom: 10px; flex-shrink: 0;
+  font-family: 'Poppins', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; font-size: 12px;
+  color: var(--text-content-secondary);
+}
+.status-left, .status-center, .status-right {
+  display: flex; align-items: center; gap: 20px;
+}
+
+/* Status dot (8px) */
+.dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 7px; flex-shrink: 0; }
+.dot-positive { background: var(--status-positive); box-shadow: 0 0 6px rgba(52,211,153,.35); }
+.dot-negative { background: var(--status-negative); box-shadow: 0 0 6px rgba(248,113,113,.35); }
+.dot-accent  { background: var(--accent-action);  box-shadow: 0 0 8px rgba(59,109,240,.4); }
+.dot-caution { background: var(--status-caution); box-shadow: 0 0 8px rgba(251,191,36,.4); animation: pulse-dot 1.2s infinite; }
+.dot-neutral { background: var(--status-neutral); }
+@keyframes pulse-dot { 0%,100%{opacity:1} 50%{opacity:.35} }
+
+.hidden { display: none !important; }
+
+#theme-toggle {
+  background: none; border: 1px solid var(--border-default);
+  border-radius: var(--radius-element); color: var(--text-content-secondary);
+  cursor: pointer; font-family: 'Poppins', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-size: 10px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.06em; padding: 6px 12px; transition: all .18s;
+}
+
+/* ===================================================================
+   KPI ROW (3-4 summary blocks)
+   =================================================================== */
+.kpi-row {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  gap: 10px; margin-bottom: 10px; flex-shrink: 0;
+}
+.kpi-card {
+  background: var(--bg-surface-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: 10px;
+  padding: 12px 18px; min-height: 80px;
+  border-top: 3px solid transparent;
+}
+.kpi-card:nth-child(1) { border-top-color: var(--accent-action); }
+.kpi-card:nth-child(2) { border-top-color: var(--status-positive); }
+.kpi-card:nth-child(3) { border-top-color: var(--status-caution); }
+.kpi-card:nth-child(4) { border-top-color: #8B5CF6; }
+.kpi-card .kpi-label {
+  font-family: 'Poppins', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; font-size: 10px;
+  font-weight: 500; text-transform: uppercase; letter-spacing: 0.04em;
+  color: var(--text-content-secondary); margin-bottom: 2px;
+}
+.kpi-card .kpi-value {
+  font-family: 'Poppins', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-size: 32px; font-weight: 700; line-height: 1;
+  color: var(--text-content-primary);
+  /* These tick on the 500ms status beat. Proportional digits differ in width,
+     so a figure changing would resize its card and shuffle the row. */
+  font-variant-numeric: tabular-nums;
+}
+/* The machine state is a phrase, not a figure. At 32px "Buttons Unlocked"
+   dwarfs the card it sits in and pushes the row taller than the others. */
+.kpi-card .kpi-value.kpi-text {
+  font-size: 16px; line-height: 1.25;
+  /* Reserve the two lines the longest state needs, so the card does not
+     change height as the machine moves between states. */
+  min-height: 40px; display: flex; align-items: center;
+}
+.kpi-card .kpi-sub {
+  font-size: 10px; color: var(--text-content-secondary); margin-top: 2px;
+}
+
+/* ===================================================================
+   MAIN LAYOUT
+   =================================================================== */
+/* Sale Strip */
+/* One 3x3 grid: six product cells on the top two rows, the three controls on
+   the bottom row aligned to the same columns. The controls used to sit beside
+   the cards and stole horizontal space from them; below, every cell gets the
+   full column width. Being one grid also means nothing here can reflow -- the
+   whole strip is a fixed block whatever the sale contains. */
+#sale-strip {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
+  background: var(--bg-surface-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: 10px;
+  padding: 8px 12px; margin-bottom: 8px; flex-shrink: 0;
+}
+#sale-strip #staged-items {
+  grid-column: 1 / -1; min-width: 0; font-size: 12px;
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  /* Both rows reserved, always. Six products fill 3x2, so holding the full
+     grid open means the strip is the same height empty, half full or full --
+     and the product grid below it never moves. Costs ~190px of standing
+     space, chosen deliberately over a grid that jumps out from under a
+     finger mid-tap. Fixed row heights, not auto: an auto row collapses when
+     empty, which is the shift this exists to stop. */
+  grid-template-rows: repeat(2, 78px); gap: 8px;
+  min-height: 164px;
+  align-items: start;
+}
+/* The empty state fills the whole reserved area rather than sitting in the
+   first cell, so the strip reads as one waiting space instead of a grid with
+   a stray label in the corner. Larger too -- with nothing staged this is the
+   only thing in a 164px block, and it is the instruction for what to do next. */
+#sale-strip #staged-items > .muted {
+  grid-column: 1 / -1; grid-row: 1 / -1;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 15px; padding: 0;
+}
+#sale-strip .staged-card {
+  display: grid; grid-template-columns: 1fr 22px;
+  grid-template-rows: auto auto auto;
+  align-items: center;
+  background: var(--bg-surface-secondary);
+  border: 1px solid var(--accent-action); border-radius: 8px;
+  padding: 6px 10px 6px 12px; width: 100%; min-width: 0; max-width: none;
+  /* Exactly one grid row. Every card is the same height whatever it holds, so
+     no single card can push its row taller than its neighbours. Slimmed from
+     92px once the controls moved off to their own row and the cards gained
+     the full column width -- the height was padding, not content. */
+  height: 78px; overflow: hidden;
+}
+.staged-card .staged-card-name {
+  font-size: 12px; font-weight: 600; color: var(--text-content-primary);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  grid-column: 1; line-height: 1.2;
+}
+.staged-card .staged-card-qty {
+  font-size: 15px; font-weight: 700; color: var(--accent-action);
+  grid-column: 1; grid-row: 2;
+  /* Explicit, not "normal": the card is a fixed 78px and the three rows have
+     to add up to it deterministically, whatever the font decides. */
+  line-height: 1.2;
+  /* This line is what moved the grid. "3x . 1500ml" -> "10x . 5000ml" is both
+     wider and, at 1 press vs 10, a different number of characters -- so it
+     wrapped to a second line, the card grew taller, the strip grew with it,
+     and every product card below shifted mid-tap.
+     nowrap stops the wrap; tabular figures stop same-length numbers from
+     changing width at all. */
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums;
+}
+.staged-card .staged-card-remove {
+  grid-column: 2; grid-row: 1 / 3;
+  background: none; border: none; color: var(--text-content-secondary);
+  cursor: pointer; font-size: 16px; line-height: 1;
+  padding: 4px; text-align: center; align-self: start;
+}
+.staged-card .staged-card-steps {
+  grid-column: 1 / 3; grid-row: 3;
+  display: flex; gap: 6px; margin-top: 3px;
+}
+.staged-card .staged-step {
+  /* 30px is under the usual 44px guidance, but these are now full-column
+     width -- the wide axis carries the accuracy, and the height buys back
+     room in a strip that stands open all the time. */
+  flex: 1; height: 30px;
+  background: var(--bg-surface-tertiary); color: var(--text-content-primary);
+  border: 1px solid var(--border-default); border-radius: 6px;
+  font-size: 18px; font-weight: 700; line-height: 1; cursor: pointer;
+  font-family: 'Poppins', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+.sale-controls {
+  /* The bottom row of the strip: three cells on the same columns as the
+     product cards above, so each control is a full-column touch target. */
+  grid-column: 1 / -1;
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
+  align-items: stretch;
+}
+#sale-strip .btn, #sale-strip .btn-confirm {
+  height: 44px; padding: 0 12px; font-size: 13px; font-weight: 600;
+  border-radius: 8px; line-height: 1;
+  /* Fill the grid cell rather than shrink-wrapping the label, so the button
+     is the same size whether it reads "Unlock Buttons" or "Unlock 3 Buttons". */
+  width: 100%;
+}
+#sale-strip .btn-primary { background: var(--accent-action); color: #fff; border: 1px solid transparent; }
+#sale-strip .btn-outline { background: transparent; border: 1px solid var(--border-default); color: var(--text-content-primary); }
+/* Fixed box, right-aligned. 50px held the widest total this ever showed when
+   prices were 5 pesos; a real shop reaches four figures, and the moment the
+   total outgrew its box it squeezed the flex row, wrapped the strip onto a
+   second line and dragged the whole product grid down mid-tap. 96px covers
+   six glyphs (P99999) at this size, so the box never changes width. */
+/* Its own cell on the bottom row. Centred and filling the column, with
+   tabular figures so the number cannot change width as the total climbs. */
+#sale-strip .sale-total {
+  font-size: 22px; margin: 0; white-space: nowrap;
+  display: flex; align-items: center; justify-content: center;
+  height: 44px; font-weight: 700; font-variant-numeric: tabular-nums;
+  overflow: hidden; text-overflow: ellipsis;
+}
+
+/* Status-only right panel */
+.status-section {
+  background: var(--bg-surface-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-container);
+  padding: 10px 14px; margin-bottom: 8px;
+}
+.status-section .section-label { margin-bottom: 4px; padding-bottom: 4px; font-size: 10px; }
+.status-section .list-row { padding: 4px 0; font-size: 11px; }
+.status-section .list-val { font-size: 13px; }
+
+main {
+  display: grid; grid-template-columns: 1fr 260px;
+  gap: 12px; flex: 1; min-height: 0;
+}
+
+/* ===================================================================
+   PRODUCT GRID
+   =================================================================== */
+.grid {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(2, 1fr); gap: 8px;
+  min-height: 300px;
+}
+.product-card {
+  background: var(--bg-surface-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: 10px; cursor: pointer; overflow: hidden;
+  user-select: none; -webkit-tap-highlight-color: transparent;
+  transition: border-color .2s, box-shadow .2s, transform .2s;
+  display: flex; align-items: center; gap: 16px;
+  padding: 16px; min-height: 100px; position: relative;
+}
+.product-card.armed {
+  border-color: var(--status-positive);
+  box-shadow: 0 0 0 3px rgba(52,211,153,0.28);
+}
+.product-card.selected {
+  border-color: var(--border-strong);
+  box-shadow: 0 0 0 3px rgba(59,109,240,0.28);
+}
+.product-card.busy {
+  border-color: var(--status-caution);
+  box-shadow: 0 0 0 3px rgba(251,191,36,0.25);
+}
+.product-card.busy .product-icon {
+  animation: pulse-busy .8s ease-in-out infinite;
+}
+.product-card.empty {
+  border-color: var(--status-negative);
+  box-shadow: 0 0 0 3px rgba(248,113,113,0.25);
+  pointer-events: none;
+}
+.product-card.empty .product-icon { filter: saturate(0.4); }
+.product-card.inactive { opacity: .3; pointer-events: none; }
+
+/* Icon tile */
+.product-icon {
+  width: 22%; max-width: 64px;
+  aspect-ratio: 1 / 1;
+  border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  background: var(--tile-bg, #1C2333);
+  color: var(--tile-icon, #8A93A6);
+  transition: background .2s, color .2s;
+}
+.product-icon svg {
+  width: 55%; height: 55%;
+}
+
+/* Per-product tile colors -- dark theme (default) */
+[data-product="1"] { --tile-bg: #2A2450; --tile-icon: #8B82E0; }
+[data-product="2"] { --tile-bg: #1A3050; --tile-icon: #5B9BD5; }
+[data-product="3"] { --tile-bg: #1A3A30; --tile-icon: #4DB89E; }
+[data-product="4"] { --tile-bg: #3A2018; --tile-icon: #D4856A; }
+[data-product="5"] { --tile-bg: #3A2A15; --tile-icon: #C89240; }
+[data-product="6"] { --tile-bg: #253A18; --tile-icon: #6BA830; }
+
+/* Per-product tile colors -- light theme override */
+[data-theme="light"] [data-product="1"] { --tile-bg: #EEEDFE; --tile-icon: #534AB7; }
+[data-theme="light"] [data-product="2"] { --tile-bg: #E6F1FB; --tile-icon: #185FA5; }
+[data-theme="light"] [data-product="3"] { --tile-bg: #E1F5EE; --tile-icon: #0F6E56; }
+[data-theme="light"] [data-product="4"] { --tile-bg: #FAECE7; --tile-icon: #993C1D; }
+[data-theme="light"] [data-product="5"] { --tile-bg: #FAEEDA; --tile-icon: #854F0B; }
+[data-theme="light"] [data-product="6"] { --tile-bg: #EAF3DE; --tile-icon: #3B6D11; }
+
+/* Pulse animations */
+@keyframes pulse-arm {
+  0%   { transform: scale(1); }
+  50%  { transform: scale(1.18); }
+  100% { transform: scale(1); }
+}
+@keyframes pulse-busy {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: .55; }
+}
+.armed-qty.pulse-arm {
+  animation: pulse-arm .4s ease;
+}
+
+/* Text panel */
+.product-card .text-panel {
+  padding: 8px 0 8px 4px;
+  display: flex; flex-direction: column; justify-content: center;
+  gap: 1px; min-width: 0;
+}
+.product-card .slot-num {
+  font-family: 'Poppins', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-size: 8px; font-weight: 500; text-transform: uppercase;
+  letter-spacing: 0.06em; color: var(--text-content-secondary);
+}
+.product-card .product-name {
+  font-family: 'Inter', sans-serif; font-size: 13px;
+  font-weight: 600; color: var(--text-content-primary);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.product-card .armed-qty {
+  font-family: 'Poppins', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-size: 32px; font-weight: 700; line-height: 1;
+  color: var(--text-content-primary); margin: 2px 0;
+  font-variant-numeric: tabular-nums;
+}
+.product-card .armed-qty.is-zero   { color: #3A4050; }
+.product-card .armed-qty.is-armed  { color: var(--status-positive); }
+.product-card .armed-qty.is-selected { color: var(--accent-action); }
+.product-card .armed-qty.is-busy   { color: var(--status-caution); }
+
+.product-card .staged-badge {
+  position: absolute; top: 6px; right: 6px;
+  min-width: 24px; height: 24px; padding: 0 7px;
+  border-radius: 12px;
+  background: var(--accent-action); color: #fff;
+  font-size: 13px; font-weight: 700; line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+  pointer-events: none;   /* the tap belongs to the card underneath */
+}
+
+.product-card .status-row {
+  display: flex; align-items: center;
+  gap: 6px; margin-top: 2px; font-size: 10px; font-weight: 500;
+}
+
+/* ===================================================================
+   RIGHT PANEL
+   =================================================================== */
+#right-panel { display: flex; flex-direction: column; gap: 10px; }
+#right-panel section {
+  background: var(--bg-surface-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-container);
+  padding: 12px 16px;
+  border-left: 3px solid transparent;
+}
+#right-panel section:nth-child(1) { border-left-color: var(--accent-action); }
+#right-panel section:nth-child(2) { border-left-color: var(--status-positive); }
+#right-panel section:nth-child(3) { border-left-color: var(--status-caution); }
+#right-panel section:nth-child(4) { border-left-color: #8B5CF6; }
+#right-panel section:nth-child(5) { border-left-color: var(--status-negative); }
+.section-label {
+  font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 600;
+  color: var(--text-content-secondary); text-transform: uppercase;
+  letter-spacing: 0.05em; margin-bottom: 12px; padding-bottom: 8px;
+  border-bottom: 1px solid var(--border-default);
+  display: flex; justify-content: space-between; align-items: center;
+}
+
+/* Staged items */
+.staged-row {
+  display: grid; grid-template-columns: 1fr auto 30px; align-items: center;
+  gap: 8px; padding: 10px 6px; border-bottom: 1px solid var(--border-default);
+  font-size: 13px; animation: slide-in .18s ease;
+}
+.staged-row:last-child { border-bottom: none; }
+.staged-row .staged-info { text-align: left; }
+.staged-row .staged-name { font-weight: 600; }
+.staged-row .staged-qty {
+  font-family: 'Poppins', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; font-weight: 700; font-size: 15px;
+  color: var(--accent-action); text-align: center;
+  background: color-mix(in srgb, var(--accent-action) 10%, transparent);
+  padding: 4px 12px; border-radius: var(--radius-pill);
+  white-space: nowrap;
+}
+.staged-row .staged-meta { font-size: 11px; color: var(--text-content-secondary); }
+.btn-remove {
+  background: none; border: 1px solid var(--border-default);
+  border-radius: 50%; color: var(--text-content-secondary);
+  cursor: pointer; font-size: 14px; width: 28px; height: 28px;
+  display: flex; align-items: center; justify-content: center;
+  transition: all .15s; flex-shrink: 0;
+}
+@keyframes slide-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+
+.sale-total {
+  text-align: right; margin-top: 4px;
+  font-family: 'Poppins', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-size: 22px; font-weight: 700; color: var(--text-content-primary);
+  white-space: nowrap;
+}
+
+/* Buttons */
+.btn {
+  padding: 12px 20px; border: none; border-radius: var(--radius-pill);
+  cursor: pointer; font-family: 'Inter', sans-serif; font-size: 13px;
+  font-weight: 600; transition: all .15s;
+  display: inline-flex; align-items: center; justify-content: center;
+  touch-action: manipulation;
+}
+.btn-primary { background: var(--accent-action); color: #fff; }
+.btn-primary:disabled { opacity: .25; pointer-events: none; }
+.btn-outline { flex: 1; background: transparent; border: 1px solid var(--border-default); color: var(--text-content-secondary); }
+.btn-lg { padding: 16px 24px; font-size: 15px; }
+.btn-block { display: block; width: 100%; }
+.btn-sm {
+  padding: 5px 12px; font-size: 11px; background: transparent;
+  border: 1px solid var(--border-default); color: var(--text-content-secondary);
+  cursor: pointer; border-radius: var(--radius-pill);
+  font-family: 'Inter', sans-serif; font-weight: 500; transition: all .15s;
+}
+.btn-sm.retry { border-color: var(--accent-action); color: var(--accent-action); }
+.btn-negative {
+  background: transparent; border: 1px solid var(--status-negative);
+  color: var(--status-negative); padding: 6px 14px; font-size: 11px;
+  border-radius: var(--radius-pill); cursor: pointer;
+  font-family: 'Inter', sans-serif; font-weight: 600; transition: all .15s;
+  white-space: nowrap; flex-shrink: 0;
+}
+
+/* List rows */
+.list-row {
+  display: grid; grid-template-columns: 20px 1fr auto auto;
+  align-items: center; gap: 8px;
+  padding: 8px 0; border-bottom: 1px solid var(--border-default);
+  font-size: 13px; min-height: 44px;
+}
+.list-row:last-child { border-bottom: none; }
+.list-row .list-name {
+  font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.list-row .list-val {
+  font-family: 'Poppins', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; font-weight: 600;
+  font-size: 15px; color: var(--text-content-primary);
+  text-align: right; font-variant-numeric: tabular-nums;
+  white-space: nowrap; min-width: 28px;
+}
+.list-row .btn-negative, .list-row .btn-sm {
+  /* min-width, not width: these keep their side padding, so a fixed 60px left
+     "Cancel" a ~30px content box to sit in and it overflowed to one side
+     instead of centring. Flex centring keeps the label true even when a
+     longer word ("Dismiss") makes the button grow. */
+  min-width: 72px;
+  display: inline-flex; align-items: center; justify-content: center;
+  text-align: center;
+}
+.muted {
+  color: var(--text-content-secondary); font-family: 'Poppins', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-size: 11px; text-align: center; padding: 8px 0;
+}
+
+/* Alert card */
+.alert-card {
+  background: color-mix(in srgb, var(--status-negative) 8%, var(--bg-surface-secondary));
+  border: 1px solid var(--status-negative);
+  border-radius: var(--radius-container); padding: 14px 16px;
+  color: var(--status-negative); font-size: 13px; font-weight: 500;
+  margin-bottom: 10px;
+}
+.alert-card .alert-heading { font-weight: 700; margin-bottom: 4px; }
+
+/* Empty state with CTA */
+.empty-state {
+  text-align: center; padding: 16px 8px; color: var(--text-content-secondary);
+  font-size: 12px;
+}
+.empty-state .empty-action {
+  display: inline-block; margin-top: 8px; font-family: 'Poppins', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-size: 11px; font-weight: 600; color: var(--accent-action);
+  cursor: pointer; text-transform: uppercase; letter-spacing: 0.04em;
+}
+
+/* Skeleton shimmer */
+.skeleton {
+  background: linear-gradient(90deg, var(--bg-surface-tertiary) 25%, var(--bg-surface-secondary) 50%, var(--bg-surface-tertiary) 75%);
+  background-size: 200% 100%; animation: shimmer 1.4s infinite; border-radius: 4px;
+}
+@keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+.skeleton-text { height: 14px; margin-bottom: 8px; width: 60%; }
+.skeleton-text.short { width: 40%; }
+.skeleton-kpi { height: 36px; margin-bottom: 6px; width: 55%; }
+.skeleton-card { height: 160px; border-radius: var(--radius-container); }
+
+/* Offline banner */
+#offline-banner {
+  display: none; background: color-mix(in srgb, var(--status-negative) 10%, transparent);
+  border: 1px solid var(--status-negative);
+  border-radius: var(--radius-container); padding: 12px 16px; margin-bottom: 14px;
+  color: var(--status-negative); font-size: 13px; font-weight: 500;
+  text-align: center;
+}
+#offline-banner .offline-action {
+  display: inline-block; margin-left: 8px; font-family: 'Poppins', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-size: 11px; font-weight: 600; color: var(--status-negative);
+  cursor: pointer; text-decoration: underline; text-underline-offset: 3px;
+}
+
+/* Toast */
+#toast {
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px);
+  background: var(--bg-surface-tertiary); border: 1px solid var(--border-default);
+  border-radius: var(--radius-element); padding: 12px 24px;
+  font-size: 13px; color: var(--text-content-primary);
+  opacity: 0; transition: all .25s ease; pointer-events: none; z-index: 100;
+}
+#toast.visible { opacity: 1; transform: translateX(-50%) translateY(0); }
+#toast.success { border-color: var(--status-positive); color: var(--status-positive); }
+#toast.error   { border-color: var(--status-negative); color: var(--status-negative); }
+#toast.caution { border-color: var(--status-caution); color: var(--status-caution); }
+
+/* ===================================================================
+   RESPONSIVE
+   =================================================================== */
+@media (max-width: 768px) {
+  body { padding: 8px; }
+  #status-bar { flex-wrap: wrap; gap: 10px; font-size: 11px; padding: 10px 14px; }
+  #status-bar .status-left, #status-bar .status-right { gap: 10px; }
+  main { grid-template-columns: 1fr; gap: 12px; }
+  .kpi-row { grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .kpi-card { padding: 10px 12px; }
+  .kpi-card .kpi-label { font-size: 9px; }
+  .kpi-card .kpi-value { font-size: 24px; }
+  .kpi-card .kpi-value.kpi-text { font-size: 18px; min-height: 34px; }
+  .kpi-card .kpi-sub { font-size: 9px; }
+  .grid { grid-template-columns: repeat(2, 1fr); grid-template-rows: repeat(3, 1fr); gap: 8px; }
+  .product-card { flex-direction: column; align-items: stretch; gap: 10px; padding: 12px; min-height: auto; }
+  .product-icon { width: 100%; max-width: none; aspect-ratio: auto; height: 80px; border-radius: 8px; }
+  .product-icon svg { width: 32px; height: 32px; }
+  .product-card .text-panel { padding: 0; text-align: center; }
+  .product-card .product-name { font-size: 13px; }
+  .product-card .armed-qty { font-size: 28px; }
+  .product-card .slot-num { font-size: 9px; }
+  #right-panel { gap: 10px; }
+  #right-panel section { padding: 12px 14px; }
+  .btn { min-height: 44px; }
+  .btn-lg { padding: 14px 20px; font-size: 14px; }
+
+  /* Narrower screens keep the same 3x3 idea but in two columns, so six
+     products need three rows. All three are reserved for the same reason as
+     the wide layout: a portrait tablet is still a till, and the grid must not
+     move under a finger. The controls stay on their own bottom row, matched
+     to the two columns above them. */
+  #sale-strip { gap: 6px; }
+  #sale-strip #staged-items {
+    grid-template-columns: repeat(2, 1fr); gap: 6px;
+    grid-template-rows: repeat(3, 78px); min-height: 246px;
+  }
+  #sale-strip .staged-card { min-width: 0; max-width: none; width: 100%; }
+  .sale-controls { grid-template-columns: repeat(2, 1fr); gap: 6px; }
+  /* Three controls across two columns: the total takes the full width below
+     the two buttons rather than being squeezed into half a cell. */
+  .sale-total { grid-column: 1 / -1; }
+}
+
+@media (max-width: 480px) {
+  .kpi-row { grid-template-columns: repeat(2, 1fr); gap: 6px; }
+  .kpi-card .kpi-value { font-size: 22px; }
+  .kpi-card .kpi-value.kpi-text { font-size: 15px; min-height: 34px; }
+  .grid { grid-template-rows: repeat(3, 1fr); }
+  .product-card { flex-direction: column; align-items: stretch; gap: 8px; padding: 10px; min-height: auto; }
+  .product-icon { width: 100%; max-width: none; aspect-ratio: auto; height: 64px; border-radius: 8px; }
+  .product-icon svg { width: 28px; height: 28px; }
+  .product-card .text-panel { padding: 0; text-align: center; }
+  .product-card .product-name { font-size: 12px; }
+  .product-card .armed-qty { font-size: 24px; }
+  .product-card .status-row { font-size: 10px; gap: 6px; }
+  .sale-total { font-size: 18px; }
+  /* A phone is not the till. Reserving three rows would eat most of the
+     screen, so let the strip grow here and accept the shift -- nobody is
+     working a queue at counter speed on a phone. */
+  #sale-strip #staged-items { grid-template-rows: auto; min-height: 0; }
+  .staged-row .staged-qty { font-size: 13px; }
+  .btn { font-size: 12px; padding: 10px 14px; }
+  .section-label { font-size: 10px; }
+  #status-bar { font-size: 10px; }
+  .toast { font-size: 12px; padding: 10px 16px; }
+}
+
+/* ---------------------------------------------------------------------------
+   Touch behaviour (iPad / iOS Safari)
+
+   iOS Safari 10+ deliberately ignores `user-scalable=no` in the viewport tag
+   for accessibility, so double-tap-to-zoom stays enabled no matter what the
+   <head> says. `touch-action: manipulation` is what actually removes the
+   double-tap gesture -- and it leaves PINCH-zoom working, so the page can
+   still be magnified deliberately.
+
+   It has to be set on every element that can be tapped: touch-action is not
+   inherited, and .btn was the only rule carrying it, which is why the stepper
+   +/- and the product cards still zoomed.
+   --------------------------------------------------------------------------- */
+html, body { touch-action: manipulation; }
+
+button, input, select, textarea, a,
+.btn,
+.product-card, .kpi-card, .staged-card, .staged-card-remove,
+.list-row, .tab, .chip {
+  touch-action: manipulation;
+}
+
+/* Double-tapping text selects it and flashes a highlight before the zoom is
+   suppressed. Controls are not meant to be selectable. */
+button, .btn, .product-card, .kpi-card, .staged-card, .tab {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+
+/* Hover styles latch on iOS: a tapped control keeps its hover appearance
+   until you tap somewhere else, so buttons read as stuck-selected after
+   every sale. Confining them to pointer devices means touch simply never
+   applies them -- no sticking, and no half-styled control either. */
+@media (hover: hover) {
+  #btn-settings:hover { border-color: var(--border-strong); color: var(--accent-action); }
+  #settings-close:hover, #today-close:hover {
+    border-color: var(--status-negative); color: var(--status-negative);
+  }
+  .staged-card .staged-card-remove:hover { color: var(--status-negative); }
+  #sale-strip .btn-outline:hover { border-color: var(--accent-action); color: var(--accent-action); }
+  .product-card:hover { border-color: var(--border-strong); transform: translateY(-1px); }
+  .btn-remove:hover { border-color: var(--status-negative); color: var(--status-negative); }
+  .btn-primary:hover { background: var(--accent-action-hover); }
+  .btn-outline:hover { border-color: var(--border-strong); color: var(--accent-action); }
+  .btn-sm:hover { border-color: var(--border-strong); color: var(--accent-action); }
+  .btn-sm.retry:hover { background: var(--accent-action); color: #fff; }
+  .btn-sm.dismiss:hover { border-color: var(--status-negative); color: var(--status-negative); }
+  .btn-negative:hover { background: var(--status-negative); color: #fff; }
+}
+
+
+/* Maintenance / prime.
+   Deliberately understated and collapsed: priming dispenses product without
+   recording a sale, so it should never sit next to Arm looking like part of
+   the normal flow. */
+.maint-note {
+  font-size: 10px;
+  line-height: 1.5;
+  color: var(--text-content-secondary);
+  margin: 8px 0 6px;
+}
+.maint-note strong { color: var(--status-caution); }
+.prime-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 0;
+  border-bottom: 1px solid var(--border-default);
+}
+.prime-row:last-child { border-bottom: none; }
+.prime-row .prime-name { flex: 1; font-size: 11px; }
+.prime-row .prime-why {
+  display: block; font-size: 9px; margin-top: 1px;
+  color: var(--status-caution);
+}
+.prime-row .prime-count {
+  font-size: 10px;
+  color: var(--text-content-secondary);
+  min-width: 44px;
+  text-align: right;
+}
+.prime-row .prime-count.busy { color: var(--status-caution); }
+.prime-row .btn-sm {
+  /* Wide enough for both labels so the row does not jump when the button
+     switches from "Clear Air" to "Tap again". */
+  flex: 0 0 auto; min-width: 86px;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.prime-row .btn-sm.confirm {
+  border-color: var(--status-caution);
+  color: var(--status-caution);
+}
+
+/* ===================================================================
+   SETTINGS SHEET
+   Things a cashier touches rarely: theme, maintenance, machine identity.
+   Kept behind a gear so the main screen stays about selling.
+   =================================================================== */
+/* The status bar is space-between, so the right-hand group is pinned to the
+   edge and anything that changes width pushes its siblings. The clock does
+   exactly that as digits change, which walked the gear icon left and right.
+   Fixed box, tabular figures, so it never reflows. */
+#last-update {
+  font-variant-numeric: tabular-nums;
+  min-width: 62px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+#btn-settings {
+  background: none; border: 1px solid var(--border-default);
+  border-radius: var(--radius-element); color: var(--text-content-secondary);
+  cursor: pointer; padding: 5px 9px; line-height: 0; transition: all .18s;
+}
+#btn-settings svg { width: 18px; height: 18px; display: block; }
+
+#settings-backdrop {
+  position: fixed; inset: 0; background: rgba(0,0,0,.55);
+  z-index: 200;
+}
+#settings-sheet {
+  position: fixed; z-index: 201;
+  top: 50%; left: 50%; transform: translate(-50%, -50%);
+  width: min(460px, calc(100vw - 32px));
+  max-height: min(78vh, 680px);
+  display: flex; flex-direction: column;
+  background: var(--bg-surface-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-container);
+  box-shadow: 0 24px 60px rgba(0,0,0,.45);
+  overflow: hidden;
+}
+#settings-backdrop[hidden], #settings-sheet[hidden] { display: none; }
+
+.sheet-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 16px; border-bottom: 1px solid var(--border-default);
+  font-size: 14px; font-weight: 700;
+}
+/* Today's takings.
+   A panel on the page rather than an overlay: the card scrolls the page down
+   to it, so the tap has a visible destination instead of something appearing
+   over the top with no explanation of where it came from. */
+#kpi-today-card { cursor: pointer; }
+#kpi-today-card .chev { display: inline-block; transition: transform .18s; }
+#kpi-today-card[aria-expanded="true"] .chev { transform: rotate(180deg); }
+#kpi-today-card[aria-expanded="true"] {
+  border-color: var(--accent-action);
+}
+
+#today-panel {
+  margin-top: 12px; flex-shrink: 0;
+  background: var(--bg-surface-secondary);
+  border: 1px solid var(--border-default);
+  border-left: 3px solid var(--accent-action);
+  border-radius: var(--radius-container);
+  scroll-margin-top: 12px;
+}
+#today-panel[hidden] { display: none; }
+#today-panel .sheet-body { padding: 4px 16px 16px; }
+
+/* A brief ring on arrival, so the eye lands on what the tap produced. */
+@keyframes today-arrive {
+  from { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-action) 45%, transparent); }
+  to   { box-shadow: 0 0 0 3px transparent; }
+}
+#today-panel.arrived { animation: today-arrive 1.1s ease-out; }
+@media (prefers-reduced-motion: reduce) {
+  #today-panel.arrived { animation: none; }
+}
+.today-total {
+  display: flex; align-items: baseline; gap: 10px;
+  padding: 4px 0 12px;
+}
+.today-total .big {
+  font-family: 'Poppins', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-size: 30px; font-weight: 700; font-variant-numeric: tabular-nums;
+}
+.today-total .sub { font-size: 12px; color: var(--text-content-secondary); }
+.mix-bar {
+  display: flex; height: 14px; width: 100%; border-radius: var(--radius-pill);
+  overflow: hidden; background: var(--bg-surface-tertiary); margin-bottom: 12px;
+}
+.mix-bar span { height: 100%; }
+.today-row {
+  display: grid; grid-template-columns: 12px 1fr auto auto;
+  align-items: center; gap: 10px;
+  padding: 7px 0; border-bottom: 1px solid var(--border-default);
+  font-size: 12px;
+}
+.today-row:last-child { border-bottom: none; }
+.today-row .swatch { width: 10px; height: 10px; border-radius: 3px; }
+.today-row .t-presses {
+  font-variant-numeric: tabular-nums; color: var(--text-content-secondary);
+  font-size: 11px; min-width: 66px; text-align: right;
+}
+.today-row .t-pesos {
+  font-family: 'Poppins', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-weight: 600; font-variant-numeric: tabular-nums;
+  min-width: 62px; text-align: right;
+}
+.today-row.zero { opacity: .45; }
+.interrupted-row {
+  padding: 7px 0; border-bottom: 1px solid var(--border-default);
+  font-size: 11px; color: var(--status-caution);
+}
+.interrupted-row:last-child { border-bottom: none; }
+.interrupted-row .i-head { display: flex; justify-content: space-between; gap: 8px; font-weight: 600; }
+.interrupted-row .i-why { font-size: 9px; opacity: .85; margin-top: 2px; }
+.interrupted-row .i-actions { display: flex; gap: 6px; margin-top: 6px; }
+.interrupted-row .i-actions .btn { flex: 1; height: 32px; font-size: 12px; }
+.today-note {
+  font-size: 10px; line-height: 1.6;
+  color: var(--text-content-secondary); margin-top: 12px;
+}
+.price-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 6px 0; border-bottom: 1px solid var(--border-default);
+}
+.price-row:last-of-type { border-bottom: none; }
+.price-row .price-name { flex: 1; font-size: 12px; }
+.price-row .peso { color: var(--text-content-secondary); font-size: 13px; }
+.price-row input {
+  width: 74px; height: 38px; text-align: center;
+  background: var(--bg-surface-tertiary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-element);
+  color: var(--text-content-primary);
+  /* 16px or iOS Safari zooms the whole page on focus. */
+  font-size: 16px; font-weight: 600;
+  font-family: 'Poppins', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  -moz-appearance: textfield;
+}
+.price-row input::-webkit-outer-spin-button,
+.price-row input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.price-row input.dirty { border-color: var(--status-caution); }
+.price-history {
+  font-size: 10px; line-height: 1.6;
+  color: var(--text-content-secondary); margin-top: 8px;
+}
+#settings-close, #today-close {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 32px; height: 32px; padding: 0;
+  background: none; cursor: pointer;
+  border: 1px solid var(--border-default);
+  border-radius: 50%;
+  color: var(--text-content-secondary);
+  transition: all .15s;
+}
+#settings-close svg, #today-close svg { width: 14px; height: 14px; display: block; }
+.sheet-body { padding: 4px 16px 16px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+.sheet-group { padding: 14px 0; border-bottom: 1px solid var(--border-default); }
+.sheet-group:last-child { border-bottom: none; }
+.sheet-label {
+  font-size: 10px; font-weight: 700; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--text-content-secondary);
+  margin-bottom: 8px;
+}
+.sheet-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; min-height: 40px; font-size: 12px;
+}
+.sheet-val {
+  color: var(--text-content-secondary); font-size: 12px;
+  text-align: right; word-break: break-all;
+}
+.sheet-val.good { color: var(--status-positive); }
+.sheet-val.bad  { color: var(--status-negative); }
+.sheet-row .btn-sm, .sheet-row a.btn-sm {
+  flex: 0 0 auto; text-decoration: none; display: inline-flex;
+  align-items: center; min-height: 34px;
+}
+</style>
+<style>
+/* ---- PROPOSED: fit the whole dashboard on one screen ----------------
+   Toggled by the bar at the bottom. Switch it off and you are looking at
+   today's dashboard exactly, on the same screen, for comparison. */
+
+/* 1. Commit to the viewport instead of growing past it. min-height lets the
+      body get taller than the screen, which is what forces the scroll. */
+body.proposed { height: 100dvh; min-height: 0; overflow: hidden; }
+
+/* 2. Drop the floors. The grid rows are already 1fr, so cards simply fill
+      whatever is left once everything above has taken its share. */
+body.proposed .grid { min-height: 0; }
+body.proposed .product-card { min-height: 0; }
+
+/* 3. The right panel scrolls in its own column -- without this, a burst of
+      alerts pushes the whole page taller again. */
+body.proposed #right-panel { min-height: 0; overflow-y: auto; }
+body.proposed main { min-height: 0; }
+body.proposed #viewport { overflow: hidden; }
+</style>
+<body class="proposed">
+
+<div id="viewport" style="flex:1;display:flex;flex-direction:column;min-height:0;overflow:auto;">
+<header id="status-bar">
+  <div class="status-left">
+    <span id="machine-status"><span class="dot dot-positive"></span> Online</span>
+    <span id="machine-label">Machine 23</span>
+  </div>
+  <div class="status-center">
+    <span id="pause-indicator" class="hidden" style="color:var(--status-caution);font-weight:600;">PAUSED</span>
+  </div>
+  <div class="status-right">
+    <button id="btn-settings" aria-label="Settings" title="Settings">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    </button>
+    <span id="last-update">16:42:07</span>
+  </div>
+</header>
+
+<div id="offline-banner">
+  Machine unreachable. <span id="offline-retry" class="offline-action">Retry connection</span>
+</div>
+
+<!-- KPI Row -->
+<div class="kpi-row" id="kpi-row">
+  <div class="kpi-card"><div class="kpi-label">Waiting to Dispense</div><div class="kpi-value" id="kpi-armed">4</div><div class="kpi-sub">presses not yet used</div></div>
+  <div class="kpi-card"><div class="kpi-label">In Stock</div><div class="kpi-value" id="kpi-active" style="color:var(--status-positive);">6</div><div class="kpi-sub" id="kpi-active-sub">of 6 products</div></div>
+  <div class="kpi-card"><div class="kpi-label">Machine</div><div class="kpi-value kpi-text" id="kpi-bundle">Ready</div><div class="kpi-sub" id="kpi-bundle-sub">waiting for a sale</div></div>
+  <div class="kpi-card" id="kpi-today-card" role="button" tabindex="0" aria-expanded="false" aria-controls="today-panel"><div class="kpi-label">Today</div><div class="kpi-value" id="kpi-today">&#8369;1,240</div><div class="kpi-sub" id="kpi-today-sub">tap to see takings <span class="chev">&#9662;</span></div></div>
+</div>
+
+<!-- Sale Strip (horizontal, full width) -->
+<div id="sale-strip">
+  <div id="staged-items"><div class="staged-card"><button class="staged-card-remove">&times;</button><span class="staged-card-name">Ariel Powder</span><span class="staged-card-qty">3× · 1500ml</span><div class="staged-card-steps"><button class="staged-step">&minus;</button><button class="staged-step">+</button></div></div><div class="staged-card"><button class="staged-card-remove">&times;</button><span class="staged-card-name">Downy Blue</span><span class="staged-card-qty">1× · 500ml</span><div class="staged-card-steps"><button class="staged-step">&minus;</button><button class="staged-step">+</button></div></div></div>
+  <div class="sale-controls">
+    <button id="btn-clear-sale" class="btn btn-outline">Clear List</button>
+    <button id="btn-arm" class="btn btn-primary">Unlock 2 Buttons</button>
+    <div id="sale-total" class="sale-total">&#8369;1,240</div>
+  </div>
+</div>
+
+<main>
+  <section style="min-width:0;">
+    <div class="grid" id="grid-container"><div class="product-card selected" data-slot="1"><div class="staged-badge">3</div><div class="product-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M9 3h6v3l2 3v12H7V9l2-3z"/><path d="M7 13h10"/></svg></div><div class="text-panel"><div class="slot-num">SLOT 01</div><div class="product-name">Ariel Powder</div><div class="armed-qty is-selected">3</div><div class="status-row" style="color:var(--accent-action)"><span class="dot dot-accent"></span> In sale</div></div></div><div class="product-card selected" data-slot="2"><div class="staged-badge">1</div><div class="product-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M9 3h6v3l2 3v12H7V9l2-3z"/><path d="M7 13h10"/></svg></div><div class="text-panel"><div class="slot-num">SLOT 02</div><div class="product-name">Downy Blue</div><div class="armed-qty is-selected">1</div><div class="status-row" style="color:var(--accent-action)"><span class="dot dot-accent"></span> In sale</div></div></div><div class="product-card" data-slot="3"><div class="product-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M9 3h6v3l2 3v12H7V9l2-3z"/><path d="M7 13h10"/></svg></div><div class="text-panel"><div class="slot-num">SLOT 03</div><div class="product-name">Fabcon</div><div class="armed-qty is-zero">0</div><div class="status-row" style="color:var(--text-content-secondary)"><span class="dot dot-neutral"></span> Ready</div></div></div><div class="product-card" data-slot="4"><div class="product-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M9 3h6v3l2 3v12H7V9l2-3z"/><path d="M7 13h10"/></svg></div><div class="text-panel"><div class="slot-num">SLOT 04</div><div class="product-name">Zonrox 1</div><div class="armed-qty is-zero">0</div><div class="status-row" style="color:var(--text-content-secondary)"><span class="dot dot-neutral"></span> Ready</div></div></div><div class="product-card" data-slot="5"><div class="product-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M9 3h6v3l2 3v12H7V9l2-3z"/><path d="M7 13h10"/></svg></div><div class="text-panel"><div class="slot-num">SLOT 05</div><div class="product-name">Zonrox 2</div><div class="armed-qty is-zero">0</div><div class="status-row" style="color:var(--text-content-secondary)"><span class="dot dot-neutral"></span> Ready</div></div></div><div class="product-card" data-slot="6"><div class="product-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M9 3h6v3l2 3v12H7V9l2-3z"/><path d="M7 13h10"/></svg></div><div class="text-panel"><div class="slot-num">SLOT 06</div><div class="product-name">Surf Rose</div><div class="armed-qty is-zero">0</div><div class="status-row" style="color:var(--text-content-secondary)"><span class="dot dot-neutral"></span> Ready</div></div></div></div>
+    <button id="btn-select-all" class="btn btn-outline" style="margin-top:10px;width:100%;padding:12px;font-size:14px;">Add One Of Each</button>
+  </section>
+
+  <aside id="right-panel">
+    <section id="armed-section" class="status-section" style="display:none;">
+      <div class="section-label">Waiting for Customer <span id="armed-count">0</span></div>
+      <div id="armed-list"></div>
+      <button id="btn-cancel-all" class="btn btn-negative btn-block" style="margin-top:4px;">Cancel All</button>
+    </section>
+    <section id="dispensing-section" class="status-section" style="display:none;">
+      <div class="section-label">Now Dispensing <span id="queue-count">0</span></div>
+      <div id="queue-list"></div>
+    </section>
+    <section id="attention-section" class="status-section" style="display:none;">
+      <div class="section-label">Needs Attention</div>
+      <div id="interrupted-list"></div>
+      <div id="unclaimed-list"></div>
+    </section>
+    <section id="alerts-section" class="status-section" style="display:none;">
+      <div class="section-label">Alerts</div>
+      <div id="alert-list"></div>
+    </section>
+  </aside>
+</main>
+
+<section id="today-panel" hidden aria-labelledby="today-title">
+  <div class="sheet-head">
+    <span id="today-title">Today's Sales</span>
+    <button id="today-close" aria-label="Hide today's sales"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 5l14 14M19 5L5 19"/></svg></button>
+  </div>
+  <div class="sheet-body">
+    <div class="today-total">
+      <span class="big" id="today-pesos">&#8369;0</span>
+      <span class="sub" id="today-presses">0 presses</span>
+    </div>
+    <div class="mix-bar" id="today-mix"></div>
+    <div id="today-list"></div>
+    <div class="today-note" id="today-note"></div>
+  </div>
+</section>
+
+<div id="settings-backdrop" hidden></div>
+<div id="settings-sheet" hidden role="dialog" aria-modal="true" aria-labelledby="settings-title">
+  <div class="sheet-head">
+    <span id="settings-title">Settings</span>
+    <button id="settings-close" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 5l14 14M19 5L5 19"/></svg></button>
+  </div>
+  <div class="sheet-body">
+
+    <div class="sheet-group">
+      <div class="sheet-label">Appearance</div>
+      <div class="sheet-row">
+        <span>Theme</span>
+        <button id="theme-toggle" class="btn btn-sm">Switch to Light</button>
+      </div>
+    </div>
+
+    <div class="sheet-group">
+      <div class="sheet-label">Prices &mdash; per press</div>
+      <div id="price-list"></div>
+      <div class="sheet-row" style="margin-top:6px;">
+        <span class="maint-note" style="margin:0;flex:1;">
+          Changing a price changes what every later sale is worth, so
+          <strong>each change is recorded</strong> with its old value.
+        </span>
+        <button id="btn-save-prices" class="btn btn-sm" disabled>Save</button>
+      </div>
+      <div id="price-history" class="price-history"></div>
+    </div>
+
+    <div class="sheet-group">
+      <div class="sheet-label">Maintenance &mdash; cleared today: <span id="prime-today">0</span></div>
+      <div class="maint-note">
+        Removes air after a gallon change, so the next customer is not
+        charged for a press that dispenses nothing. Runs
+        <span id="prime-secs">3</span>s per tap. Safe to use while a customer is
+        waiting &mdash; their credits are untouched.
+        <strong>No sale is recorded</strong> &mdash; every run is logged.
+      </div>
+      <div id="prime-list"></div>
+    </div>
+
+    <div class="sheet-group">
+      <div class="sheet-label">This machine</div>
+      <div class="sheet-row"><span>Machine ID</span><span id="info-machine" class="sheet-val">--</span></div>
+      <div class="sheet-row"><span>Controller</span><span id="info-controller" class="sheet-val">--</span></div>
+      <div class="sheet-row"><span>Address</span><span id="info-url" class="sheet-val">--</span></div>
+      <div class="sheet-row">
+        <span>Open on another device</span>
+        <a id="info-qr" class="btn btn-sm" href="/qr" target="_blank" rel="noopener">Show QR</a>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div id="toast"></div>
+
+</div>
+
+
+<div id="fitbar">
+  <label><input type="checkbox" id="fit-toggle" checked> Proposed one-screen layout</label>
+  <span id="fit-readout">measuring&#8230;</span>
+</div>
+<style>
+#fitbar {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 9999;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 16px; padding: 8px 14px;
+  background: var(--bg-surface-tertiary, #1b1f2a);
+  border-top: 1px solid var(--border-default, #333);
+  color: var(--text-content-primary, #eee);
+  font-family: 'Poppins', system-ui, sans-serif; font-size: 12px;
+}
+#fitbar label { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+#fit-readout { font-variant-numeric: tabular-nums; }
+.fit-ok   { color: var(--status-positive, #3ecf8e); font-weight: 700; }
+.fit-over { color: var(--status-negative, #ff5c5c); font-weight: 700; }
+</style>
+<script>
+(function () {
+  var BAR = 46;
+  var cb = document.getElementById('fit-toggle');
+  var out = document.getElementById('fit-readout');
+  function measure() {
+    var vh = window.innerHeight - BAR;
+    var need = document.documentElement.scrollHeight - BAR;
+    var fits = need <= vh + 1;
+    out.innerHTML = 'screen ' + vh + 'px \u00b7 layout needs ' + need + 'px \u00b7 '
+      + '<span class="' + (fits ? 'fit-ok' : 'fit-over') + '">'
+      + (fits ? 'FITS' : 'OVERFLOWS by ' + (need - vh) + 'px') + '</span>';
+  }
+  cb.addEventListener('change', function () {
+    document.body.classList.toggle('proposed', cb.checked);
+    setTimeout(measure, 60);
+  });
+  window.addEventListener('resize', measure);
+  document.body.classList.toggle('proposed', cb.checked);
+  setTimeout(measure, 150);
+})();
+</script>
+
+</body>
+</html>
