@@ -4,6 +4,28 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>Sabon Vendo</title>
+
+<!-- Kiosk / POS. Added to the home screen and launched from its icon, the
+     dashboard runs with no address bar and no tabs, which is what makes a
+     tablet at the counter read as a till rather than as someone's browser.
+
+     Both the manifest and the Apple meta tags are here on purpose. iOS honours
+     the meta tags over plain HTTP, which is what this machine serves on the
+     shop LAN; Chrome wants the manifest, and will only install a web app
+     properly over HTTPS -- so on Android this improves the shortcut but does
+     not make it chromeless. iPad is the smoother path today.
+
+     status-bar-style is "default", not "black-translucent": translucent puts
+     the page underneath the clock and needs safe-area padding to avoid the
+     header sliding under it. -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Sabon Vendo">
+<meta name="theme-color" content="#3B6DF0">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
 <style>
 /* ===================================================================
    Sabon Vendo — Cashier Dashboard
@@ -1257,6 +1279,12 @@ button, .btn, .product-card, .staged-card, .tab {
         <span>Theme</span>
         <button id="theme-toggle" class="btn btn-sm">Switch to Light</button>
       </div>
+      <!-- Hidden outright on iOS, which has no element fullscreen: a control
+           that does nothing when tapped is worse than no control. -->
+      <div class="sheet-row" id="row-fullscreen" hidden>
+        <span>Fullscreen</span>
+        <button id="btn-fullscreen" class="btn btn-sm">Go Fullscreen</button>
+      </div>
     </div>
 
     <div class="sheet-group">
@@ -2237,6 +2265,46 @@ button, .btn, .product-card, .staged-card, .tab {
     localStorage.setItem('sabon-theme', nxt);
     $('theme-toggle').textContent = themeLabel();
   });
+
+  // ---- Kiosk -------------------------------------------------------------
+  // Keep the screen awake while the till is open. A cashier should never have
+  // to wake the tablet with a customer waiting, and the counter device is on
+  // mains power. Every failure path here is silent on purpose: the lock is
+  // refused on low battery, in a background tab, and on browsers that have no
+  // Wake Lock at all, and none of those are worth interrupting a sale for.
+  let wakeLock = null;
+  async function holdScreenAwake() {
+    if (!('wakeLock' in navigator) || document.visibilityState !== 'visible') return;
+    try {
+      wakeLock = await navigator.wakeLock.request('screen');
+      // The browser drops the lock whenever the page is hidden, so the
+      // release handler is what lets the visibility listener below re-take it.
+      wakeLock.addEventListener('release', () => { wakeLock = null; });
+    } catch (e) { /* not available, not permitted, or battery too low */ }
+  }
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && !wakeLock) holdScreenAwake();
+  });
+  holdScreenAwake();
+
+  // Fullscreen for Android and the counter PC. iOS Safari implements the
+  // Fullscreen API for video only, so on an iPad the whole row is hidden and
+  // the chromeless path is Add to Home Screen instead -- see docs/KIOSK.md.
+  if (document.documentElement.requestFullscreen && document.exitFullscreen) {
+    $('row-fullscreen').hidden = false;
+    const fsLabel = () => document.fullscreenElement ? 'Exit Fullscreen' : 'Go Fullscreen';
+    $('btn-fullscreen').addEventListener('click', () => {
+      const p = document.fullscreenElement
+        ? document.exitFullscreen()
+        : document.documentElement.requestFullscreen();
+      // A rejected request is not an error worth a toast -- the user simply
+      // stays where they are, and the label below stays correct either way.
+      if (p && p.catch) p.catch(() => {});
+    });
+    document.addEventListener('fullscreenchange', () => {
+      $('btn-fullscreen').textContent = fsLabel();
+    });
+  }
 
   // Tap handling is delegated to the containers, which are never replaced.
   // A listener bound to a card or row dies with it on the next redraw, and a
