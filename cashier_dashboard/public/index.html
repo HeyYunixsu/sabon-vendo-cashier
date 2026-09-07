@@ -300,10 +300,28 @@ body {
 .status-section .list-row { padding: 4px 0; font-size: 11px; }
 .status-section .list-val { font-size: 13px; }
 
-main {
-  display: grid; grid-template-columns: 1fr 260px;
-  gap: 12px; flex: 1; min-height: 0;
+/* Only the two pages scroll. The header and sale strip stay put above them,
+   which is what lets a page be exactly one screenful -- with the chrome inside
+   the scroller, main had to shrink to make room for the Today panel instead of
+   the panel becoming a page of its own. */
+#viewport { flex: 1; display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+#pages {
+  flex: 1; min-height: 0; overflow-y: auto;
+  display: flex; flex-direction: column;
+  scroll-behavior: smooth;
 }
+/* Each page is exactly the scroller's height, so Today is a second screenful
+   you travel down to rather than a strip wedged under the products. */
+#pages > main, #pages > #today-panel { flex: 0 0 auto; min-height: 100%; }
+
+/* Flex, not grid: flex-basis animates reliably everywhere, and the right
+   panel has to be able to collapse to nothing. */
+main { display: flex; gap: 12px; min-height: 0; }
+/* The products take whatever the right panel is not using. */
+main > section { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+/* Fill the section rather than sitting at content height and leaving dead
+   space beneath -- the six cards spread over the whole area. */
+main > section > .grid { flex: 1; min-height: 0; }
 
 /* ===================================================================
    PRODUCT GRID
@@ -440,9 +458,25 @@ main {
 /* ===================================================================
    RIGHT PANEL
    =================================================================== */
-/* Scrolls in its own column. Without this, Needs Attention or a run of alerts
-   appearing would push the whole page taller and undo the one-screen fit. */
-#right-panel { display: flex; flex-direction: column; gap: 10px; min-height: 0; overflow-y: auto; }
+/* Slides in only when it has something to say. Empty, it was 260px of nothing
+   holding the product cards narrower than they needed to be; a sale is also
+   exactly when the cashier wants the armed list, so the panel arriving is the
+   same event as the products making room for it.
+   Scrolls internally too, so a run of alerts cannot push the page taller and
+   undo the one-screen fit. */
+#right-panel {
+  display: flex; flex-direction: column; gap: 10px;
+  flex: 0 0 260px; min-height: 0; overflow: hidden auto;
+  transition: flex-basis .28s ease, opacity .22s ease;
+}
+main.panel-hidden #right-panel {
+  flex-basis: 0; opacity: 0; overflow: hidden;
+  /* Not just transparent: a zero-width column must not keep taking taps. */
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  #right-panel { transition: none; }
+}
 #right-panel section {
   background: var(--bg-surface-secondary);
   border: 1px solid var(--border-default);
@@ -951,7 +985,7 @@ button, .btn, .product-card, .staged-card, .tab {
 </head>
 <body>
 
-<div id="viewport" style="flex:1;display:flex;flex-direction:column;min-height:0;overflow:auto;">
+<div id="viewport">
 <header id="status-bar">
   <!-- These carry the same ids the KPI cards did, so every writer keeps
        working. "Online" and the machine id are gone: the offline banner
@@ -989,7 +1023,8 @@ button, .btn, .product-card, .staged-card, .tab {
   </div>
 </div>
 
-<main>
+<div id="pages">
+<main class="panel-hidden">
   <section style="min-width:0;">
     <div class="grid" id="grid-container"></div>
     <button id="btn-select-all" class="btn btn-outline" style="margin-top:10px;width:100%;padding:12px;font-size:14px;">Add One Of Each</button>
@@ -1032,6 +1067,7 @@ button, .btn, .product-card, .staged-card, .tab {
     <div class="today-note" id="today-note"></div>
   </div>
 </section>
+</div>
 
 <div id="settings-backdrop" hidden></div>
 <div id="settings-sheet" hidden role="dialog" aria-modal="true" aria-labelledby="settings-title">
@@ -1201,6 +1237,21 @@ button, .btn, .product-card, .staged-card, .tab {
     renderAlerts();
     renderUnclaimed();
     renderPrime();
+    updatePanelVisibility();
+  }
+
+  // The right panel earns its 260px only when one of its sections has content.
+  // Each section already hides itself when empty, so this just asks whether any
+  // of them is showing and lets the column collapse if not. Runs after the
+  // renders, never before -- it is reading what they just decided.
+  function updatePanelVisibility() {
+    const sections = ['armed-section', 'dispensing-section',
+                      'attention-section', 'alerts-section'];
+    const anyVisible = sections.some(id => {
+      const el = $(id);
+      return el && el.style.display !== 'none';
+    });
+    document.querySelector('main').classList.toggle('panel-hidden', !anyVisible);
   }
 
   function updateStatus() {
