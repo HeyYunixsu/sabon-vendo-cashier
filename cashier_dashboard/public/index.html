@@ -214,30 +214,44 @@ body {
   font-size: 22px; font-weight: 600; padding: 0;
 }
 #sale-strip .staged-card {
-  display: grid; grid-template-columns: 1fr 22px;
-  grid-template-rows: auto auto auto;
+  /* Three columns: what the product is, then one control each. The name takes
+     whatever is left over, so the two controls are the same target on every
+     card however long the product is called. */
+  display: grid; grid-template-columns: minmax(0, 1fr) 52px 52px;
+  /* The gap is the point, not just spacing. Minus and plus do opposite things,
+     sit under the same thumb, and a misclick costs a wrong quantity the
+     cashier has to catch before Unlock. 16px is dead ground between them. */
+  column-gap: 16px;
   align-items: center;
   background: var(--bg-surface-secondary);
   border: 1px solid var(--accent-action); border-radius: 8px;
-  padding: 6px 10px 6px 12px; width: 100%; min-width: 0; max-width: none;
-  /* Exactly one grid row. Every card is the same height whatever it holds, so
-     no single card can push its row taller than its neighbours. Slimmed from
-     92px once the controls moved off to their own row and the cards gained
-     the full column width -- the height was padding, not content. */
+  padding: 8px 10px; width: 100%; min-width: 0; max-width: none;
+  /* Unchanged at 78px. The strip reserves the same block it always did, so
+     nothing below it moves -- the steppers grew into height that was already
+     here as padding, not into new height. */
   height: 78px; overflow: hidden;
+}
+/* Column 1. Its own box so the remove button can sit against the name rather
+   than against the card, which now ends at the plus button. */
+.staged-card .staged-card-text {
+  grid-column: 1; grid-row: 1; min-width: 0; position: relative;
+  display: flex; flex-direction: column; justify-content: center; gap: 2px;
+  padding-right: 16px;
 }
 .staged-card .staged-card-name {
   /* Leads the card. It was 12px under a 15px quantity, so the eye landed on
      "3x . 1500ml" before the product it belonged to. */
-  font-size: 15px; font-weight: 600; color: var(--text-content-primary);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  grid-column: 1; line-height: 1.2;
+  font-size: 17px; font-weight: 600; color: var(--text-content-primary);
+  line-height: 1.15;
+  /* Wraps to two lines instead of ellipsing. "Fabric Cond..." makes a cashier
+     work out which product that was; the second line is free, because the card
+     is already 78px tall for the steppers' sake. Clamped at two, so a long
+     name still cannot push the card taller than its neighbours. */
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
+  line-clamp: 2; overflow: hidden; overflow-wrap: anywhere;
 }
 .staged-card .staged-card-qty {
   font-size: 13px; font-weight: 700; color: var(--accent-action);
-  grid-column: 1; grid-row: 2;
-  /* Explicit, not "normal": the card is a fixed 78px and the three rows have
-     to add up to it deterministically, whatever the font decides. */
   line-height: 1.2;
   /* This line is what moved the grid. "3x . 1500ml" -> "10x . 5000ml" is both
      wider and, at 1 press vs 10, a different number of characters -- so it
@@ -248,24 +262,24 @@ body {
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   font-variant-numeric: tabular-nums;
 }
+/* Small, in the name's top corner. A shortcut, not the only exit -- minus at
+   one press already removes the item. */
 .staged-card .staged-card-remove {
-  grid-column: 2; grid-row: 1 / 3;
+  position: absolute; top: -2px; right: -4px;
   background: none; border: none; color: var(--text-content-secondary);
   cursor: pointer; font-size: 16px; line-height: 1;
-  padding: 4px; text-align: center; align-self: start;
-}
-.staged-card .staged-card-steps {
-  grid-column: 1 / 3; grid-row: 3;
-  display: flex; justify-content: center; gap: 10px; margin-top: 3px;
+  padding: 2px 4px; text-align: center;
 }
 .staged-card .staged-step {
-  /* Sized, not stretched. At full card width they were the heaviest thing on
-     a card whose job is to name a product -- 64px is still a comfortable
-     target and reads as a control rather than a bar. */
-  flex: 0 0 auto; width: 64px; height: 26px;
+  /* Full card height, because height is what a thumb is least accurate on.
+     52x58 against the old 64x26 is a little over twice the area, and all of
+     the growth is on that axis. */
+  align-self: center;
+  width: 100%; height: 58px;
+  display: flex; align-items: center; justify-content: center;
   background: var(--bg-surface-tertiary); color: var(--text-content-primary);
-  border: 1px solid var(--border-default); border-radius: 6px;
-  font-size: 18px; font-weight: 700; line-height: 1; cursor: pointer;
+  border: 1px solid var(--border-default); border-radius: 8px;
+  font-size: 26px; font-weight: 700; line-height: 1; cursor: pointer;
   font-family: 'Poppins', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 }
 .sale-controls {
@@ -1561,13 +1575,13 @@ button, .btn, .product-card, .staged-card, .tab {
     staged.forEach((it, i) => {
       totalQty += it.qty;
       h += '<div class="staged-card">'
-         + '<button class="staged-card-remove" data-idx="'+i+'">&times;</button>'
+         + '<div class="staged-card-text">'
+         + '<button class="staged-card-remove" data-idx="'+i+'" aria-label="Remove">&times;</button>'
          + '<span class="staged-card-name">'+it.name+'</span>'
          + '<span class="staged-card-qty">'+it.qty+'\xD7 \xB7 '+it.ml+'ml</span>'
-         + '<div class="staged-card-steps">'
+         + '</div>'
          + '<button class="staged-step" data-id="'+it.id+'" data-delta="-1" aria-label="One less">&minus;</button>'
          + '<button class="staged-step" data-id="'+it.id+'" data-delta="1" aria-label="One more">+</button>'
-         + '</div>'
          + '</div>';
     });
     staged.forEach((it) => {
