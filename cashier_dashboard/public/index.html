@@ -157,16 +157,20 @@ body {
    MAIN LAYOUT
    =================================================================== */
 /* Sale Strip */
+/* One 3x3 grid: six product cells on the top two rows, the three controls on
+   the bottom row aligned to the same columns. The controls used to sit beside
+   the cards and stole horizontal space from them; below, every cell gets the
+   full column width. Being one grid also means nothing here can reflow -- the
+   whole strip is a fixed block whatever the sale contains. */
 #sale-strip {
-  display: flex; align-items: center; gap: 8px;
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
   background: var(--bg-surface-secondary);
   border: 1px solid var(--border-default);
   border-radius: 10px;
-  padding: 6px 12px; margin-bottom: 8px; flex-shrink: 0;
-  min-height: 44px; flex-wrap: wrap;
+  padding: 8px 12px; margin-bottom: 8px; flex-shrink: 0;
 }
 #sale-strip #staged-items {
-  flex: 1; min-width: 140px; font-size: 12px;
+  grid-column: 1 / -1; min-width: 0; font-size: 12px;
   display: grid; grid-template-columns: repeat(3, 1fr);
   /* Both rows reserved, always. Six products fill 3x2, so holding the full
      grid open means the strip is the same height empty, half full or full --
@@ -224,20 +228,34 @@ body {
   font-family: 'Poppins', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 }
 .sale-controls {
-  display: flex; align-items: center; gap: 10px; flex-shrink: 0;
+  /* The bottom row of the strip: three cells on the same columns as the
+     product cards above, so each control is a full-column touch target. */
+  grid-column: 1 / -1;
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
+  align-items: stretch;
 }
 #sale-strip .btn, #sale-strip .btn-confirm {
-  height: 44px; padding: 0 18px; font-size: 13px; font-weight: 600;
+  height: 44px; padding: 0 12px; font-size: 13px; font-weight: 600;
   border-radius: 8px; line-height: 1;
+  /* Fill the grid cell rather than shrink-wrapping the label, so the button
+     is the same size whether it reads "Unlock Buttons" or "Unlock 3 Buttons". */
+  width: 100%;
 }
 #sale-strip .btn-primary { background: var(--accent-action); color: #fff; border: 1px solid transparent; }
-#sale-strip .btn-outline { background: transparent; border: 1px solid var(--border-default); color: var(--text-content-primary); flex: 0 0 auto; }
+#sale-strip .btn-outline { background: transparent; border: 1px solid var(--border-default); color: var(--text-content-primary); }
 /* Fixed box, right-aligned. 50px held the widest total this ever showed when
    prices were 5 pesos; a real shop reaches four figures, and the moment the
    total outgrew its box it squeezed the flex row, wrapped the strip onto a
    second line and dragged the whole product grid down mid-tap. 96px covers
    six glyphs (P99999) at this size, so the box never changes width. */
-#sale-strip .sale-total { font-size: 22px; margin: 0 0 0 8px; white-space: nowrap; min-width: 96px; flex: 0 0 auto; text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
+/* Its own cell on the bottom row. Centred and filling the column, with
+   tabular figures so the number cannot change width as the total climbs. */
+#sale-strip .sale-total {
+  font-size: 22px; margin: 0; white-space: nowrap;
+  display: flex; align-items: center; justify-content: center;
+  height: 44px; font-weight: 700; font-variant-numeric: tabular-nums;
+  overflow: hidden; text-overflow: ellipsis;
+}
 
 /* Status-only right panel */
 .status-section {
@@ -584,27 +602,21 @@ main {
   .btn { min-height: 44px; }
   .btn-lg { padding: 14px 20px; font-size: 14px; }
 
-  #sale-strip { flex-wrap: wrap; }
-  #sale-strip #staged-items { flex: 1 1 100%; gap: 6px; }
-
-  /* Fix: staged product cards used flex-wrap with min/max width,
-     causing uneven 2-2-1 wrapping on phone. Force a real 3-column
-     grid so it's always 3 per row, wrapping cleanly to next row. */
+  /* Narrower screens keep the same 3x3 idea but in two columns, so six
+     products need three rows. All three are reserved for the same reason as
+     the wide layout: a portrait tablet is still a till, and the grid must not
+     move under a finger. The controls stay on their own bottom row, matched
+     to the two columns above them. */
+  #sale-strip { gap: 6px; }
   #sale-strip #staged-items {
-    display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px;
-    /* Two columns here, so six products need three rows. Reserve all three
-       for the same reason as the wide layout -- a portrait tablet is still a
-       till, and the grid must not move under a finger. */
+    grid-template-columns: repeat(2, 1fr); gap: 6px;
     grid-template-rows: repeat(3, 92px); min-height: 292px;
   }
   #sale-strip .staged-card { min-width: 0; max-width: none; width: 100%; }
-  .sale-controls {
-    flex-wrap: wrap; width: 100%; flex: 1 1 100%;
-    gap: 8px; justify-content: flex-start;
-  }
-  #btn-clear-sale { order: 3; flex: 1 1 auto; }
-  #btn-arm { order: 4; flex: 1 1 90px; }
-  .sale-total { order: 5; flex: 0 0 auto; margin-left: auto; align-self: center; }
+  .sale-controls { grid-template-columns: repeat(2, 1fr); gap: 6px; }
+  /* Three controls across two columns: the total takes the full width below
+     the two buttons rather than being squeezed into half a cell. */
+  .sale-total { grid-column: 1 / -1; }
 }
 
 @media (max-width: 480px) {
