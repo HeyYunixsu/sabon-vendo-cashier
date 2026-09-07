@@ -214,14 +214,21 @@ body {
   font-size: 22px; font-weight: 600; padding: 0;
 }
 #sale-strip .staged-card {
-  /* Three columns: what the product is, then one control each. The name takes
-     whatever is left over, so the two controls are the same target on every
-     card however long the product is called. */
-  display: grid; grid-template-columns: minmax(0, 1fr) 60px 60px;
+  /* Four columns: what the product is, how many of it, then one control
+     each. The name takes whatever is left over, so the count and the two
+     controls are in the same place on every card however long the product
+     is called.
+
+     The count column is a fixed 44px and NOT auto. An auto track would size
+     itself to its content, so "3x" -> "10x" would widen it, the name column
+     would shrink to compensate, and the card's contents would jump sideways
+     as the cashier tapped plus. That is the same shift this card has been
+     fixed for twice already. */
+  display: grid; grid-template-columns: minmax(0, 1fr) 40px 52px 52px;
   /* The gap is the point, not just spacing. Minus and plus do opposite things,
      sit under the same thumb, and a misclick costs a wrong quantity the
-     cashier has to catch before Unlock. 16px is dead ground between them. */
-  column-gap: 16px;
+     cashier has to catch before Unlock. 12px is dead ground between them. */
+  column-gap: 12px;
   align-items: center;
   background: var(--bg-surface-secondary);
   border: 1px solid var(--accent-action); border-radius: 8px;
@@ -236,7 +243,7 @@ body {
 .staged-card .staged-card-text {
   grid-column: 1; grid-row: 1; min-width: 0; position: relative;
   display: flex; flex-direction: column; justify-content: center; gap: 2px;
-  padding-right: 16px;
+  padding-right: 12px;
 }
 .staged-card .staged-card-name {
   /* Leads the card. It was 12px under a 15px quantity, so the eye landed on
@@ -250,16 +257,23 @@ body {
   display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
   line-clamp: 2; overflow: hidden; overflow-wrap: anywhere;
 }
+/* How many presses, in its own column between the name and the controls.
+   Large, because it is the number the cashier is actually changing and the
+   one they check before Unlock. */
 .staged-card .staged-card-qty {
-  font-size: 13px; font-weight: 700; color: var(--accent-action);
-  line-height: 1.2;
-  /* This line is what moved the grid. "3x . 1500ml" -> "10x . 5000ml" is both
-     wider and, at 1 press vs 10, a different number of characters -- so it
-     wrapped to a second line, the card grew taller, the strip grew with it,
-     and every product card below shifted mid-tap.
-     nowrap stops the wrap; tabular figures stop same-length numbers from
-     changing width at all. */
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  grid-column: 2; grid-row: 1;
+  font-size: 19px; font-weight: 700; color: var(--accent-action);
+  line-height: 1.1; text-align: center;
+  /* Fixed column plus tabular figures: 3x and 10x occupy exactly the same
+     space, so nothing moves as the quantity climbs. */
+  white-space: nowrap; font-variant-numeric: tabular-nums;
+}
+/* Volume per press -- a property of the product, not of the sale, so it is
+   the one number on this card that never changes as the quantity does. */
+.staged-card .staged-card-ml {
+  font-size: 13px; font-weight: 600; color: var(--text-content-secondary);
+  line-height: 1.2; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis;
   font-variant-numeric: tabular-nums;
 }
 /* Small, in the name's top corner. A shortcut, not the only exit -- minus at
@@ -798,9 +812,15 @@ main.panel-hidden #right-panel {
      and nobody works a queue at counter speed on one, so the strip may grow
      and the fixed-height no-shift rule does not have to hold. */
   #sale-strip .staged-card {
-    grid-template-columns: 1fr 1fr;
+    /* The count sits between the controls here rather than beside them --
+       it is the thing the two buttons change, and centring it keeps minus
+       and plus at the far edges where they cannot be confused. */
+    grid-template-columns: auto 1fr auto;
     column-gap: 16px; row-gap: 8px;
     height: auto; padding: 10px 12px;
+  }
+  .staged-card .staged-card-qty {
+    grid-column: 2; grid-row: 2; justify-self: center; font-size: 22px;
   }
   .staged-card .staged-card-text {
     grid-column: 1 / -1; grid-row: 1; padding-right: 22px;
@@ -814,10 +834,12 @@ main.panel-hidden #right-panel {
      last place to shrink them -- and putting the width of the card between
      minus and plus makes a misclick almost impossible. */
   .staged-card .staged-step {
-    grid-row: 2; width: 100%; max-width: 130px; height: 64px;
+    /* An explicit width, not 100%: these now sit in auto tracks, and a
+       percentage of a track that is sized by its content is circular. */
+    grid-row: 2; width: 130px; height: 64px;
   }
   .staged-card .staged-step[data-delta="-1"] { grid-column: 1; justify-self: start; }
-  .staged-card .staged-step[data-delta="1"]  { grid-column: 2; justify-self: end; }
+  .staged-card .staged-step[data-delta="1"]  { grid-column: 3; justify-self: end; }
 
   .sale-total { font-size: 18px; }
 
@@ -1657,8 +1679,9 @@ button, .btn, .product-card, .staged-card, .tab {
          + '<div class="staged-card-text">'
          + '<button class="staged-card-remove" data-idx="'+i+'" aria-label="Remove">&times;</button>'
          + '<span class="staged-card-name">'+it.name+'</span>'
-         + '<span class="staged-card-qty">'+it.qty+'\xD7 \xB7 '+it.ml+'ml</span>'
+         + '<span class="staged-card-ml">'+(PRODUCT_ML[it.id] || 0)+'ml</span>'
          + '</div>'
+         + '<span class="staged-card-qty">'+it.qty+'\xD7</span>'
          + '<button class="staged-step" data-id="'+it.id+'" data-delta="-1" aria-label="One less">&minus;</button>'
          + '<button class="staged-step" data-id="'+it.id+'" data-delta="1" aria-label="One more">+</button>'
          + '</div>';
