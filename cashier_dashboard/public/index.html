@@ -282,6 +282,22 @@ body {
   font-size: 30px; font-weight: 700; line-height: 1; cursor: pointer;
   font-family: 'Poppins', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 }
+/* Colour carries the meaning, so the two are told apart before they are read.
+   Tinted and outlined rather than filled: two solid blocks of red and green at
+   70px would read as Stop and Go for the whole sale, when all they do is nudge
+   one quantity. Both tints are mixed into the surface token, so they hold in
+   either theme. Keyed on data-delta, not position -- reordering the markup
+   must not silently swap what the colours mean. */
+.staged-card .staged-step[data-delta="-1"] {
+  color: var(--status-negative);
+  border-color: color-mix(in srgb, var(--status-negative) 45%, transparent);
+  background: color-mix(in srgb, var(--status-negative) 10%, var(--bg-surface-tertiary));
+}
+.staged-card .staged-step[data-delta="1"] {
+  color: var(--status-positive);
+  border-color: color-mix(in srgb, var(--status-positive) 45%, transparent);
+  background: color-mix(in srgb, var(--status-positive) 10%, var(--bg-surface-tertiary));
+}
 .sale-controls {
   /* The bottom row of the strip: three cells on the same columns as the
      product cards above, so each control is a full-column touch target. */
