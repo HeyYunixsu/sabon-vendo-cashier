@@ -168,7 +168,14 @@ body {
 #sale-strip #staged-items {
   flex: 1; min-width: 140px; font-size: 12px;
   display: grid; grid-template-columns: repeat(3, 1fr);
-  grid-template-rows: repeat(2, auto); gap: 8px;
+  /* Both rows reserved, always. Six products fill 3x2, so holding the full
+     grid open means the strip is the same height empty, half full or full --
+     and the product grid below it never moves. Costs ~190px of standing
+     space, chosen deliberately over a grid that jumps out from under a
+     finger mid-tap. Fixed row heights, not auto: an auto row collapses when
+     empty, which is the shift this exists to stop. */
+  grid-template-rows: repeat(2, 92px); gap: 8px;
+  min-height: 192px;
   align-items: start;
 }
 #sale-strip .staged-card {
@@ -178,7 +185,9 @@ body {
   background: var(--bg-surface-secondary);
   border: 1px solid var(--accent-action); border-radius: 8px;
   padding: 8px 10px 8px 14px; width: 100%; min-width: 0; max-width: none;
-  min-height: 52px;
+  /* Exactly one grid row. Every card is the same height whatever it holds,
+     so no single card can push its row taller than its neighbours. */
+  height: 92px; overflow: hidden;
 }
 .staged-card .staged-card-name {
   font-size: 12px; font-weight: 600; color: var(--text-content-primary);
@@ -583,6 +592,10 @@ main {
      grid so it's always 3 per row, wrapping cleanly to next row. */
   #sale-strip #staged-items {
     display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px;
+    /* Two columns here, so six products need three rows. Reserve all three
+       for the same reason as the wide layout -- a portrait tablet is still a
+       till, and the grid must not move under a finger. */
+    grid-template-rows: repeat(3, 92px); min-height: 292px;
   }
   #sale-strip .staged-card { min-width: 0; max-width: none; width: 100%; }
   .sale-controls {
@@ -607,6 +620,10 @@ main {
   .product-card .armed-qty { font-size: 24px; }
   .product-card .status-row { font-size: 10px; gap: 6px; }
   .sale-total { font-size: 18px; }
+  /* A phone is not the till. Reserving three rows would eat most of the
+     screen, so let the strip grow here and accept the shift -- nobody is
+     working a queue at counter speed on a phone. */
+  #sale-strip #staged-items { grid-template-rows: auto; min-height: 0; }
   .staged-row .staged-qty { font-size: 13px; }
   .btn { font-size: 12px; padding: 10px 14px; }
   .section-label { font-size: 10px; }
