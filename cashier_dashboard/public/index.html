@@ -217,7 +217,7 @@ body {
   /* Three columns: what the product is, then one control each. The name takes
      whatever is left over, so the two controls are the same target on every
      card however long the product is called. */
-  display: grid; grid-template-columns: minmax(0, 1fr) 52px 52px;
+  display: grid; grid-template-columns: minmax(0, 1fr) 60px 60px;
   /* The gap is the point, not just spacing. Minus and plus do opposite things,
      sit under the same thumb, and a misclick costs a wrong quantity the
      cashier has to catch before Unlock. 16px is dead ground between them. */
@@ -225,7 +225,7 @@ body {
   align-items: center;
   background: var(--bg-surface-secondary);
   border: 1px solid var(--accent-action); border-radius: 8px;
-  padding: 8px 10px; width: 100%; min-width: 0; max-width: none;
+  padding: 4px 10px; width: 100%; min-width: 0; max-width: none;
   /* Unchanged at 78px. The strip reserves the same block it always did, so
      nothing below it moves -- the steppers grew into height that was already
      here as padding, not into new height. */
@@ -275,11 +275,11 @@ body {
      52x58 against the old 64x26 is a little over twice the area, and all of
      the growth is on that axis. */
   align-self: center;
-  width: 100%; height: 58px;
+  width: 100%; height: 70px;
   display: flex; align-items: center; justify-content: center;
   background: var(--bg-surface-tertiary); color: var(--text-content-primary);
-  border: 1px solid var(--border-default); border-radius: 8px;
-  font-size: 26px; font-weight: 700; line-height: 1; cursor: pointer;
+  border: 1px solid var(--border-default); border-radius: 10px;
+  font-size: 30px; font-weight: 700; line-height: 1; cursor: pointer;
   font-family: 'Poppins', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 }
 .sale-controls {
