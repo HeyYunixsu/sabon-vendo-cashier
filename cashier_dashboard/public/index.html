@@ -366,10 +366,10 @@ main > section > .grid { flex: 1; min-height: 0; }
   border-radius: 10px; cursor: pointer; overflow: hidden;
   user-select: none; -webkit-tap-highlight-color: transparent;
   transition: border-color .2s, box-shadow .2s, transform .2s;
-  display: flex; align-items: center; gap: 12px;
+  display: flex; align-items: center; gap: 14px;
   /* Same reason as the grid: no floor, so the cards fit the space rather
      than dictating it. */
-  padding: 10px 12px; min-height: 0; position: relative;
+  padding: 10px 14px; min-height: 0; position: relative;
 }
 .product-card.armed {
   border-color: var(--status-positive);
@@ -441,7 +441,7 @@ main > section > .grid { flex: 1; min-height: 0; }
 
 /* Text panel */
 .product-card .text-panel {
-  flex: 0 1 auto; min-width: 0; padding: 0;
+  flex: 1; min-width: 0; padding: 0;
   display: flex; flex-direction: column; justify-content: center;
   gap: 1px; min-width: 0;
 }
@@ -452,7 +452,7 @@ main > section > .grid { flex: 1; min-height: 0; }
   margin-right: 7px; font-variant-numeric: tabular-nums;
 }
 .product-card .product-name {
-  font-family: 'Inter', sans-serif; font-size: 13px;
+  font-family: 'Inter', sans-serif; font-size: 15px;
   font-weight: 600; color: var(--text-content-primary);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
@@ -461,10 +461,11 @@ main > section > .grid { flex: 1; min-height: 0; }
   font-size: 32px; font-weight: 700; line-height: 1;
   color: var(--text-content-primary); margin: 0;
   font-variant-numeric: tabular-nums;
-  /* Sits just after the name rather than pinned to the far edge -- against a
-     short name like "Fabcon" that left about 150px of nothing between the two
-     things you actually read together. */
-  margin-left: 14px; flex-shrink: 0; min-width: 26px; text-align: left;
+  /* Pinned to the right edge. The cards are equal width, so all six counts
+     land in the same three columns and can be read down the grid at a glance
+     -- worth more than closing the gap, which the larger name now fills. */
+  margin-left: auto; padding-left: 12px; flex-shrink: 0;
+  min-width: 32px; text-align: right;
 }
 .product-card .armed-qty.is-zero   { color: #3A4050; }
 .product-card .armed-qty.is-armed  { color: var(--status-positive); }
@@ -483,7 +484,7 @@ main > section > .grid { flex: 1; min-height: 0; }
 
 .product-card .status-row {
   display: flex; align-items: center;
-  gap: 6px; margin-top: 2px; font-size: 10px; font-weight: 500;
+  gap: 6px; margin-top: 3px; font-size: 11px; font-weight: 500;
 }
 
 /* ===================================================================
