@@ -87,7 +87,9 @@ body {
   background: var(--bg-surface-secondary);
   border: 1px solid var(--border-default);
   border-radius: 10px;
-  padding: 10px 18px; margin-bottom: 10px; flex-shrink: 0;
+  /* Trimmed from 10px: the chips are 30px pills now and carry their own
+     padding, so the bar keeps roughly its old height rather than growing. */
+  padding: 6px 14px; margin-bottom: 10px; flex-shrink: 0;
   font-family: 'Poppins', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; font-size: 12px;
   color: var(--text-content-secondary);
 }
@@ -121,8 +123,14 @@ body {
    the product grid already shows -- armed counts, stock, machine state -- for
    about 100px of vertical space, roughly a third of the grid's budget. Only
    Today was unique, since it comes from the sales archive rather than STATUS. */
-#chips { display: flex; align-items: center; gap: 16px; }
-.chip { display: flex; align-items: baseline; gap: 6px; white-space: nowrap; }
+#chips { display: flex; align-items: center; gap: 8px; }
+.chip {
+  display: flex; align-items: baseline; gap: 7px; white-space: nowrap;
+  background: var(--bg-surface-tertiary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-pill);
+  padding: 5px 12px;
+}
 .chip-k {
   font-size: 10px; letter-spacing: .08em; text-transform: uppercase;
   color: var(--text-content-secondary);
@@ -132,11 +140,32 @@ body {
   /* Reserved width and tabular figures. A chip that resized as its number
      changed would put the layout shift back in the header, right beside the
      gear icon that started all this. */
-  font-variant-numeric: tabular-nums; min-width: 30px; text-align: right;
+  font-variant-numeric: tabular-nums; min-width: 26px; text-align: right;
 }
+/* The state is a phrase, so it reads left and reserves the width of the
+   longest one ("Buttons Unlocked") rather than jumping between them. */
 .chip-state .chip-v { min-width: 118px; text-align: left; }
-.chip-today .chip-v { min-width: 74px; cursor: pointer; }
-.chip-today { cursor: pointer; }
+
+/* Waiting only earns attention while a customer still owes presses. At zero
+   it stays quiet like the others, so a lit chip means something. */
+.chip-waiting.is-live { border-color: var(--accent-action); }
+.chip-waiting.is-live .chip-v { color: var(--accent-action); }
+
+/* Today is the one figure not visible anywhere else on the screen -- it comes
+   from the sales archive, not from STATUS -- and the only chip you can tap.
+   Filling it is what earns it that difference; the rest stay quiet so this
+   one reads first. */
+.chip-today {
+  background: var(--accent-action); border-color: transparent;
+  cursor: pointer; padding: 5px 14px;
+}
+.chip-today .chip-k { color: rgba(255, 255, 255, .78); }
+.chip-today .chip-v { color: #fff; font-size: 16px; min-width: 72px; }
+.chip-today .chev { color: rgba(255, 255, 255, .8); font-size: 10px; margin-left: 1px; }
+.chip-today:hover { background: var(--accent-action-hover); }
+.chip-today:focus-visible {
+  outline: 2px solid var(--text-content-primary); outline-offset: 2px;
+}
 
 
 /* ===================================================================
@@ -930,10 +959,10 @@ button, .btn, .product-card, .staged-card, .tab {
        paused as states of its own, and Settings shows the machine id. -->
   <div class="status-left">
     <span id="chips">
-      <span class="chip"><span class="chip-k">Waiting</span><span class="chip-v" id="kpi-armed">0</span></span>
+      <span class="chip chip-waiting" id="chip-waiting"><span class="chip-k">Waiting</span><span class="chip-v" id="kpi-armed">0</span></span>
       <span class="chip"><span class="chip-k">Stock</span><span class="chip-v" id="kpi-active">6/6</span></span>
       <span class="chip chip-state"><span class="chip-v" id="kpi-bundle">Ready</span></span>
-      <span class="chip chip-today" id="kpi-today-card" role="button" tabindex="0" aria-expanded="false" aria-controls="today-panel"><span class="chip-k">Today</span><span class="chip-v" id="kpi-today">&#8369;0</span></span>
+      <span class="chip chip-today" id="kpi-today-card" role="button" tabindex="0" aria-expanded="false" aria-controls="today-panel"><span class="chip-k">Today</span><span class="chip-v" id="kpi-today">&#8369;0</span><span class="chev">&#9662;</span></span>
     </span>
   </div>
   <div class="status-right">
@@ -1194,6 +1223,8 @@ button, .btn, .product-card, .staged-card, .tab {
     let armed = 0, inStock = 0;
     for (let s = 1; s <= ACTIVE; s++) { armed += S.armedQty[s]; if (!S.wlvl[s]) inStock++; }
     $('kpi-armed').textContent = armed;
+    // Lit only while presses are owed, so a lit chip carries meaning.
+    $('chip-waiting').classList.toggle('is-live', armed > 0);
     $('kpi-active').textContent = inStock + '/' + ACTIVE;
     $('kpi-active').style.color = inStock === ACTIVE ? 'var(--status-positive)'
       : (inStock >= Math.ceil(ACTIVE / 2) ? 'var(--status-caution)' : 'var(--status-negative)');
