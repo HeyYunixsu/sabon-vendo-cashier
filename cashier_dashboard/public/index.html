@@ -771,6 +771,73 @@ main.panel-hidden #right-panel {
   .sale-total { grid-column: 1 / -1; }
 }
 
+/* ===========================================================================
+   PHONE  --  self-contained region.
+
+   Every phone-specific rule lives between this banner and the "end PHONE"
+   marker below. Nothing in here can reach the counter tablet or the PC
+   dashboard: the widest rule here is capped at 640px, and the till runs at
+   768px and up. Change the whole region, or delete it, without re-testing
+   the till.
+
+   Why 640 and not 480: below about 640px the strip puts two cards on a row,
+   so a card is roughly 165px wide. Two 60px steppers, two 16px gaps and the
+   padding take 152px of that, and the product name is left with 36px --
+   "Ariel Po...". The three-column card needs about 280px of card to work,
+   and a phone cannot give it that, so on a phone the card stacks instead.
+   =========================================================================== */
+
+@media (max-width: 640px) {
+  /* One card per row, so the name has the whole width instead of half. */
+  #sale-strip #staged-items {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto; min-height: 0;
+  }
+  /* Stacked, not three columns: name and volume on top, the two controls on
+     their own row underneath. Height is auto here -- a phone is not the till
+     and nobody works a queue at counter speed on one, so the strip may grow
+     and the fixed-height no-shift rule does not have to hold. */
+  #sale-strip .staged-card {
+    grid-template-columns: 1fr 1fr;
+    column-gap: 16px; row-gap: 8px;
+    height: auto; padding: 10px 12px;
+  }
+  .staged-card .staged-card-text {
+    grid-column: 1 / -1; grid-row: 1; padding-right: 22px;
+  }
+  /* A full card width to wrap into, so a third line is affordable here. */
+  .staged-card .staged-card-name {
+    font-size: 16px; -webkit-line-clamp: 3; line-clamp: 3;
+  }
+  /* Opposite ends of the card. The steppers keep their size and their
+     colours -- a phone is where a finger is least accurate, so it is the
+     last place to shrink them -- and putting the width of the card between
+     minus and plus makes a misclick almost impossible. */
+  .staged-card .staged-step {
+    grid-row: 2; width: 100%; max-width: 130px; height: 64px;
+  }
+  .staged-card .staged-step[data-delta="-1"] { grid-column: 1; justify-self: start; }
+  .staged-card .staged-step[data-delta="1"]  { grid-column: 2; justify-self: end; }
+
+  .sale-total { font-size: 18px; }
+
+  /* A phone scrolls, and that is fine. The one-screen guarantee exists so a
+     cashier at the counter never has to hunt for a control mid-queue; on a
+     phone it only crushed six product cards into whatever the sale strip
+     left over, which is why the names disappeared under the icons. Let the
+     document grow and scroll normally instead. */
+  body { height: auto; min-height: 100dvh; }
+  #viewport { overflow: visible; }
+  #pages { overflow-y: visible; }
+  #pages > main { height: auto; }
+  /* Still a full screenful to travel down to, now measured against the
+     screen rather than against a parent that no longer has a fixed height. */
+  #pages > #today-panel { min-height: 100dvh; }
+  /* Rows sized by content, not by a budget that no longer exists. */
+  .grid { grid-template-rows: auto; }
+  .product-card { min-height: 132px; }
+}
+
 @media (max-width: 480px) {
   .grid { grid-template-rows: repeat(3, 1fr); }
   .product-card { flex-direction: column; align-items: stretch; gap: 8px; padding: 10px; min-height: auto; }
@@ -780,17 +847,13 @@ main.panel-hidden #right-panel {
   .product-card .product-name { font-size: 12px; }
   .product-card .armed-qty { font-size: 24px; }
   .product-card .status-row { font-size: 10px; gap: 6px; }
-  .sale-total { font-size: 18px; }
-  /* A phone is not the till. Reserving three rows would eat most of the
-     screen, so let the strip grow here and accept the shift -- nobody is
-     working a queue at counter speed on a phone. */
-  #sale-strip #staged-items { grid-template-rows: auto; min-height: 0; }
   .staged-row .staged-qty { font-size: 13px; }
   .btn { font-size: 12px; padding: 10px 14px; }
   .section-label { font-size: 10px; }
   #status-bar { font-size: 10px; }
   .toast { font-size: 12px; padding: 10px 16px; }
 }
+/* =============================== end PHONE ================================ */
 
 /* ---------------------------------------------------------------------------
    Touch behaviour (iPad / iOS Safari)
