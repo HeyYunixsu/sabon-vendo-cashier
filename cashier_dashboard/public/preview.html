@@ -91,7 +91,9 @@ body {
      padding, so the bar keeps roughly its old height rather than growing. */
   padding: 6px 14px; margin-bottom: 10px; flex-shrink: 0;
   font-family: 'Poppins', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; font-size: 12px;
-  color: var(--text-content-secondary);
+  /* The theme's own foreground -- near-black on light, near-white on dark --
+     rather than the muted grey, which read as disabled against the pills. */
+  color: var(--text-content-primary);
 }
 .status-left, .status-center, .status-right {
   display: flex; align-items: center; gap: 20px;
@@ -133,7 +135,7 @@ body {
 }
 .chip-k {
   font-size: 10px; letter-spacing: .08em; text-transform: uppercase;
-  color: var(--text-content-secondary);
+  color: var(--text-content-primary); opacity: .72;
 }
 .chip-v {
   font-weight: 700; font-size: 15px; color: var(--text-content-primary);
@@ -203,8 +205,13 @@ body {
    only thing in a 164px block, and it is the instruction for what to do next. */
 #sale-strip #staged-items > .muted {
   grid-column: 1 / -1; grid-row: 1 / -1;
+  /* The container is align-items: start, so without this the placeholder keeps
+     its own small height and sits at the top -- centring inside it then has
+     nothing to centre within. Stretch first, then centre. */
+  align-self: stretch;
   display: flex; align-items: center; justify-content: center;
-  font-size: 15px; padding: 0;
+  text-align: center;
+  font-size: 22px; font-weight: 600; padding: 0;
 }
 #sale-strip .staged-card {
   display: grid; grid-template-columns: 1fr 22px;
@@ -282,7 +289,7 @@ body {
   border-color: var(--status-negative);
   color: var(--status-negative);
 }
-#btn-clear-sale:hover { background: var(--status-negative); color: #fff; }
+
 /* Fixed box, right-aligned. 50px held the widest total this ever showed when
    prices were 5 pesos; a real shop reaches four figures, and the moment the
    total outgrew its box it squeezed the flex row, wrapped the strip onto a
@@ -432,7 +439,7 @@ main > section > .grid { flex: 1; min-height: 0; }
 
 /* Text panel */
 .product-card .text-panel {
-  flex: 1; padding: 0;
+  flex: 0 1 auto; min-width: 0; padding: 0;
   display: flex; flex-direction: column; justify-content: center;
   gap: 1px; min-width: 0;
 }
@@ -452,9 +459,10 @@ main > section > .grid { flex: 1; min-height: 0; }
   font-size: 32px; font-weight: 700; line-height: 1;
   color: var(--text-content-primary); margin: 0;
   font-variant-numeric: tabular-nums;
-  /* Out on the right, pushed there rather than positioned, so a long product
-     name shortens itself against it instead of colliding. */
-  margin-left: auto; flex-shrink: 0; min-width: 34px; text-align: right;
+  /* Sits just after the name rather than pinned to the far edge -- against a
+     short name like "Fabcon" that left about 150px of nothing between the two
+     things you actually read together. */
+  margin-left: 14px; flex-shrink: 0; min-width: 26px; text-align: left;
 }
 .product-card .armed-qty.is-zero   { color: #3A4050; }
 .product-card .armed-qty.is-armed  { color: var(--status-positive); }
@@ -577,7 +585,6 @@ main.panel-hidden #right-panel {
   background: color-mix(in srgb, var(--accent-action) 12%, transparent);
   font-weight: 600;
 }
-#btn-select-all:hover { background: var(--accent-action); color: #fff; }
 /* Older WebKit has no color-mix; the tint is decoration, the border and text
    carry the meaning, so the fallback above it stands. */
 @supports not (background: color-mix(in srgb, red 10%, transparent)) {
@@ -795,6 +802,8 @@ button, .btn, .product-card, .staged-card, .tab {
   .btn-remove:hover { border-color: var(--status-negative); color: var(--status-negative); }
   .btn-primary:hover { background: var(--accent-action-hover); }
   .btn-outline:hover { border-color: var(--border-strong); color: var(--accent-action); }
+  #btn-clear-sale:hover { background: var(--status-negative); color: #fff; border-color: var(--status-negative); }
+  #btn-select-all:hover { background: var(--accent-action); color: #fff; }
   .btn-sm:hover { border-color: var(--border-strong); color: var(--accent-action); }
   .btn-sm.retry:hover { background: var(--accent-action); color: #fff; }
   .btn-sm.dismiss:hover { border-color: var(--status-negative); color: var(--status-negative); }
