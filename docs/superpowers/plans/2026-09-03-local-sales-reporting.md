@@ -88,6 +88,13 @@ and the prime-counts-as-a-dispense fix.
 payload spec for that team is still to write; the client could not reach them
 at the time of writing.
 
+> **Superseded in part, 2026-09-04.** The owner also wants to reconcile the
+> drawer at the counter, which is a local job the portal cannot do -- so a month
+> range is coming back to the machine after all, on a separate `/reports` page.
+> See `specs/2026-09-04-offline-reports-design.md`. The reasoning below still
+> holds for the multi-machine trend view; what this plan did not anticipate was
+> the single-machine reconciliation case.
+
 ---
 
 ## Task 1 — Stop counting primes as dispenses — DONE
