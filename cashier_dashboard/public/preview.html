@@ -275,6 +275,14 @@ body {
 }
 #sale-strip .btn-primary { background: var(--accent-action); color: #fff; border: 1px solid transparent; }
 #sale-strip .btn-outline { background: transparent; border: 1px solid var(--border-default); color: var(--text-content-primary); }
+/* Clear List throws the sale away. Red, but outlined rather than filled:
+   Cancel All is filled red and voids credits a customer has already paid for.
+   Losing typing and losing money should not look equally grave. */
+#btn-clear-sale {
+  border-color: var(--status-negative);
+  color: var(--status-negative);
+}
+#btn-clear-sale:hover { background: var(--status-negative); color: #fff; }
 /* Fixed box, right-aligned. 50px held the widest total this ever showed when
    prices were 5 pesos; a real shop reaches four figures, and the moment the
    total outgrew its box it squeezed the flex row, wrapped the strip onto a
@@ -311,14 +319,20 @@ body {
   scroll-behavior: smooth;
 }
 /* Each page is exactly the scroller's height, so Today is a second screenful
-   you travel down to rather than a strip wedged under the products. */
-#pages > main, #pages > #today-panel { flex: 0 0 auto; min-height: 100%; }
+   you travel down to rather than a strip wedged under the products.
+   main takes height, not min-height, deliberately: with a minimum it still
+   grew to fit its content, the section stretched to match, and the grid was
+   never told how small it had to be -- so a short screen overflowed however
+   much the cards were trimmed. A fixed height breaks that loop and the grid
+   shrinks into what is actually left. */
+#pages > main { flex: 0 0 auto; height: 100%; }
+#pages > #today-panel { flex: 0 0 auto; min-height: 100%; }
 
 /* Flex, not grid: flex-basis animates reliably everywhere, and the right
    panel has to be able to collapse to nothing. */
 main { display: flex; gap: 12px; min-height: 0; }
 /* The products take whatever the right panel is not using. */
-main > section { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+main > section { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
 /* Fill the section rather than sitting at content height and leaving dead
    space beneath -- the six cards spread over the whole area. */
 main > section > .grid { flex: 1; min-height: 0; }
@@ -331,7 +345,10 @@ main > section > .grid { flex: 1; min-height: 0; }
   /* No min-height. The rows are 1fr, so the cards simply take whatever is
      left once the header, the sale strip and the Select All button have had
      their share -- a floor here would push the page past the screen again. */
-  grid-template-rows: repeat(2, 1fr); gap: 8px;
+  /* minmax(0, ...) and not plain 1fr: a bare 1fr means minmax(auto, 1fr),
+     so a row can never shrink below its content and the grid overflowed the
+     page by 36px however small the cards got. */
+  grid-template-rows: repeat(2, minmax(0, 1fr)); gap: 8px;
   min-height: 0;
 }
 .product-card {
@@ -340,10 +357,10 @@ main > section > .grid { flex: 1; min-height: 0; }
   border-radius: 10px; cursor: pointer; overflow: hidden;
   user-select: none; -webkit-tap-highlight-color: transparent;
   transition: border-color .2s, box-shadow .2s, transform .2s;
-  display: flex; align-items: center; gap: 16px;
+  display: flex; align-items: center; gap: 12px;
   /* Same reason as the grid: no floor, so the cards fit the space rather
      than dictating it. */
-  padding: 16px; min-height: 0; position: relative;
+  padding: 10px 12px; min-height: 0; position: relative;
 }
 .product-card.armed {
   border-color: var(--status-positive);
@@ -415,14 +432,15 @@ main > section > .grid { flex: 1; min-height: 0; }
 
 /* Text panel */
 .product-card .text-panel {
-  padding: 8px 0 8px 4px;
+  flex: 1; padding: 0;
   display: flex; flex-direction: column; justify-content: center;
   gap: 1px; min-width: 0;
 }
 .product-card .slot-num {
   font-family: 'Poppins', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  font-size: 8px; font-weight: 500; text-transform: uppercase;
-  letter-spacing: 0.06em; color: var(--text-content-secondary);
+  font-size: 10px; font-weight: 600; letter-spacing: 0.04em;
+  color: var(--text-content-secondary);
+  margin-right: 7px; font-variant-numeric: tabular-nums;
 }
 .product-card .product-name {
   font-family: 'Inter', sans-serif; font-size: 13px;
@@ -432,8 +450,11 @@ main > section > .grid { flex: 1; min-height: 0; }
 .product-card .armed-qty {
   font-family: 'Poppins', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   font-size: 32px; font-weight: 700; line-height: 1;
-  color: var(--text-content-primary); margin: 2px 0;
+  color: var(--text-content-primary); margin: 0;
   font-variant-numeric: tabular-nums;
+  /* Out on the right, pushed there rather than positioned, so a long product
+     name shortens itself against it instead of colliding. */
+  margin-left: auto; flex-shrink: 0; min-width: 34px; text-align: right;
 }
 .product-card .armed-qty.is-zero   { color: #3A4050; }
 .product-card .armed-qty.is-armed  { color: var(--status-positive); }
@@ -441,8 +462,8 @@ main > section > .grid { flex: 1; min-height: 0; }
 .product-card .armed-qty.is-busy   { color: var(--status-caution); }
 
 .product-card .staged-badge {
-  position: absolute; top: 6px; right: 6px;
-  min-width: 24px; height: 24px; padding: 0 7px;
+  position: absolute; top: 5px; left: 5px;
+  min-width: 22px; height: 22px; padding: 0 6px;
   border-radius: 12px;
   background: var(--accent-action); color: #fff;
   font-size: 13px; font-weight: 700; line-height: 1;
@@ -546,6 +567,22 @@ main.panel-hidden #right-panel {
    the space the product grid was meant to fill. Buttons that do need to
    stretch say so where they are used. */
 .btn-outline { background: transparent; border: 1px solid var(--border-default); color: var(--text-content-secondary); }
+
+/* Add One Of Each is a real action, so it should look like one -- but tinted
+   rather than filled. Unlock Buttons is the filled blue in this column, and a
+   second solid button beside it would blunt the one that matters. */
+#btn-select-all {
+  border-color: var(--accent-action);
+  color: var(--accent-action);
+  background: color-mix(in srgb, var(--accent-action) 12%, transparent);
+  font-weight: 600;
+}
+#btn-select-all:hover { background: var(--accent-action); color: #fff; }
+/* Older WebKit has no color-mix; the tint is decoration, the border and text
+   carry the meaning, so the fallback above it stands. */
+@supports not (background: color-mix(in srgb, red 10%, transparent)) {
+  #btn-select-all { background: transparent; }
+}
 .btn-lg { padding: 16px 24px; font-size: 15px; }
 .btn-block { display: block; width: 100%; }
 .btn-sm {
@@ -1080,7 +1117,7 @@ body.proposed #chips { display: flex; align-items: center; gap: 14px; }
 <div id="pages">
 <main class="panel-hidden">
   <section style="min-width:0;">
-    <div class="grid" id="grid-container"><div class="product-card selected" data-slot="1"><div class="staged-badge">3</div><div class="product-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M9 3h6v3l2 3v12H7V9l2-3z"/><path d="M7 13h10"/></svg></div><div class="text-panel"><div class="slot-num">SLOT 01</div><div class="product-name">Ariel Powder</div><div class="armed-qty is-selected">3</div><div class="status-row" style="color:var(--accent-action)"><span class="dot dot-accent"></span> In sale</div></div></div><div class="product-card selected" data-slot="2"><div class="staged-badge">1</div><div class="product-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M9 3h6v3l2 3v12H7V9l2-3z"/><path d="M7 13h10"/></svg></div><div class="text-panel"><div class="slot-num">SLOT 02</div><div class="product-name">Downy Blue</div><div class="armed-qty is-selected">1</div><div class="status-row" style="color:var(--accent-action)"><span class="dot dot-accent"></span> In sale</div></div></div><div class="product-card" data-slot="3"><div class="product-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M9 3h6v3l2 3v12H7V9l2-3z"/><path d="M7 13h10"/></svg></div><div class="text-panel"><div class="slot-num">SLOT 03</div><div class="product-name">Fabcon</div><div class="armed-qty is-zero">0</div><div class="status-row" style="color:var(--text-content-secondary)"><span class="dot dot-neutral"></span> Ready</div></div></div><div class="product-card" data-slot="4"><div class="product-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M9 3h6v3l2 3v12H7V9l2-3z"/><path d="M7 13h10"/></svg></div><div class="text-panel"><div class="slot-num">SLOT 04</div><div class="product-name">Zonrox 1</div><div class="armed-qty is-zero">0</div><div class="status-row" style="color:var(--text-content-secondary)"><span class="dot dot-neutral"></span> Ready</div></div></div><div class="product-card" data-slot="5"><div class="product-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M9 3h6v3l2 3v12H7V9l2-3z"/><path d="M7 13h10"/></svg></div><div class="text-panel"><div class="slot-num">SLOT 05</div><div class="product-name">Zonrox 2</div><div class="armed-qty is-zero">0</div><div class="status-row" style="color:var(--text-content-secondary)"><span class="dot dot-neutral"></span> Ready</div></div></div><div class="product-card" data-slot="6"><div class="product-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M9 3h6v3l2 3v12H7V9l2-3z"/><path d="M7 13h10"/></svg></div><div class="text-panel"><div class="slot-num">SLOT 06</div><div class="product-name">Surf Rose</div><div class="armed-qty is-zero">0</div><div class="status-row" style="color:var(--text-content-secondary)"><span class="dot dot-neutral"></span> Ready</div></div></div></div>
+    <div class="grid" id="grid-container"><div class="product-card selected" data-slot="1"><div class="staged-badge">3</div><div class="product-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M9 3h6v3l2 3v12H7V9l2-3z"/><path d="M7 13h10"/></svg></div><div class="text-panel"><div class="product-name"><span class="slot-num">01</span>Ariel Powder</div><div class="status-row" style="color:var(--accent-action)"><span class="dot dot-accent"></span> In sale</div></div><div class="armed-qty is-selected">3</div></div><div class="product-card selected" data-slot="2"><div class="staged-badge">1</div><div class="product-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M9 3h6v3l2 3v12H7V9l2-3z"/><path d="M7 13h10"/></svg></div><div class="text-panel"><div class="product-name"><span class="slot-num">02</span>Downy Blue</div><div class="status-row" style="color:var(--accent-action)"><span class="dot dot-accent"></span> In sale</div></div><div class="armed-qty is-selected">1</div></div><div class="product-card" data-slot="3"><div class="product-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M9 3h6v3l2 3v12H7V9l2-3z"/><path d="M7 13h10"/></svg></div><div class="text-panel"><div class="product-name"><span class="slot-num">03</span>Fabcon</div><div class="status-row" style="color:var(--text-content-secondary)"><span class="dot dot-neutral"></span> Ready</div></div><div class="armed-qty is-zero">0</div></div><div class="product-card" data-slot="4"><div class="product-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M9 3h6v3l2 3v12H7V9l2-3z"/><path d="M7 13h10"/></svg></div><div class="text-panel"><div class="product-name"><span class="slot-num">04</span>Zonrox 1</div><div class="status-row" style="color:var(--text-content-secondary)"><span class="dot dot-neutral"></span> Ready</div></div><div class="armed-qty is-zero">0</div></div><div class="product-card" data-slot="5"><div class="product-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M9 3h6v3l2 3v12H7V9l2-3z"/><path d="M7 13h10"/></svg></div><div class="text-panel"><div class="product-name"><span class="slot-num">05</span>Zonrox 2</div><div class="status-row" style="color:var(--text-content-secondary)"><span class="dot dot-neutral"></span> Ready</div></div><div class="armed-qty is-zero">0</div></div><div class="product-card" data-slot="6"><div class="product-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M9 3h6v3l2 3v12H7V9l2-3z"/><path d="M7 13h10"/></svg></div><div class="text-panel"><div class="product-name"><span class="slot-num">06</span>Surf Rose</div><div class="status-row" style="color:var(--text-content-secondary)"><span class="dot dot-neutral"></span> Ready</div></div><div class="armed-qty is-zero">0</div></div></div>
     <button id="btn-select-all" class="btn btn-outline" style="margin-top:10px;width:100%;padding:12px;font-size:14px;">Add One Of Each</button>
   </section>
 
