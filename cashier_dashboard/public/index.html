@@ -223,7 +223,12 @@ body {
 }
 #sale-strip .btn-primary { background: var(--accent-action); color: #fff; border: 1px solid transparent; }
 #sale-strip .btn-outline { background: transparent; border: 1px solid var(--border-default); color: var(--text-content-primary); flex: 0 0 auto; }
-#sale-strip .sale-total { font-size: 22px; margin: 0 0 0 8px; white-space: nowrap; min-width: 50px; text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
+/* Fixed box, right-aligned. 50px held the widest total this ever showed when
+   prices were 5 pesos; a real shop reaches four figures, and the moment the
+   total outgrew its box it squeezed the flex row, wrapped the strip onto a
+   second line and dragged the whole product grid down mid-tap. 96px covers
+   six glyphs (P99999) at this size, so the box never changes width. */
+#sale-strip .sale-total { font-size: 22px; margin: 0 0 0 8px; white-space: nowrap; min-width: 96px; flex: 0 0 auto; text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
 
 /* Status-only right panel */
 .status-section {
