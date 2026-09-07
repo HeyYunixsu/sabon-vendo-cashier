@@ -227,12 +227,14 @@ body {
   height: 78px; overflow: hidden;
 }
 .staged-card .staged-card-name {
-  font-size: 12px; font-weight: 600; color: var(--text-content-primary);
+  /* Leads the card. It was 12px under a 15px quantity, so the eye landed on
+     "3x . 1500ml" before the product it belonged to. */
+  font-size: 15px; font-weight: 600; color: var(--text-content-primary);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   grid-column: 1; line-height: 1.2;
 }
 .staged-card .staged-card-qty {
-  font-size: 15px; font-weight: 700; color: var(--accent-action);
+  font-size: 13px; font-weight: 700; color: var(--accent-action);
   grid-column: 1; grid-row: 2;
   /* Explicit, not "normal": the card is a fixed 78px and the three rows have
      to add up to it deterministically, whatever the font decides. */
@@ -257,10 +259,10 @@ body {
   display: flex; gap: 6px; margin-top: 3px;
 }
 .staged-card .staged-step {
-  /* 30px is under the usual 44px guidance, but these are now full-column
-     width -- the wide axis carries the accuracy, and the height buys back
+  /* Under the usual 44px guidance, but these run the full width of the card
+     -- the long axis carries the accuracy, and the height is what buys back
      room in a strip that stands open all the time. */
-  flex: 1; height: 30px;
+  flex: 1; height: 26px;
   background: var(--bg-surface-tertiary); color: var(--text-content-primary);
   border: 1px solid var(--border-default); border-radius: 6px;
   font-size: 18px; font-weight: 700; line-height: 1; cursor: pointer;
@@ -447,9 +449,9 @@ main > section > .grid { flex: 1; min-height: 0; }
 }
 .product-card .slot-num {
   font-family: 'Poppins', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  font-size: 10px; font-weight: 600; letter-spacing: 0.04em;
+  font-size: 11px; font-weight: 600; letter-spacing: 0.04em;
   color: var(--text-content-secondary);
-  margin-right: 7px; font-variant-numeric: tabular-nums;
+  margin-right: 8px; font-variant-numeric: tabular-nums;
 }
 .product-card .product-name {
   font-family: 'Inter', sans-serif; font-size: 15px;
@@ -484,7 +486,7 @@ main > section > .grid { flex: 1; min-height: 0; }
 
 .product-card .status-row {
   display: flex; align-items: center;
-  gap: 6px; margin-top: 3px; font-size: 11px; font-weight: 500;
+  gap: 6px; margin-top: 4px; font-size: 12px; font-weight: 500;
 }
 
 /* ===================================================================
