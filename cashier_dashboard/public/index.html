@@ -922,7 +922,7 @@ button, .btn, .product-card, .kpi-card, .staged-card, .tab {
   <div class="sale-controls">
     <button id="btn-clear-sale" class="btn btn-outline">Clear List</button>
     <button id="btn-arm" class="btn btn-primary" disabled>Unlock Buttons</button>
-    <div id="sale-total" class="sale-total">0 presses</div>
+    <div id="sale-total" class="sale-total">&#8369;0</div>
   </div>
 </div>
 
@@ -1373,7 +1373,7 @@ button, .btn, .product-card, .kpi-card, .staged-card, .tab {
     renderStaged(); renderGrid(); updateArm();
   }
   function renderStaged() {
-    if (!staged.length) { $('staged-items').innerHTML = '<span class="muted">Tap a product to add it</span>'; $('sale-total').textContent = '0 presses'; return; }
+    if (!staged.length) { $('staged-items').innerHTML = '<span class="muted">Tap a product to add it</span>'; $('sale-total').textContent = '₱0'; return; }
     let pesos = 0, priced = true;
     let h = '', totalQty = 0;
     staged.forEach((it, i) => {
@@ -1397,8 +1397,14 @@ button, .btn, .product-card, .kpi-card, .staged-card, .tab {
     // Presses stay: they tell the customer how many times to push the button.
     // Pesos are what the cashier collects, so show both rather than trading
     // one for the other.
+    // Pesos only. The per-product press count is already on each staged card,
+    // and that is the number that matters -- the customer presses each
+    // product's own button its own number of times, so a total across
+    // products was never something anyone acts on.
+    // Falls back to presses if any staged product has no price, so the strip
+    // still says something rather than showing a total that isn't the truth.
     const presses = totalQty + ' press' + (totalQty !== 1 ? 'es' : '');
-    $('sale-total').textContent = priced ? '₱' + pesos + ' · ' + presses : presses;
+    $('sale-total').textContent = priced ? '₱' + pesos : presses;
   }
   function updateArm() {
     $('btn-arm').disabled = !staged.length;
