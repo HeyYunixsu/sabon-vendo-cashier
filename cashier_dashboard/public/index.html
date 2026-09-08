@@ -857,44 +857,52 @@ main.panel-hidden #right-panel {
    =========================================================================== */
 
 @media (max-width: 640px) {
-  /* One card per row, so the name has the whole width instead of half. */
+  /* One card per row, and a FIXED window on them rather than a growing list.
+     The strip sits above the product grid, so a list that grows pushes the
+     grid down the page. Measured at 390x844 with the old two-row card: 136px
+     added per product, grid top 317px empty and 958px with five staged --
+     past the fold after four taps, so the cashier scrolled back up to pick
+     every next product. A constant-height strip means the grid never moves.
+
+     Two cards fit, with a third showing through underneath to say there is
+     more. The list scrolls inside itself; the page does not. */
   #sale-strip #staged-items {
     grid-template-columns: 1fr;
-    grid-template-rows: auto; min-height: 0;
+    grid-template-rows: none;
+    grid-auto-rows: 68px;
+    /* height, not max-height. With a maximum the box still grew from empty
+       to one card to two, so the grid slid down 108px over the first three
+       taps before settling. A reserved height costs the same space whether
+       the sale is empty or full, and the grid below never moves at all --
+       the same trade the till makes for the same reason. */
+    height: 176px; min-height: 0;
+    overflow-y: auto; -webkit-overflow-scrolling: touch;
   }
-  /* Stacked, not three columns: name and volume on top, the two controls on
-     their own row underneath. Height is auto here -- a phone is not the till
-     and nobody works a queue at counter speed on one, so the strip may grow
-     and the fixed-height no-shift rule does not have to hold. */
+  /* Everything on one line: name over volume, then the count, then the two
+     controls. The card was 136px tall because the controls had a row of their
+     own; at full phone width they fit beside the name and the card halves. */
   #sale-strip .staged-card {
-    /* The count sits between the controls here rather than beside them --
-       it is the thing the two buttons change, and centring it keeps minus
-       and plus at the far edges where they cannot be confused. */
-    grid-template-columns: auto 1fr auto;
-    column-gap: 16px; row-gap: 8px;
-    height: auto; padding: 10px 12px;
+    grid-template-columns: minmax(0, 1fr) 38px 46px 46px;
+    column-gap: 14px; row-gap: 0;
+    height: 68px; padding: 6px 10px;
+  }
+  .staged-card .staged-card-text { grid-column: 1; grid-row: 1; }
+  /* One line now, not three: the card is a fixed 68px and the name shares it
+     with the volume underneath. */
+  .staged-card .staged-card-name {
+    font-size: 15px; -webkit-line-clamp: 1; line-clamp: 1;
   }
   .staged-card .staged-card-qty {
-    grid-column: 2; grid-row: 2; justify-self: center; font-size: 22px;
+    grid-column: 2; grid-row: 1; justify-self: center; font-size: 17px;
   }
-  .staged-card .staged-card-text {
-    grid-column: 1 / -1; grid-row: 1;
-  }
-  /* A full card width to wrap into, so a third line is affordable here. */
-  .staged-card .staged-card-name {
-    font-size: 16px; -webkit-line-clamp: 3; line-clamp: 3;
-  }
-  /* Opposite ends of the card. The steppers keep their size and their
-     colours -- a phone is where a finger is least accurate, so it is the
-     last place to shrink them -- and putting the width of the card between
-     minus and plus makes a misclick almost impossible. */
+  /* 46x56 rather than 130x64. Smaller, but still clear of the 44px a thumb
+     needs on both axes, and the 14px between minus and plus is the same dead
+     ground the till keeps, for the same reason. */
   .staged-card .staged-step {
-    /* An explicit width, not 100%: these now sit in auto tracks, and a
-       percentage of a track that is sized by its content is circular. */
-    grid-row: 2; width: 130px; height: 64px;
+    grid-row: 1; width: 100%; height: 56px;
   }
-  .staged-card .staged-step[data-delta="-1"] { grid-column: 1; justify-self: start; }
-  .staged-card .staged-step[data-delta="1"]  { grid-column: 3; justify-self: end; }
+  .staged-card .staged-step[data-delta="-1"] { grid-column: 3; }
+  .staged-card .staged-step[data-delta="1"]  { grid-column: 4; }
 
   .sale-total { font-size: 18px; }
 
