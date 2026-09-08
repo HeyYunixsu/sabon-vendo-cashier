@@ -255,6 +255,7 @@ body {
   background: var(--bg-surface-secondary);
   border: 1px solid var(--accent-action); border-radius: 8px;
   padding: 4px 10px; width: 100%; min-width: 0; max-width: none;
+  position: relative;
   /* Unchanged at 78px. The strip reserves the same block it always did, so
      nothing below it moves -- the steppers grew into height that was already
      here as padding, not into new height. */
@@ -263,9 +264,8 @@ body {
 /* Column 1. Its own box so the remove button can sit against the name rather
    than against the card, which now ends at the plus button. */
 .staged-card .staged-card-text {
-  grid-column: 1; grid-row: 1; min-width: 0; position: relative;
+  grid-column: 1; grid-row: 1; min-width: 0;
   display: flex; flex-direction: column; justify-content: center; gap: 2px;
-  padding-right: 12px;
 }
 .staged-card .staged-card-name {
   /* Leads the card. It was 12px under a 15px quantity, so the eye landed on
@@ -300,18 +300,28 @@ body {
 }
 /* Small, in the name's top corner. A shortcut, not the only exit -- minus at
    one press already removes the item. */
+/* The card's own top-right corner, which is where a remove control is
+   looked for. It sits in the strip above the steppers rather than on top of
+   them: overlapping "remove this item" with "add one more" would be the worst
+   possible pair to put under a single finger. */
 .staged-card .staged-card-remove {
-  position: absolute; top: -2px; right: -4px;
+  position: absolute; top: 2px; right: 6px;
+  width: 22px; height: 16px;
+  display: flex; align-items: center; justify-content: center;
   background: none; border: none; color: var(--text-content-secondary);
-  cursor: pointer; font-size: 16px; line-height: 1;
-  padding: 2px 4px; text-align: center;
+  cursor: pointer; font-size: 15px; line-height: 1; padding: 0;
 }
 .staged-card .staged-step {
   /* Full card height, because height is what a thumb is least accurate on.
      52x58 against the old 64x26 is a little over twice the area, and all of
      the growth is on that axis. */
-  align-self: center;
-  width: 100%; height: 70px;
+  /* Bottom-aligned at 56px rather than centred at 70px. The 16px this frees
+     at the top of the card is what the remove button sits in. Growing the card
+     instead was measured and rejected: at 1024x640 the product cards below are
+     already only 83px, and 8px off each row is a worse trade than 16px off a
+     button that is still twice the area it had before today. */
+  align-self: end;
+  width: 100%; height: 54px;
   display: flex; align-items: center; justify-content: center;
   background: var(--bg-surface-tertiary); color: var(--text-content-primary);
   border: 1px solid var(--border-default); border-radius: 10px;
@@ -844,6 +854,8 @@ main.panel-hidden #right-panel {
   .staged-card .staged-card-qty {
     grid-column: 2; grid-row: 2; justify-self: center; font-size: 22px;
   }
+  /* On a phone the card's top-right corner is over the name, not over the
+     controls, so here the text is what has to keep clear of the x. */
   .staged-card .staged-card-text {
     grid-column: 1 / -1; grid-row: 1; padding-right: 22px;
   }
@@ -1711,8 +1723,8 @@ button, .btn, .product-card, .staged-card, .tab {
     staged.forEach((it, i) => {
       totalQty += it.qty;
       h += '<div class="staged-card">'
-         + '<div class="staged-card-text">'
          + '<button class="staged-card-remove" data-idx="'+i+'" aria-label="Remove">&times;</button>'
+         + '<div class="staged-card-text">'
          + '<span class="staged-card-name">'+it.name+'</span>'
          + '<span class="staged-card-ml">'+(PRODUCT_ML[it.id] || 0)+'ml</span>'
          + '</div>'
