@@ -227,10 +227,25 @@ body {
    untouched. Opacity goes up with it: a bigger glyph at .8 still read as
    decoration rather than a control. */
 @media (max-width: 1024px) {
-  .chip-today .chev {
-    font-size: 17px; margin-left: 4px;
-    color: rgba(255, 255, 255, .95);
-    line-height: 1;
+  /* Sizing the glyph alone was not enough: U+25BE is the SMALL triangle, so
+     most of a 17px box is empty space and the ink stays tiny whatever the
+     font-size says. Giving it a translucent disc to sit in makes it read as
+     a control rather than as punctuation, and the disc is what carries the
+     visibility -- 26px of it, against 6px of actual triangle. */
+  /* id + two classes, deliberately. #kpi-today-card .chev further down sets
+     display: inline-block, and at equal specificity the later rule wins -- so
+     a plain .chip-today .chev never got its flex centring and the triangle
+     sat on the top edge of the disc. */
+  #kpi-today-card.chip-today .chev {
+    font-size: 13px; line-height: 1;
+    width: 26px; height: 26px; border-radius: 50%;
+    background: rgba(255, 255, 255, .30);
+    color: #fff;
+    display: inline-flex; align-items: center; justify-content: center;
+    /* The chip aligns on the baseline, which a disc has no business sitting
+       on -- it would hang below the figure beside it. */
+    align-self: center;
+    margin-left: 8px; flex-shrink: 0;
   }
 }
 .chip-today:hover { background: var(--accent-action-hover); }
