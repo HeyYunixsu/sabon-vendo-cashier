@@ -334,28 +334,16 @@ body {
 }
 /* Small, in the name's top corner. A shortcut, not the only exit -- minus at
    one press already removes the item. */
-/* The card's own top-right corner, which is where a remove control is
-   looked for. It sits in the strip above the steppers rather than on top of
-   them: overlapping "remove this item" with "add one more" would be the worst
-   possible pair to put under a single finger. */
-.staged-card .staged-card-remove {
-  position: absolute; top: 2px; right: 6px;
-  width: 22px; height: 16px;
-  display: flex; align-items: center; justify-content: center;
-  background: none; border: none; color: var(--text-content-secondary);
-  cursor: pointer; font-size: 15px; line-height: 1; padding: 0;
-}
 .staged-card .staged-step {
-  /* Full card height, because height is what a thumb is least accurate on.
-     52x58 against the old 64x26 is a little over twice the area, and all of
-     the growth is on that axis. */
-  /* Bottom-aligned at 56px rather than centred at 70px. The 16px this frees
-     at the top of the card is what the remove button sits in. Growing the card
-     instead was measured and rejected: at 1024x640 the product cards below are
-     already only 83px, and 8px off each row is a worse trade than 16px off a
-     button that is still twice the area it had before today. */
-  align-self: end;
-  width: 100%; height: 54px;
+  /* The full height of the card, because height is what a thumb is least
+     accurate on. 52x70 against the 64x26 these started as is well over twice
+     the area, and all of the growth is on that axis.
+
+     They were briefly cut to 54px and pushed to the bottom so a remove button
+     could sit in the corner. That button is gone -- holding minus removes the
+     item now -- so the height comes back. */
+  align-self: center;
+  width: 100%; height: 70px;
   display: flex; align-items: center; justify-content: center;
   transition: transform .07s ease, background .12s ease;
   background: var(--bg-surface-tertiary); color: var(--text-content-primary);
@@ -889,10 +877,8 @@ main.panel-hidden #right-panel {
   .staged-card .staged-card-qty {
     grid-column: 2; grid-row: 2; justify-self: center; font-size: 22px;
   }
-  /* On a phone the card's top-right corner is over the name, not over the
-     controls, so here the text is what has to keep clear of the x. */
   .staged-card .staged-card-text {
-    grid-column: 1 / -1; grid-row: 1; padding-right: 22px;
+    grid-column: 1 / -1; grid-row: 1;
   }
   /* A full card width to wrap into, so a third line is affordable here. */
   .staged-card .staged-card-name {
@@ -963,7 +949,7 @@ html, body { touch-action: manipulation; }
 
 button, input, select, textarea, a,
 .btn,
-.product-card, .staged-card, .staged-card-remove,
+.product-card, .staged-card,
 .list-row, .tab, .chip {
   touch-action: manipulation;
 }
@@ -986,7 +972,6 @@ button, .btn, .product-card, .staged-card, .tab {
   #settings-close:hover, #today-close:hover {
     border-color: var(--status-negative); color: var(--status-negative);
   }
-  .staged-card .staged-card-remove:hover { color: var(--status-negative); }
   #sale-strip .btn-outline:hover { border-color: var(--accent-action); color: var(--accent-action); }
   /* Colour only, deliberately no lift. A translateY(-1px) here put the top
      row 1px above #pages, which is a scroll container, so it clipped exactly
@@ -1029,7 +1014,7 @@ button, .btn, .product-card, .staged-card, .tab {
    touch -- so it does not need the (hover: hover) guard above.
    =================================================================== */
 button:active, .btn:active, .product-card:active,
-.staged-step:active, .staged-card-remove:active,
+.staged-step:active,
 .chip-today:active, .tab:active,
 .is-pressed {
   transform: scale(0.96);
@@ -1050,6 +1035,16 @@ button:active, .btn:active, .product-card:active,
 .staged-card .staged-step[data-delta="1"]:active,
 .staged-card .staged-step[data-delta="1"].is-pressed {
   background: color-mix(in srgb, var(--status-positive) 30%, var(--bg-surface-tertiary));
+}
+/* Hold minus to remove the item outright. The fill is the whole reason this
+   is discoverable: it starts the moment the finger lands and takes exactly as
+   long as the hold does, so a cashier who holds a moment too long sees
+   something happening and learns the gesture without being taught it. A hold
+   with no feedback is just a control that sometimes does something else. */
+.staged-card .staged-step[data-delta="-1"].holding {
+  background: var(--status-negative);
+  color: #fff;
+  transition: background .5s linear, color .5s linear;
 }
 /* Touch never sees the hover border, so pressing has to supply it. */
 .product-card:active, .product-card.is-pressed { border-color: var(--border-strong); }
@@ -1090,7 +1085,7 @@ button:active, .btn:active, .product-card:active,
      feedback. Removing both would leave these users with the dead controls
      this whole section exists to fix. */
   button:active, .btn:active, .product-card:active,
-  .staged-step:active, .staged-card-remove:active,
+  .staged-step:active,
   .chip-today:active, .tab:active,
   .is-pressed { transform: none; }
   /* Not "no feedback" -- the same message without the movement. */
@@ -1877,13 +1872,12 @@ button:active, .btn:active, .product-card:active,
       // data-id is what lets a quantity change find its own card and update
       // in place instead of rebuilding the whole list. See adjustStaged.
       h += '<div class="staged-card" data-id="'+it.id+'">'
-         + '<button class="staged-card-remove" data-idx="'+i+'" aria-label="Remove">&times;</button>'
          + '<div class="staged-card-text">'
          + '<span class="staged-card-name">'+it.name+'</span>'
          + '<span class="staged-card-ml">'+(PRODUCT_ML[it.id] || 0)+'ml</span>'
          + '</div>'
          + '<span class="staged-card-qty">'+it.qty+'\xD7</span>'
-         + '<button class="staged-step" data-id="'+it.id+'" data-delta="-1" aria-label="One less">&minus;</button>'
+         + '<button class="staged-step" data-id="'+it.id+'" data-delta="-1" aria-label="One less, hold to remove" title="One less \u2014 hold to remove">&minus;</button>'
          + '<button class="staged-step" data-id="'+it.id+'" data-delta="1" aria-label="One more">+</button>'
          + '</div>';
     });
@@ -2458,7 +2452,7 @@ button:active, .btn:active, .product-card:active,
   //
   // Driving the class from pointerdown removes the guesswork. :active is kept
   // in the stylesheet alongside it for mouse and keyboard.
-  const PRESSABLE = '.btn, .product-card, .staged-step, .staged-card-remove,'
+  const PRESSABLE = '.btn, .product-card, .staged-step,'
                   + ' .chip-today, .tab, button';
   let pressedEl = null;
   function setPressed(el) {
@@ -2577,10 +2571,54 @@ button:active, .btn:active, .product-card:active,
   // buttons themselves.
   $('staged-items').addEventListener('click', (ev) => {
     const step = ev.target.closest('.staged-step');
+    // The hold already removed the item; the click that follows the release
+    // would otherwise take one off whatever is now in that position.
+    if (holdFired) { holdFired = false; return; }
     if (step) { adjustStaged(+step.dataset.id, +step.dataset.delta); return; }
-    const rm = ev.target.closest('.staged-card-remove');
-    if (rm) { removeStaged(+rm.dataset.idx); return; }
   });
+
+  // Hold minus to remove the whole item. Tapping it still takes one off, and
+  // at one press that already removed the item -- this is the shortcut for
+  // clearing a 5x without five taps, which is what the x used to be for.
+  //
+  // 500ms: long enough that nobody triggers it while tapping quickly, short
+  // enough that it does not feel broken while you wait.
+  const HOLD_MS = 500;
+  let holdTimer = null, holdEl = null, holdFired = false;
+  function cancelHold() {
+    if (holdTimer) clearTimeout(holdTimer);
+    holdTimer = null;
+    if (holdEl) holdEl.classList.remove('holding');
+    holdEl = null;
+  }
+  $('staged-items').addEventListener('pointerdown', (ev) => {
+    // Reset on every press, not just on minus. Otherwise a hold that fired
+    // would leave the flag set and swallow the next tap on plus.
+    holdFired = false;
+    const step = ev.target.closest('.staged-step[data-delta="-1"]');
+    if (!step) return;
+    holdEl = step;
+    step.classList.add('holding');
+    holdTimer = setTimeout(() => {
+      holdTimer = null;
+      holdFired = true;
+      step.classList.remove('holding');
+      const id = +step.dataset.id;
+      const i = staged.findIndex(x => x.id === id);
+      if (i < 0) return;
+      const name = staged[i].name;
+      removeStaged(i);
+      toast(name + ' removed', 'caution');
+    }, HOLD_MS);
+  });
+  // pointercancel is what fires when the browser decides the gesture is a
+  // scroll, so a finger that starts on minus and then drags the page does not
+  // silently delete a line.
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach((e) =>
+    $('staged-items').addEventListener(e, cancelHold));
+  // Android raises the text-selection menu on a long press. There is nothing
+  // selectable in here and the menu would land on top of the card.
+  $('staged-items').addEventListener('contextmenu', (ev) => ev.preventDefault());
 
   // Genuinely all of them now. Empty and inactive slots are skipped -- staging
   // a product the machine cannot pour only produces a refusal at Unlock time.
