@@ -1036,15 +1036,46 @@ button:active, .btn:active, .product-card:active,
 .staged-card .staged-step[data-delta="1"].is-pressed {
   background: color-mix(in srgb, var(--status-positive) 30%, var(--bg-surface-tertiary));
 }
-/* Hold minus to remove the item outright. The fill is the whole reason this
-   is discoverable: it starts the moment the finger lands and takes exactly as
-   long as the hold does, so a cashier who holds a moment too long sees
-   something happening and learns the gesture without being taught it. A hold
-   with no feedback is just a control that sometimes does something else. */
-.staged-card .staged-step[data-delta="-1"].holding {
-  background: var(--status-negative);
-  color: #fff;
-  transition: background .5s linear, color .5s linear;
+/* Hold a card to bring up its remove popup. The card dimming while the finger
+   is down is the whole reason the gesture is findable at all: it starts the
+   moment the finger lands and runs exactly as long as the hold does, so anyone
+   who rests a finger a moment too long sees something happening. A hold with
+   no feedback is indistinguishable from a control that occasionally misfires. */
+#sale-strip .staged-card.holding {
+  filter: brightness(0.93);
+  transition: filter .5s linear;
+}
+
+/* The popup itself. It covers its own card rather than floating over the page:
+   anchored to the thing being removed, impossible to mis-read as belonging to
+   the card beside it, and it needs no positioning maths that could push it
+   outside the strip and get clipped. */
+.staged-card .staged-confirm {
+  position: absolute; inset: 0; z-index: 3;
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  padding: 0 10px;
+  background: var(--bg-surface-secondary);
+  border-radius: 8px;
+  animation: confirm-in .12s ease-out;
+}
+@keyframes confirm-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.staged-confirm button {
+  height: 46px; border-radius: 8px; cursor: pointer;
+  font-family: 'Inter', system-ui, sans-serif; font-size: 13px; font-weight: 600;
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+}
+.staged-confirm .confirm-remove {
+  flex: 1 1 auto; min-width: 0;
+  background: var(--status-negative); color: #fff; border: 1px solid transparent;
+}
+.staged-confirm .confirm-remove svg { width: 16px; height: 16px; flex-shrink: 0; }
+.staged-confirm .confirm-cancel {
+  flex: 0 0 auto; padding: 0 14px;
+  background: transparent; color: var(--text-content-primary);
+  border: 1px solid var(--border-default);
 }
 /* Touch never sees the hover border, so pressing has to supply it. */
 .product-card:active, .product-card.is-pressed { border-color: var(--border-strong); }
@@ -1877,7 +1908,7 @@ button:active, .btn:active, .product-card:active,
          + '<span class="staged-card-ml">'+(PRODUCT_ML[it.id] || 0)+'ml</span>'
          + '</div>'
          + '<span class="staged-card-qty">'+it.qty+'\xD7</span>'
-         + '<button class="staged-step" data-id="'+it.id+'" data-delta="-1" aria-label="One less, hold to remove" title="One less \u2014 hold to remove">&minus;</button>'
+         + '<button class="staged-step" data-id="'+it.id+'" data-delta="-1" aria-label="One less">&minus;</button>'
          + '<button class="staged-step" data-id="'+it.id+'" data-delta="1" aria-label="One more">+</button>'
          + '</div>';
     });
@@ -2577,48 +2608,107 @@ button:active, .btn:active, .product-card:active,
     if (step) { adjustStaged(+step.dataset.id, +step.dataset.delta); return; }
   });
 
-  // Hold minus to remove the whole item. Tapping it still takes one off, and
-  // at one press that already removed the item -- this is the shortcut for
-  // clearing a 5x without five taps, which is what the x used to be for.
+  // Hold a staged card to bring up its remove popup. Minus still just takes
+  // one off, at every quantity, and at one press it removes the item as it
+  // always has.
   //
-  // 500ms: long enough that nobody triggers it while tapping quickly, short
-  // enough that it does not feel broken while you wait.
+  // 500ms: long enough that nobody trips it while tapping quickly, short
+  // enough that it does not feel broken while you wait for it.
   const HOLD_MS = 500;
-  let holdTimer = null, holdEl = null, holdFired = false;
+  const TRASH_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"'
+    + ' stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+    + '<path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/><path d="M10 11v6M14 11v6"/></svg>';
+  let holdTimer = null, holdCard = null, holdFired = false;
+  // The popup opens while the finger is still down, and it opens directly
+  // UNDER that finger. Lifting then produces a compatibility click on
+  // whichever button has just materialised there -- which is Remove. Measured:
+  // one hold deleted the item outright, popup=false cards=1, no confirmation
+  // shown at all. So the popup is inert for a moment after it appears: long
+  // enough to swallow the release, short enough that nobody waiting to tap
+  // Remove ever notices it.
+  const CONFIRM_DEAD_MS = 400;
+  let confirmOpenedAt = 0;
+  const confirmIsLive = () => Date.now() - confirmOpenedAt >= CONFIRM_DEAD_MS;
+
   function cancelHold() {
     if (holdTimer) clearTimeout(holdTimer);
     holdTimer = null;
-    if (holdEl) holdEl.classList.remove('holding');
-    holdEl = null;
+    if (holdCard) holdCard.classList.remove('holding');
+    holdCard = null;
   }
-  $('staged-items').addEventListener('pointerdown', (ev) => {
-    // Reset on every press, not just on minus. Otherwise a hold that fired
-    // would leave the flag set and swallow the next tap on plus.
-    holdFired = false;
-    const step = ev.target.closest('.staged-step[data-delta="-1"]');
-    if (!step) return;
-    holdEl = step;
-    step.classList.add('holding');
-    holdTimer = setTimeout(() => {
-      holdTimer = null;
-      holdFired = true;
-      step.classList.remove('holding');
-      const id = +step.dataset.id;
+  function closeConfirm() {
+    const open = $('staged-items').querySelector('.staged-confirm');
+    if (open) open.remove();
+  }
+  function openConfirm(card) {
+    closeConfirm();                       // only ever one at a time
+    const id = +card.dataset.id;
+    if (!staged.some(x => x.id === id)) return;
+    const box = document.createElement('div');
+    box.className = 'staged-confirm';
+    box.innerHTML =
+        '<button class="confirm-remove" type="button">' + TRASH_SVG + 'Remove</button>'
+      + '<button class="confirm-cancel" type="button">Cancel</button>';
+    box.querySelector('.confirm-remove').addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      if (!confirmIsLive()) return;
+      // Look the index up now, not when the popup opened: the list can have
+      // changed underneath it, and splicing a stale index removes the wrong
+      // product -- silently, and for a customer who is standing right there.
       const i = staged.findIndex(x => x.id === id);
+      closeConfirm();
       if (i < 0) return;
       const name = staged[i].name;
       removeStaged(i);
       toast(name + ' removed', 'caution');
+    });
+    box.querySelector('.confirm-cancel').addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      if (!confirmIsLive()) return;
+      closeConfirm();
+    });
+    card.appendChild(box);
+    confirmOpenedAt = Date.now();
+  }
+
+  $('staged-items').addEventListener('pointerdown', (ev) => {
+    // Reset on every press anywhere in the strip. Otherwise a hold that fired
+    // would leave the flag set and swallow the next tap, on any card.
+    holdFired = false;
+    if (ev.target.closest('.staged-confirm')) return;   // taps inside the popup
+    // A hold that starts on a stepper is a hold on the stepper, not on the
+    // card. Without this, resting a finger on minus would both take one off
+    // and raise a remove popup.
+    if (ev.target.closest('.staged-step')) return;
+    const card = ev.target.closest('.staged-card');
+    if (!card) return;
+    holdCard = card;
+    card.classList.add('holding');
+    holdTimer = setTimeout(() => {
+      holdTimer = null;
+      holdFired = true;
+      card.classList.remove('holding');
+      openConfirm(card);
     }, HOLD_MS);
   });
   // pointercancel is what fires when the browser decides the gesture is a
-  // scroll, so a finger that starts on minus and then drags the page does not
-  // silently delete a line.
+  // scroll, so a finger that lands on a card and then drags the page does not
+  // leave a popup behind it.
   ['pointerup', 'pointercancel', 'pointerleave'].forEach((e) =>
     $('staged-items').addEventListener(e, cancelHold));
   // Android raises the text-selection menu on a long press. There is nothing
-  // selectable in here and the menu would land on top of the card.
+  // selectable in here and the menu would land on top of the popup.
   $('staged-items').addEventListener('contextmenu', (ev) => ev.preventDefault());
+  // Anywhere else dismisses it, which is what everyone tries first.
+  document.addEventListener('pointerdown', (ev) => {
+    // Same dead window. A finger that drifts off the card before lifting would
+    // otherwise dismiss the popup on the very release that opened it.
+    if (!confirmIsLive()) return;
+    if (!ev.target.closest('.staged-confirm')) closeConfirm();
+  }, true);
+  document.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Escape') closeConfirm();
+  });
 
   // Genuinely all of them now. Empty and inactive slots are skipped -- staging
   // a product the machine cannot pour only produces a refusal at Unlock time.
