@@ -1030,23 +1030,29 @@ button, .btn, .product-card, .staged-card, .tab {
    =================================================================== */
 button:active, .btn:active, .product-card:active,
 .staged-step:active, .staged-card-remove:active,
-.chip-today:active, .tab:active {
-  transform: scale(0.97);
-  /* The tint, not the scale, is what carries the press for anyone who has
-     asked for reduced motion -- see the block at the end of this file. */
-  filter: brightness(0.95);
-  transition: transform .07s ease;
+.chip-today:active, .tab:active,
+.is-pressed {
+  transform: scale(0.96);
+  /* The tint carries the press, not the scale. It has to be strong enough to
+     read on its own, because it is all that is left when the device has
+     reduced motion turned on -- and on Android that is a single toggle in
+     Accessibility, or just Battery Saver. brightness() is used rather than an
+     inset shadow so the armed card's green ring is not clobbered. */
+  filter: brightness(0.92);
+  transition: transform .07s ease, filter .07s ease;
 }
 /* The steppers dip into their own colour, so a press reads as "one less" or
    "one more" rather than as one anonymous button being poked. */
-.staged-card .staged-step[data-delta="-1"]:active {
-  background: color-mix(in srgb, var(--status-negative) 26%, var(--bg-surface-tertiary));
+.staged-card .staged-step[data-delta="-1"]:active,
+.staged-card .staged-step[data-delta="-1"].is-pressed {
+  background: color-mix(in srgb, var(--status-negative) 30%, var(--bg-surface-tertiary));
 }
-.staged-card .staged-step[data-delta="1"]:active {
-  background: color-mix(in srgb, var(--status-positive) 26%, var(--bg-surface-tertiary));
+.staged-card .staged-step[data-delta="1"]:active,
+.staged-card .staged-step[data-delta="1"].is-pressed {
+  background: color-mix(in srgb, var(--status-positive) 30%, var(--bg-surface-tertiary));
 }
 /* Touch never sees the hover border, so pressing has to supply it. */
-.product-card:active { border-color: var(--border-strong); }
+.product-card:active, .product-card.is-pressed { border-color: var(--border-strong); }
 
 /* The count pops when it changes. This answers a different question from the
    press state above -- not "did the screen see my finger" but "did my press
@@ -1058,6 +1064,13 @@ button:active, .btn:active, .product-card:active,
   100% { transform: scale(1); }
 }
 .staged-card .staged-card-qty.pop { animation: pop-count .32s ease; }
+/* A second, motion-free way to say the same thing. Used in place of the pop
+   when the device asks for reduced motion: a colour beat is not movement, and
+   silently showing nothing at all was how this went unnoticed on Android. */
+@keyframes flash-count {
+  0%, 100% { color: var(--accent-action); }
+  35%      { color: var(--status-positive); }
+}
 
 /* Working, not unavailable. Unlock is the one control with a real round trip
    to the controller, and .btn-primary:disabled drops it to 25% opacity --
@@ -1078,13 +1091,15 @@ button:active, .btn:active, .product-card:active,
      this whole section exists to fix. */
   button:active, .btn:active, .product-card:active,
   .staged-step:active, .staged-card-remove:active,
-  .chip-today:active, .tab:active { transform: none; }
+  .chip-today:active, .tab:active,
+  .is-pressed { transform: none; }
+  /* Not "no feedback" -- the same message without the movement. */
+  .staged-card .staged-card-qty.pop { animation: flash-count .4s ease; }
   /* The dots keep their colour and their glow, they just stop breathing.
      Green still means ready and red still means empty. */
   .dot-ready, .dot-negative, .dot-caution { animation: none; }
   .dot-ready { box-shadow: 0 0 8px rgba(52,211,153,.6); }
   .dot-negative { box-shadow: 0 0 8px rgba(248,113,113,.8); }
-  .staged-card .staged-card-qty.pop { animation: none; }
   .btn.is-busy::after { animation: none; }
 }
 
@@ -2433,6 +2448,34 @@ button:active, .btn:active, .product-card:active,
     localStorage.setItem('sabon-theme', nxt);
     $('theme-toggle').textContent = themeLabel();
   });
+
+  // ---- Press feedback, driven by pointer events --------------------------
+  // Chrome on Android does not apply :active the moment a finger lands. It
+  // waits until it is sure the gesture is not the start of a scroll, and
+  // inside a scrolling container a quick tap can be over before it decides --
+  // so the press state never becomes visible. A mouse has no such ambiguity,
+  // which is why Windows looked fine and the tablet looked dead.
+  //
+  // Driving the class from pointerdown removes the guesswork. :active is kept
+  // in the stylesheet alongside it for mouse and keyboard.
+  const PRESSABLE = '.btn, .product-card, .staged-step, .staged-card-remove,'
+                  + ' .chip-today, .tab, button';
+  let pressedEl = null;
+  function setPressed(el) {
+    if (pressedEl === el) return;
+    if (pressedEl) pressedEl.classList.remove('is-pressed');
+    pressedEl = el;
+    if (el) el.classList.add('is-pressed');
+  }
+  document.addEventListener('pointerdown', (ev) => {
+    const el = ev.target.closest(PRESSABLE);
+    if (el && !el.disabled) setPressed(el);
+  }, { passive: true });
+  // pointercancel is the one that matters on touch: the browser fires it the
+  // moment it decides the gesture is a scroll, which is exactly when the press
+  // state should be dropped rather than left stuck on a card sliding away.
+  ['pointerup', 'pointercancel', 'pointerleave', 'blur', 'scroll'].forEach((e) =>
+    document.addEventListener(e, () => setPressed(null), { passive: true, capture: true }));
 
   // ---- Kiosk -------------------------------------------------------------
   // Keep the screen awake while the till is open. A cashier should never have
