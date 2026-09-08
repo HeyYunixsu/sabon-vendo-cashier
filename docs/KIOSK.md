@@ -38,10 +38,22 @@ declines. The page ships a `manifest.json` with `display: standalone` already,
 so the moment the dashboard is served over HTTPS this starts working with no
 code change.
 
-Until then, on Android either:
+Until then, on Android use **Settings → Fullscreen** in the dashboard.
+Switch it **On** and Chrome goes fullscreen: no address bar, no tabs, no
+system navigation bar. Swipe down from the top to leave, which also switches
+the toggle back off — someone who has just got out should not be put straight
+back in by their next tap.
 
-- use **Settings → Fullscreen** in the dashboard, or
-- install a kiosk browser app, which is the usual choice for a POS.
+The toggle is remembered, because fullscreen itself cannot be. A reload or a
+reboot always drops fullscreen, and **no page is allowed to put itself
+fullscreen on load** — browsers require a user gesture, or every pop-up ad
+would take the whole screen. So after a power cut the tablet comes up in a
+normal window and enters fullscreen on the first touch of the shift. Nobody
+has to visit Settings again.
+
+For a tablet that must be fullscreen before anyone touches it, install a kiosk
+browser app — the usual choice for a POS — or serve the dashboard over HTTPS
+so Chrome installs it properly.
 
 ### Windows / Linux PC
 

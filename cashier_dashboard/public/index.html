@@ -1348,8 +1348,20 @@ button:active, .btn:active, .product-card:active,
 .sheet-val.good { color: var(--status-positive); }
 .sheet-val.bad  { color: var(--status-negative); }
 .sheet-row .btn-sm, .sheet-row a.btn-sm {
+  /* One width for every button in the sheet, so their borders line up as a
+     column instead of each shrink-wrapping its own label -- "Switch to Light",
+     "Show QR" and "On" are wildly different lengths and the ragged left edge
+     read as a mistake. 124px clears the longest label at this size; the text
+     is centred so a short one is not stranded against the left border. */
   flex: 0 0 auto; text-decoration: none; display: inline-flex;
-  align-items: center; min-height: 34px;
+  align-items: center; justify-content: center;
+  min-height: 34px; min-width: 124px;
+}
+/* A toggle that is on should look on, not merely be labelled it. */
+.sheet-row .btn-sm.is-on {
+  border-color: var(--accent-action);
+  color: var(--accent-action);
+  background: color-mix(in srgb, var(--accent-action) 12%, transparent);
 }
 </style>
 </head>
@@ -1457,7 +1469,7 @@ button:active, .btn:active, .product-card:active,
            that does nothing when tapped is worse than no control. -->
       <div class="sheet-row" id="row-fullscreen" hidden>
         <span>Fullscreen</span>
-        <button id="btn-fullscreen" class="btn btn-sm">Go Fullscreen</button>
+        <button id="btn-fullscreen" class="btn btn-sm" aria-pressed="false">Off</button>
       </div>
     </div>
 
@@ -2526,20 +2538,71 @@ button:active, .btn:active, .product-card:active,
   // Fullscreen for Android and the counter PC. iOS Safari implements the
   // Fullscreen API for video only, so on an iPad the whole row is hidden and
   // the chromeless path is Add to Home Screen instead -- see docs/KIOSK.md.
+  //
+  // The preference is remembered, because fullscreen itself cannot be. A
+  // reload or a reboot drops it, and no page is allowed to put itself
+  // fullscreen on load -- browsers require a user gesture, or every pop-up ad
+  // would take the screen. So the tablet comes up in a normal window and
+  // enters fullscreen on the first touch of the shift, which is a gesture and
+  // is therefore permitted.
+  const FS_KEY = 'sabon-fullscreen';
   if (document.documentElement.requestFullscreen && document.exitFullscreen) {
+    const btn = $('btn-fullscreen');
     $('row-fullscreen').hidden = false;
-    const fsLabel = () => document.fullscreenElement ? 'Exit Fullscreen' : 'Go Fullscreen';
-    $('btn-fullscreen').addEventListener('click', () => {
-      const p = document.fullscreenElement
-        ? document.exitFullscreen()
-        : document.documentElement.requestFullscreen();
-      // A rejected request is not an error worth a toast -- the user simply
-      // stays where they are, and the label below stays correct either way.
+
+    let fsWanted = false;
+    try { fsWanted = localStorage.getItem(FS_KEY) === '1'; } catch (e) {}
+
+    function paintFs() {
+      btn.textContent = fsWanted ? 'On' : 'Off';
+      btn.classList.toggle('is-on', fsWanted);
+      btn.setAttribute('aria-pressed', fsWanted ? 'true' : 'false');
+    }
+    function rememberFs(on) {
+      fsWanted = on;
+      try { on ? localStorage.setItem(FS_KEY, '1') : localStorage.removeItem(FS_KEY); } catch (e) {}
+      paintFs();
+    }
+    function goFullscreen() {
+      if (document.fullscreenElement) return;
+      const p = document.documentElement.requestFullscreen();
+      // A refusal is not worth a toast. The cashier simply stays in a normal
+      // window, and the toggle still reads what they asked for.
       if (p && p.catch) p.catch(() => {});
+    }
+
+    btn.addEventListener('click', () => {
+      if (fsWanted) {
+        rememberFs(false);
+        if (document.fullscreenElement) {
+          const p = document.exitFullscreen();
+          if (p && p.catch) p.catch(() => {});
+        }
+      } else {
+        rememberFs(true);
+        goFullscreen();               // inside a gesture, so this is allowed
+      }
     });
+
+    // Leaving fullscreen by any other route -- the swipe-down gesture on
+    // Android, Escape on a PC -- turns the preference off. Someone who just
+    // got out should not be put back in by their next tap.
     document.addEventListener('fullscreenchange', () => {
-      $('btn-fullscreen').textContent = fsLabel();
+      if (!document.fullscreenElement && fsWanted) rememberFs(false);
     });
+
+    // Armed once per load, never re-armed: the very first touch or key of the
+    // session restores fullscreen, and after that this is out of the way.
+    if (fsWanted) {
+      const arm = () => {
+        document.removeEventListener('pointerdown', arm, true);
+        document.removeEventListener('keydown', arm, true);
+        goFullscreen();
+      };
+      document.addEventListener('pointerdown', arm, true);
+      document.addEventListener('keydown', arm, true);
+    }
+    paintFs();
   }
 
   // Tap handling is delegated to the containers, which are never replaced.
