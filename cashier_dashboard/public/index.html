@@ -2564,16 +2564,49 @@ button:active, .btn:active, .product-card:active,
       paintFs();
     }
     function goFullscreen() {
-      if (document.fullscreenElement) return;
+      if (document.fullscreenElement) return null;
       const p = document.documentElement.requestFullscreen();
-      // A refusal is not worth a toast. The cashier simply stays in a normal
-      // window, and the toggle still reads what they asked for.
+      // A refusal is not worth a toast -- but it IS worth retrying, so the
+      // promise is handed back rather than swallowed here.
       if (p && p.catch) p.catch(() => {});
+      return p;
+    }
+
+    // Restoring fullscreen after a reload has to wait for a gesture, and on
+    // touch the gesture is not where it looks. Chrome grants user activation
+    // on touchend/click, NOT on pointerdown -- so an attempt fired from
+    // pointerdown is refused for having no activation, which is exactly how
+    // this failed on the tablet: fullscreen worked when toggled by hand, then
+    // never came back after a reload.
+    //
+    // It also stays armed until it succeeds. One refused attempt used to end
+    // the matter silently.
+    let armed = false;
+    function tryRestore() {
+      if (!fsWanted || document.fullscreenElement) { disarmRestore(); return; }
+      const p = goFullscreen();
+      if (p && p.then) p.then(disarmRestore, () => {});   // refused: keep listening
+      else disarmRestore();
+    }
+    function armRestore() {
+      if (armed) return;
+      armed = true;
+      document.addEventListener('click', tryRestore, true);
+      document.addEventListener('touchend', tryRestore, true);
+      document.addEventListener('keyup', tryRestore, true);
+    }
+    function disarmRestore() {
+      armed = false;
+      document.removeEventListener('click', tryRestore, true);
+      document.removeEventListener('touchend', tryRestore, true);
+      document.removeEventListener('keyup', tryRestore, true);
     }
 
     btn.addEventListener('click', () => {
       if (fsWanted) {
+        // The toggle is the only thing that turns the preference off.
         rememberFs(false);
+        disarmRestore();
         if (document.fullscreenElement) {
           const p = document.exitFullscreen();
           if (p && p.catch) p.catch(() => {});
@@ -2584,24 +2617,20 @@ button:active, .btn:active, .product-card:active,
       }
     });
 
-    // Leaving fullscreen by any other route -- the swipe-down gesture on
-    // Android, Escape on a PC -- turns the preference off. Someone who just
-    // got out should not be put back in by their next tap.
+    // Anything else that ends fullscreen -- a stray swipe down on Android,
+    // Escape on a PC, the browser dropping it on its own -- is treated as
+    // accidental and re-armed, so the next tap puts it back.
+    //
+    // This used to switch the preference off instead, on the reasoning that
+    // someone who just got out should stay out. On a till that was wrong: one
+    // accidental swipe disabled fullscreen permanently and the toggle had to
+    // be found again in Settings. Deliberately leaving is what the toggle is
+    // for, and it is two taps away.
     document.addEventListener('fullscreenchange', () => {
-      if (!document.fullscreenElement && fsWanted) rememberFs(false);
+      if (!document.fullscreenElement && fsWanted) armRestore();
     });
 
-    // Armed once per load, never re-armed: the very first touch or key of the
-    // session restores fullscreen, and after that this is out of the way.
-    if (fsWanted) {
-      const arm = () => {
-        document.removeEventListener('pointerdown', arm, true);
-        document.removeEventListener('keydown', arm, true);
-        goFullscreen();
-      };
-      document.addEventListener('pointerdown', arm, true);
-      document.addEventListener('keydown', arm, true);
-    }
+    if (fsWanted) armRestore();
     paintFs();
   }
 

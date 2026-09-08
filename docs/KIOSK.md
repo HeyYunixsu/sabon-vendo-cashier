@@ -40,9 +40,12 @@ code change.
 
 Until then, on Android use **Settings → Fullscreen** in the dashboard.
 Switch it **On** and Chrome goes fullscreen: no address bar, no tabs, no
-system navigation bar. Swipe down from the top to leave, which also switches
-the toggle back off — someone who has just got out should not be put straight
-back in by their next tap.
+system navigation bar.
+
+**To leave, switch the toggle Off.** Swiping down from the top drops out of
+fullscreen only until the next tap: any exit that is not the toggle is treated
+as accidental and restored. That is deliberate — on a counter tablet a stray
+swipe should not quietly end kiosk mode for the rest of the day.
 
 The toggle is remembered, because fullscreen itself cannot be. A reload or a
 reboot always drops fullscreen, and **no page is allowed to put itself
