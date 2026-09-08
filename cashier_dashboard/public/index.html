@@ -1264,11 +1264,16 @@ button:active, .btn:active, .product-card:active,
   color: var(--text-content-primary);
   margin-bottom: 18px;
 }
-#ask-actions { display: flex; gap: 10px; justify-content: flex-end; }
-/* Equal widths, so the destructive choice is never the easier target. The
-   staged card's remove popup matches this pair -- same order, same height,
-   same pill -- and both keep Cancel on the left. */
-#ask-actions .btn { flex: 0 0 auto; min-width: 116px; height: 44px; }
+#ask-actions { display: flex; gap: 10px; }
+/* Equal halves spanning the dialog, so the destructive choice is never the
+   easier target and the pair matches the staged card's remove popup exactly
+   -- same order, same widths, same height, same pill.
+
+   They were 116px in a 378px row, pinned to the right: a third the width of
+   the 318px Clear List button that opens this dialog, with 245px of empty
+   white beside them. Small, cornered buttons read as an afterthought on the
+   one surface that should read as deliberate. */
+#ask-actions .btn { flex: 1 1 0; min-width: 0; height: 44px; }
 #ask-no {
   background: transparent; color: var(--text-content-primary);
   border: 1px solid var(--border-default);
