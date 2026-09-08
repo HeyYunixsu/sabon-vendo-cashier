@@ -433,7 +433,7 @@ main > section > .grid { flex: 1; min-height: 0; }
   border: 1px solid var(--border-default);
   border-radius: 10px; cursor: pointer; overflow: hidden;
   user-select: none; -webkit-tap-highlight-color: transparent;
-  transition: border-color .2s, box-shadow .2s, transform .2s;
+  transition: border-color .2s, box-shadow .2s;
   display: flex; align-items: center; gap: 14px;
   /* Same reason as the grid: no floor, so the cards fit the space rather
      than dictating it. */
@@ -941,7 +941,14 @@ button, .btn, .product-card, .staged-card, .tab {
   }
   .staged-card .staged-card-remove:hover { color: var(--status-negative); }
   #sale-strip .btn-outline:hover { border-color: var(--accent-action); color: var(--accent-action); }
-  .product-card:hover { border-color: var(--border-strong); transform: translateY(-1px); }
+  /* Colour only, deliberately no lift. A translateY(-1px) here put the top
+     row 1px above #pages, which is a scroll container, so it clipped exactly
+     that 1px and the top border of every card in the first row disappeared
+     while the pointer was over it. Measured: card top 308.0, #pages top
+     309.0. Padding the container to make room is not an option either --
+     #pages > main is height: 100%, so top padding pushes the total past the
+     container and brings back the scrollbar the one-screen layout removed. */
+  .product-card:hover { border-color: var(--border-strong); }
   .btn-remove:hover { border-color: var(--status-negative); color: var(--status-negative); }
   .btn-primary:hover { background: var(--accent-action-hover); }
   .btn-outline:hover { border-color: var(--border-strong); color: var(--accent-action); }
