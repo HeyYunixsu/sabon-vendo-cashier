@@ -220,6 +220,19 @@ body {
 .chip-today .chip-k { color: rgba(255, 255, 255, .78); }
 .chip-today .chip-v { color: #fff; font-size: 16px; min-width: 72px; }
 .chip-today .chev { color: rgba(255, 255, 255, .8); font-size: 10px; margin-left: 1px; }
+/* The chevron is the only thing on the chip that says it opens anything, and
+   at 10px it was easy to miss entirely. Sized up wherever a finger is the
+   pointer -- phone and tablet, 1024 and below, which covers the iPad in
+   landscape -- and left alone above that, since the desktop was to be
+   untouched. Opacity goes up with it: a bigger glyph at .8 still read as
+   decoration rather than a control. */
+@media (max-width: 1024px) {
+  .chip-today .chev {
+    font-size: 17px; margin-left: 4px;
+    color: rgba(255, 255, 255, .95);
+    line-height: 1;
+  }
+}
 .chip-today:hover { background: var(--accent-action-hover); }
 .chip-today:focus-visible {
   outline: 2px solid var(--text-content-primary); outline-offset: 2px;
