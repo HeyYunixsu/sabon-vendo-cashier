@@ -1265,7 +1265,10 @@ button:active, .btn:active, .product-card:active,
   margin-bottom: 18px;
 }
 #ask-actions { display: flex; gap: 10px; justify-content: flex-end; }
-#ask-actions .btn { min-width: 116px; height: 44px; }
+/* Equal widths, so the destructive choice is never the easier target. The
+   staged card's remove popup matches this pair -- same order, same height,
+   same pill -- and both keep Cancel on the left. */
+#ask-actions .btn { flex: 0 0 auto; min-width: 116px; height: 44px; }
 #ask-no {
   background: transparent; color: var(--text-content-primary);
   border: 1px solid var(--border-default);
@@ -1290,18 +1293,23 @@ button:active, .btn:active, .product-card:active,
   from { opacity: 0; }
   to   { opacity: 1; }
 }
+/* Both buttons, one shape. They used to disagree with the ask dialog on
+   every axis at once -- measured at 1280: Remove 298px wide against Cancel's
+   74px, 46px tall against the dialog's 44px, 8px corners against the pill
+   every other button in the app wears. Equal halves instead, so neither
+   choice is four times easier to hit than the other, and the same 44px pill
+   as the dialog so the two popups read as the same control. */
 .staged-confirm button {
-  height: 46px; border-radius: 8px; cursor: pointer;
+  flex: 1 1 0; min-width: 0;
+  height: 44px; border-radius: var(--radius-pill); cursor: pointer;
   font-family: 'Inter', system-ui, sans-serif; font-size: 13px; font-weight: 600;
   display: inline-flex; align-items: center; justify-content: center; gap: 7px;
 }
 .staged-confirm .confirm-remove {
-  flex: 1 1 auto; min-width: 0;
   background: var(--status-negative); color: #fff; border: 1px solid transparent;
 }
 .staged-confirm .confirm-remove svg { width: 16px; height: 16px; flex-shrink: 0; }
 .staged-confirm .confirm-cancel {
-  flex: 0 0 auto; padding: 0 14px;
   background: transparent; color: var(--text-content-primary);
   border: 1px solid var(--border-default);
 }
@@ -3016,9 +3024,14 @@ button:active, .btn:active, .product-card:active,
     if (!staged.some(x => x.id === id)) return;
     const box = document.createElement('div');
     box.className = 'staged-confirm';
+    // Cancel first, Remove second -- the same order as the Clear List and
+    // Cancel All dialogs. It used to be the other way round, so the safe
+    // button was on the right in one popup and the destructive one was on the
+    // right in the other; a cashier who learned either position had it wrong
+    // half the time, on a control that voids a paid-for credit.
     box.innerHTML =
-        '<button class="confirm-remove" type="button">' + TRASH_SVG + 'Remove</button>'
-      + '<button class="confirm-cancel" type="button">Cancel</button>';
+        '<button class="confirm-cancel" type="button">Cancel</button>'
+      + '<button class="confirm-remove" type="button">' + TRASH_SVG + 'Remove</button>';
     box.querySelector('.confirm-remove').addEventListener('click', (ev) => {
       ev.stopPropagation();
       if (!confirmIsLive()) return;
