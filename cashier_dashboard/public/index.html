@@ -219,25 +219,29 @@ body {
 }
 .chip-today .chip-k { color: rgba(255, 255, 255, .78); }
 .chip-today .chip-v { color: #fff; font-size: 16px; min-width: 72px; }
-.chip-today .chev { color: rgba(255, 255, 255, .8); font-size: 10px; margin-left: 1px; }
+/* A drawn icon rather than a text glyph. U+25BE is the SMALL triangle: its
+   ink is a fraction of its em box, so it rendered thin and undersized at any
+   font-size, and its exact shape was at the mercy of whichever font resolved.
+   An SVG chevron is sized in pixels, carries its own stroke weight, and looks
+   the same everywhere. */
+.chip-today .chev {
+  color: rgba(255, 255, 255, .9);
+  display: inline-flex; align-items: center; justify-content: center;
+  align-self: center; margin-left: 4px; flex-shrink: 0;
+}
+.chip-today .chev svg { width: 13px; height: 13px; display: block; }
 /* The chevron is the only thing on the chip that says it opens anything, and
-   at 10px it was easy to miss entirely. Sized up wherever a finger is the
+   as a 10px glyph it was easy to miss entirely. Wherever a finger is the
    pointer -- phone and tablet, 1024 and below, which covers the iPad in
-   landscape -- and left alone above that, since the desktop was to be
-   untouched. Opacity goes up with it: a bigger glyph at .8 still read as
-   decoration rather than a control. */
+   landscape -- it gets a disc to sit in as well, so it reads as a control
+   rather than as punctuation beside the figure. Above 1024 it stays the
+   plain icon, since the desktop was to be left alone. */
 @media (max-width: 1024px) {
-  /* Sizing the glyph alone was not enough: U+25BE is the SMALL triangle, so
-     most of a 17px box is empty space and the ink stays tiny whatever the
-     font-size says. Giving it a translucent disc to sit in makes it read as
-     a control rather than as punctuation, and the disc is what carries the
-     visibility -- 26px of it, against 6px of actual triangle. */
   /* id + two classes, deliberately. #kpi-today-card .chev further down sets
      display: inline-block, and at equal specificity the later rule wins -- so
-     a plain .chip-today .chev never got its flex centring and the triangle
-     sat on the top edge of the disc. */
+     a plain .chip-today .chev never got its flex centring and the icon sat on
+     the top edge of the disc. */
   #kpi-today-card.chip-today .chev {
-    font-size: 13px; line-height: 1;
     width: 26px; height: 26px; border-radius: 50%;
     background: rgba(255, 255, 255, .30);
     color: #fff;
@@ -247,6 +251,7 @@ body {
     align-self: center;
     margin-left: 8px; flex-shrink: 0;
   }
+  #kpi-today-card.chip-today .chev svg { width: 15px; height: 15px; }
 }
 .chip-today:hover { background: var(--accent-action-hover); }
 .chip-today:focus-visible {
@@ -1500,7 +1505,7 @@ button:active, .btn:active, .product-card:active,
       <span class="chip chip-waiting" id="chip-waiting"><span class="chip-k">Waiting</span><span class="chip-v" id="kpi-armed">0</span></span>
       <span class="chip"><span class="chip-k">Stock</span><span class="chip-v" id="kpi-active">6/6</span></span>
       <span class="chip chip-state"><span class="chip-v" id="kpi-bundle">Ready</span></span>
-      <span class="chip chip-today" id="kpi-today-card" role="button" tabindex="0" aria-expanded="false" aria-controls="today-panel"><span class="chip-k">Today</span><span class="chip-v" id="kpi-today">&#8369;0</span><span class="chev">&#9662;</span></span>
+      <span class="chip chip-today" id="kpi-today-card" role="button" tabindex="0" aria-expanded="false" aria-controls="today-panel"><span class="chip-k">Today</span><span class="chip-v" id="kpi-today">&#8369;0</span><span class="chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9.5l6 6 6-6"/></svg></span></span>
     </span>
   </div>
   <div class="status-right">
