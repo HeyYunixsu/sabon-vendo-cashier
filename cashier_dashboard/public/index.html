@@ -1046,6 +1046,47 @@ button:active, .btn:active, .product-card:active,
   transition: filter .5s linear;
 }
 
+/* ===================================================================
+   ASK DIALOG
+
+   Replaces window.confirm(). A native dialog is drawn by the browser, not
+   the page, and Android Chrome drops out of fullscreen to show it -- the
+   kiosk visibly falls back to a normal window and then re-enters once the
+   dialog is gone. This one is ordinary DOM, so fullscreen never breaks.
+
+   It also lets the destructive choice be styled as destructive, which a
+   native OK/Cancel cannot do.
+   =================================================================== */
+#ask-backdrop {
+  position: fixed; inset: 0; z-index: 60;
+  background: rgba(0,0,0,.45);
+}
+#ask {
+  position: fixed; z-index: 61;
+  left: 50%; top: 50%; transform: translate(-50%, -50%);
+  width: min(420px, calc(100vw - 32px));
+  background: var(--bg-surface-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: 14px;
+  box-shadow: 0 18px 48px rgba(0,0,0,.32);
+  padding: 20px;
+}
+#ask-backdrop[hidden], #ask[hidden] { display: none; }
+#ask-text {
+  font-size: 15px; line-height: 1.45; font-weight: 500;
+  color: var(--text-content-primary);
+  margin-bottom: 18px;
+}
+#ask-actions { display: flex; gap: 10px; justify-content: flex-end; }
+#ask-actions .btn { min-width: 116px; height: 44px; }
+#ask-no {
+  background: transparent; color: var(--text-content-primary);
+  border: 1px solid var(--border-default);
+}
+#ask-yes {
+  background: var(--status-negative); color: #fff; border: 1px solid transparent;
+}
+
 /* The popup itself. It covers its own card rather than floating over the page:
    anchored to the thing being removed, impossible to mis-read as belonging to
    the card beside it, and it needs no positioning maths that could push it
@@ -1449,6 +1490,15 @@ button:active, .btn:active, .product-card:active,
     <div class="today-note" id="today-note"></div>
   </div>
 </section>
+</div>
+
+<div id="ask-backdrop" hidden></div>
+<div id="ask" hidden role="alertdialog" aria-modal="true" aria-labelledby="ask-text">
+  <div id="ask-text"></div>
+  <div id="ask-actions">
+    <button id="ask-no" class="btn" type="button">Cancel</button>
+    <button id="ask-yes" class="btn" type="button">Confirm</button>
+  </div>
 </div>
 
 <div id="settings-backdrop" hidden></div>
@@ -2003,7 +2053,9 @@ button:active, .btn:active, .product-card:active,
       const bits = [];
       if (armed > 0) bits.push(armed + ' armed press' + (armed !== 1 ? 'es' : ''));
       if (queued > 0) bits.push(queued + ' queued credit' + (queued !== 1 ? 's' : ''));
-      if (!confirm('Cancel ' + bits.join(' and ') + ' — already paid for?')) return;
+      const ok = await askConfirm(
+        'Cancel ' + bits.join(' and ') + ' — already paid for?', 'Cancel Credits');
+      if (!ok) return;
     }
     try {
       await fetch('/api/cancel-all', { method:'POST', headers:{'Content-Type':'application/json'} });
@@ -2700,6 +2752,45 @@ button:active, .btn:active, .product-card:active,
     if (step) { adjustStaged(+step.dataset.id, +step.dataset.delta); return; }
   });
 
+  // Ask the cashier something, without handing the screen to the browser.
+  // window.confirm() would be one line, but a native dialog is drawn outside
+  // the page: Android Chrome leaves fullscreen to show it and re-enters
+  // afterwards, so the kiosk flickers back to a normal window mid-sale.
+  //
+  // Resolves true or false, so call sites read almost the same as before.
+  function askConfirm(message, yesLabel) {
+    return new Promise((resolve) => {
+      const back = $('ask-backdrop'), box = $('ask');
+      const yes = $('ask-yes'), no = $('ask-no');
+      $('ask-text').textContent = message;
+      yes.textContent = yesLabel || 'Confirm';
+      back.hidden = false; box.hidden = false;
+
+      function done(answer) {
+        back.hidden = true; box.hidden = true;
+        yes.removeEventListener('click', onYes);
+        no.removeEventListener('click', onNo);
+        back.removeEventListener('click', onNo);
+        document.removeEventListener('keydown', onKey, true);
+        resolve(answer);
+      }
+      function onYes() { done(true); }
+      function onNo() { done(false); }
+      function onKey(ev) {
+        if (ev.key === 'Escape') { ev.stopPropagation(); done(false); }
+        // Enter is deliberately NOT wired to yes. Every one of these questions
+        // guards something destructive, and a stray keypress should not be
+        // able to answer it.
+      }
+      yes.addEventListener('click', onYes);
+      no.addEventListener('click', onNo);
+      back.addEventListener('click', onNo);
+      document.addEventListener('keydown', onKey, true);
+      // Focus the safe choice, not the destructive one.
+      no.focus();
+    });
+  }
+
   // Hold a staged card to bring up its remove popup. Minus still just takes
   // one off, at every quantity, and at one press it removes the item as it
   // always has.
@@ -2816,7 +2907,7 @@ button:active, .btn:active, .product-card:active,
   });
 
   // Clear
-  $('btn-clear-sale').addEventListener('click', () => {
+  $('btn-clear-sale').addEventListener('click', async () => {
     // A six-product sale is a lot of tapping to lose to one stray touch.
     // Nothing is at stake but the typing, so this asks rather than warns --
     // and only when there is actually something to throw away.
@@ -2825,8 +2916,9 @@ button:active, .btn:active, .product-card:active,
       const what = staged.length === 1
         ? staged[0].name
         : staged.length + ' products';
-      if (!confirm('Clear ' + what + ' (' + n + ' press'
-                   + (n !== 1 ? 'es' : '') + ') from this sale?')) return;
+      const ok = await askConfirm('Clear ' + what + ' (' + n + ' press'
+                   + (n !== 1 ? 'es' : '') + ') from this sale?', 'Clear List');
+      if (!ok) return;
     }
     staged = [];
     renderStaged(); renderGrid(); updateArm();
