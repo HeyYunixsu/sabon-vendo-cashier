@@ -974,11 +974,40 @@ main.panel-hidden #right-panel {
     transition: none;
   }
 
-  /* The chips are nowrap and sat on a single 556px line, which made the whole
-     document 556px wide and let every phone screen pan sideways -- 166px of
-     horizontal overflow at 390px, 196px at 360px. Let them wrap. */
-  #status-bar .status-left { flex-wrap: wrap; min-width: 0; row-gap: 6px; }
-  #chips { flex-wrap: wrap; row-gap: 6px; }
+  /* The chips are nowrap. On one line they measured 556px, which made the
+     whole document 556px wide and let every phone screen pan sideways -- 166px
+     of overflow at 390px, 196px at 360px. Letting them wrap fixed the panning
+     but left the header ragged: four chips of four different widths breaking
+     wherever they happened to fit, with the gear and the clock stranded on a
+     line of their own.
+
+     A grid instead. Two equal columns, so each chip is exactly half the header
+     and every edge lines up:
+
+        [ WAITING  6 ] [ STOCK  5/6 ]
+        [ Ready      ] [ TODAY  P0 v]
+        [ gear .......... 14:24:54  ]
+
+     The gear and clock share those same two columns rather than floating, so
+     the header reads as one block instead of a list with an orphan. */
+  #status-bar {
+    display: grid; grid-template-columns: 1fr 1fr;
+    align-items: stretch; gap: 8px;
+  }
+  #status-bar .status-left { grid-column: 1 / -1; display: block; min-width: 0; }
+  #chips { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  /* Label left, figure right, the way a row of readings should line up. */
+  #chips .chip { width: 100%; justify-content: space-between; }
+  /* 72px of reserved figure is right on a wide header and too much on half a
+     phone -- it pushed the Today chip past its column at 360px. 52px still
+     holds four digits and tabular figures still stop the number changing
+     width as the day's takings climb. */
+  #chips .chip-today .chip-v { min-width: 52px; }
+  #kpi-today-card.chip-today .chev { margin-left: 6px; }
+  #status-bar .status-right {
+    grid-column: 1 / -1;
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  }
 
   /* 28px is not a thumb target. These sit in the waiting list and each one
      voids credits a customer has paid for, so they are the last controls on
