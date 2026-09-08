@@ -124,7 +124,41 @@ body {
 /* Status dot (8px) */
 .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 7px; flex-shrink: 0; }
 .dot-positive { background: var(--status-positive); box-shadow: 0 0 6px rgba(52,211,153,.35); }
-.dot-negative { background: var(--status-negative); box-shadow: 0 0 6px rgba(248,113,113,.35); }
+/* A problem breathes fast and hard. Speed is the signal here, not just
+   colour: slow means healthy, quick means fix me, and the two are told apart
+   from across the counter without reading either label. Used by Empty, by
+   the machine-offline row and by every issue in the right panel. */
+.dot-negative {
+  background: var(--status-negative); box-shadow: 0 0 6px rgba(248,113,113,.35);
+  animation: glow-alert 1.1s ease-in-out infinite;
+}
+@keyframes glow-alert {
+  0%, 100% { box-shadow: 0 0 4px rgba(248,113,113,.35); opacity: .65; }
+  50%      { box-shadow: 0 0 12px rgba(248,113,113,.95); opacity: 1; }
+}
+/* Ready is alive, not idle. A grey dot on all six cards made a healthy
+   machine look switched off. Slow and soft on purpose -- this is the resting
+   state, so it should read as breathing, not as asking for attention.
+
+   Green here and green for Unlocked would normally collide. They are kept
+   apart by weight rather than hue: Ready is a dim dot that swells gently,
+   Unlocked is solid and static, and the unlocked card also carries a green
+   border, a glow ring and a large count. The idle state must never be the
+   loudest thing on the screen. */
+.dot-ready {
+  background: var(--status-positive);
+  animation: glow-ready 2.4s ease-in-out infinite;
+}
+@keyframes glow-ready {
+  0%, 100% { box-shadow: 0 0 4px rgba(52,211,153,.28); opacity: .7; }
+  50%      { box-shadow: 0 0 10px rgba(52,211,153,.72); opacity: 1; }
+}
+/* Staggered, so six healthy dots breathe rather than strobe in unison. */
+.grid .product-card:nth-child(2) .dot-ready { animation-delay: .40s; }
+.grid .product-card:nth-child(3) .dot-ready { animation-delay: .80s; }
+.grid .product-card:nth-child(4) .dot-ready { animation-delay: 1.20s; }
+.grid .product-card:nth-child(5) .dot-ready { animation-delay: 1.60s; }
+.grid .product-card:nth-child(6) .dot-ready { animation-delay: 2.00s; }
 .dot-accent  { background: var(--accent-action);  box-shadow: 0 0 8px rgba(59,109,240,.4); }
 .dot-caution { background: var(--status-caution); box-shadow: 0 0 8px rgba(251,191,36,.4); animation: pulse-dot 1.2s infinite; }
 .dot-neutral { background: var(--status-neutral); }
@@ -323,6 +357,7 @@ body {
   align-self: end;
   width: 100%; height: 54px;
   display: flex; align-items: center; justify-content: center;
+  transition: transform .07s ease, background .12s ease;
   background: var(--bg-surface-tertiary); color: var(--text-content-primary);
   border: 1px solid var(--border-default); border-radius: 10px;
   font-size: 30px; font-weight: 700; line-height: 1; cursor: pointer;
@@ -443,7 +478,7 @@ main > section > .grid { flex: 1; min-height: 0; }
   border: 1px solid var(--border-default);
   border-radius: 10px; cursor: pointer; overflow: hidden;
   user-select: none; -webkit-tap-highlight-color: transparent;
-  transition: border-color .2s, box-shadow .2s;
+  transition: border-color .2s, box-shadow .2s, transform .07s ease;
   display: flex; align-items: center; gap: 14px;
   /* Same reason as the grid: no floor, so the cards fit the space rather
      than dictating it. */
@@ -972,6 +1007,85 @@ button, .btn, .product-card, .staged-card, .tab {
   .btn-sm.retry:hover { background: var(--accent-action); color: #fff; }
   .btn-sm.dismiss:hover { border-color: var(--status-negative); color: var(--status-negative); }
   .btn-negative:hover { background: var(--status-negative); color: #fff; }
+}
+
+/* ===================================================================
+   PRESS FEEDBACK
+
+   The page sets -webkit-tap-highlight-color: transparent in two places,
+   which removes the browser's own tap flash, and nothing replaced it. Until
+   now a touch produced no acknowledgement at all until the data changed --
+   and in a slow moment that reads as a dead control, which gets tapped
+   again. On a till a double-tap is a double charge.
+
+   Scale DOWN, never up and never across. #pages is a scroll container and
+   the first row of cards sits flush against its edge, so anything that
+   grows or moves is clipped there -- that is exactly what the hover lift
+   did. Shrinking cannot be clipped and cannot nudge a neighbour.
+
+   :active is used rather than a JS class because it is the only thing that
+   survives a finger being held down, and because it costs nothing to keep
+   correct. Unlike :hover it does not latch on iOS -- it ends with the
+   touch -- so it does not need the (hover: hover) guard above.
+   =================================================================== */
+button:active, .btn:active, .product-card:active,
+.staged-step:active, .staged-card-remove:active,
+.chip-today:active, .tab:active {
+  transform: scale(0.97);
+  /* The tint, not the scale, is what carries the press for anyone who has
+     asked for reduced motion -- see the block at the end of this file. */
+  filter: brightness(0.95);
+  transition: transform .07s ease;
+}
+/* The steppers dip into their own colour, so a press reads as "one less" or
+   "one more" rather than as one anonymous button being poked. */
+.staged-card .staged-step[data-delta="-1"]:active {
+  background: color-mix(in srgb, var(--status-negative) 26%, var(--bg-surface-tertiary));
+}
+.staged-card .staged-step[data-delta="1"]:active {
+  background: color-mix(in srgb, var(--status-positive) 26%, var(--bg-surface-tertiary));
+}
+/* Touch never sees the hover border, so pressing has to supply it. */
+.product-card:active { border-color: var(--border-strong); }
+
+/* The count pops when it changes. This answers a different question from the
+   press state above -- not "did the screen see my finger" but "did my press
+   count" -- and it is the one that matters when a cashier is adding the
+   fourth of something. */
+@keyframes pop-count {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.16); }
+  100% { transform: scale(1); }
+}
+.staged-card .staged-card-qty.pop { animation: pop-count .32s ease; }
+
+/* Working, not unavailable. Unlock is the one control with a real round trip
+   to the controller, and .btn-primary:disabled drops it to 25% opacity --
+   which reads as "you cannot press this" rather than "the machine is
+   arming". A cashier who reads it as dead presses it again. */
+.btn.is-busy:disabled { opacity: 1; pointer-events: none; }
+.btn.is-busy { position: relative; overflow: hidden; }
+.btn.is-busy::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.38), transparent);
+  background-size: 200% 100%;
+  animation: shimmer 1.1s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* The brightness tint stays: reduced motion means no movement, not no
+     feedback. Removing both would leave these users with the dead controls
+     this whole section exists to fix. */
+  button:active, .btn:active, .product-card:active,
+  .staged-step:active, .staged-card-remove:active,
+  .chip-today:active, .tab:active { transform: none; }
+  /* The dots keep their colour and their glow, they just stop breathing.
+     Green still means ready and red still means empty. */
+  .dot-ready, .dot-negative, .dot-caution { animation: none; }
+  .dot-ready { box-shadow: 0 0 8px rgba(52,211,153,.6); }
+  .dot-negative { box-shadow: 0 0 8px rgba(248,113,113,.8); }
+  .staged-card .staged-card-qty.pop { animation: none; }
+  .btn.is-busy::after { animation: none; }
 }
 
 
@@ -1551,7 +1665,7 @@ button, .btn, .product-card, .staged-card, .tab {
       else if (empty){ dotHtml = '<span class="dot dot-negative"></span> Empty';   dotColor = 'var(--status-negative)'; }
       else if (inSale) { dotHtml = '<span class="dot dot-accent"></span> In sale';   dotColor = 'var(--accent-action)'; }
       else if (armed){ dotHtml = '<span class="dot dot-positive"></span> Unlocked'; dotColor = 'var(--status-positive)'; }
-      else           { dotHtml = '<span class="dot dot-neutral"></span> Ready';    dotColor = 'var(--text-content-secondary)'; }
+      else           { dotHtml = '<span class="dot dot-ready"></span> Ready';      dotColor = 'var(--text-content-secondary)'; }
 
       const justArmed = act && !prevArmedQty[s] && armed > 0;
       prevArmedQty[s] = armed;
@@ -1706,23 +1820,48 @@ button, .btn, .product-card, .staged-card, .tab {
     if (i < 0) return;
     const it = staged[i];
     const next = it.qty + delta;
-    if (next < 1) { staged.splice(i, 1); }
-    else if (next > MAX_QTY) {
+    // Removing an item changes the list itself, so this one has to redraw.
+    if (next < 1) { staged.splice(i, 1); renderStaged(); renderGrid(); updateArm(); return; }
+    if (next > MAX_QTY) {
       toast('Maximum ' + MAX_QTY + ' presses per product', 'caution');
       return;
-    } else {
-      it.qty = next;
-      it.ml = next * (PRODUCT_ML[id] || 0);
     }
-    renderStaged(); renderGrid(); updateArm();
+    it.qty = next;
+    it.ml = next * (PRODUCT_ML[id] || 0);
+
+    // Update the count in place rather than rebuilding the list. innerHTML
+    // destroys the button under the finger mid-press: the replacement is a
+    // different element that never received the pointerdown, so :active does
+    // not apply to it and the press state vanishes after a frame. A control
+    // that flashes and dies reads as broken, which is worse than one that
+    // never lit up at all.
+    const card = $('staged-items').querySelector('.staged-card[data-id="'+id+'"]');
+    const qtyEl = card && card.querySelector('.staged-card-qty');
+    if (qtyEl) {
+      qtyEl.textContent = next + '×';
+      // Remove, force a reflow, re-add. Without the reflow the engine never
+      // sees the class leave, so a second press inside the animation's own
+      // duration would not replay it -- which is exactly when a cashier is
+      // tapping fastest.
+      qtyEl.classList.remove('pop');
+      void qtyEl.offsetWidth;
+      qtyEl.classList.add('pop');
+    } else {
+      renderStaged();
+    }
+    updateSaleTotal(); renderGrid(); updateArm();
   }
   function renderStaged() {
-    if (!staged.length) { $('staged-items').innerHTML = '<span class="muted">Tap a product to add it</span>'; $('sale-total').textContent = '₱0'; return; }
-    let pesos = 0, priced = true;
-    let h = '', totalQty = 0;
+    if (!staged.length) {
+      $('staged-items').innerHTML = '<span class="muted">Tap a product to add it</span>';
+      updateSaleTotal();
+      return;
+    }
+    let h = '';
     staged.forEach((it, i) => {
-      totalQty += it.qty;
-      h += '<div class="staged-card">'
+      // data-id is what lets a quantity change find its own card and update
+      // in place instead of rebuilding the whole list. See adjustStaged.
+      h += '<div class="staged-card" data-id="'+it.id+'">'
          + '<button class="staged-card-remove" data-idx="'+i+'" aria-label="Remove">&times;</button>'
          + '<div class="staged-card-text">'
          + '<span class="staged-card-name">'+it.name+'</span>'
@@ -1733,21 +1872,27 @@ button, .btn, .product-card, .staged-card, .tab {
          + '<button class="staged-step" data-id="'+it.id+'" data-delta="1" aria-label="One more">+</button>'
          + '</div>';
     });
+    $('staged-items').innerHTML = h;
+    updateSaleTotal();
+  }
+
+  // Split out of renderStaged so a quantity change can refresh the total
+  // without rebuilding the list underneath the finger that caused it.
+  //
+  // Pesos only. The per-product press count is already on each staged card,
+  // and that is the number that matters -- the customer presses each
+  // product's own button its own number of times, so a total across products
+  // was never something anyone acts on. Falls back to presses if any staged
+  // product has no price, so the strip still says something true rather than
+  // a total that isn't.
+  function updateSaleTotal() {
+    if (!staged.length) { $('sale-total').textContent = '₱0'; return; }
+    let pesos = 0, priced = true, totalQty = 0;
     staged.forEach((it) => {
+      totalQty += it.qty;
       if (prices[it.id] == null) priced = false;
       else pesos += prices[it.id] * it.qty;
     });
-
-    $('staged-items').innerHTML = h;
-    // Presses stay: they tell the customer how many times to push the button.
-    // Pesos are what the cashier collects, so show both rather than trading
-    // one for the other.
-    // Pesos only. The per-product press count is already on each staged card,
-    // and that is the number that matters -- the customer presses each
-    // product's own button its own number of times, so a total across
-    // products was never something anyone acts on.
-    // Falls back to presses if any staged product has no price, so the strip
-    // still says something rather than showing a total that isn't the truth.
     const presses = totalQty + ' press' + (totalQty !== 1 ? 'es' : '');
     $('sale-total').textContent = priced ? '₱' + pesos : presses;
   }
@@ -1761,7 +1906,11 @@ button, .btn, .product-card, .staged-card, .tab {
   // API
   async function executeArm() {
     if (!staged.length) return;
-    $('btn-arm').disabled = true; $('btn-arm').textContent = 'Please wait...';
+    // Busy, not merely disabled -- see .btn.is-busy. "Please wait..." on a
+    // button faded to 25% reads as broken; the shimmer reads as working.
+    $('btn-arm').disabled = true;
+    $('btn-arm').classList.add('is-busy');
+    $('btn-arm').textContent = 'Unlocking…';
     const sid = 'SALE-'+Date.now()+'-'+(++saleCtr);
     // Build ARM_BATCH payload: slot:qty,slot:qty,...
     const batch = staged.map(i => i.id+':'+i.qty).join(',');
@@ -1776,7 +1925,7 @@ button, .btn, .product-card, .staged-card, .tab {
         toast('Could not unlock: '+ (d.error || 'unknown'), 'error');
       }
     } catch(e) { toast('Error: '+e.message, 'error'); }
-    finally { updateArm(); }
+    finally { $('btn-arm').classList.remove('is-busy'); updateArm(); }
   }
   async function cancelSlot(id) {
     try {
