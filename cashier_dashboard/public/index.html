@@ -955,6 +955,40 @@ main.panel-hidden #right-panel {
   .grid { grid-template-rows: auto; }
   .product-card { min-height: 132px; }
 
+  /* The card was reading in three directions at once. Measured at 390px:
+     the name centred across the panel's 159px, the status left at x=11
+     because .status-row is a flex row and the panel's text-align never
+     reached it, and the count at x=138 -- hard right, alone on a line 8px
+     under the status, because .armed-qty still carried the margin-left:auto
+     that pins it correctly in the DESKTOP row layout. Centre, then left,
+     then right, down one 159px card.
+
+     A grid instead, so the count can leave the column and sit beside the two
+     text lines rather than under them: the icon spans the top, the name and
+     status stack left below it, and the count is vertically centred against
+     them on the right. That is what the desktop card already does, and it
+     takes the card from 159px to 132px -- roughly 80px less scrolling over
+     the three rows.
+
+     Every child is placed explicitly. Grid auto-placement puts items with a
+     definite row BEFORE auto-placed ones, which is exactly how the staged
+     card's steppers once stole columns 1-2 from the name. */
+  .product-card {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    column-gap: 10px; row-gap: 8px;
+  }
+  .product-card .product-icon { grid-column: 1 / -1; grid-row: 1; }
+  .product-card .text-panel   { grid-column: 1; grid-row: 2; text-align: left; }
+  .product-card .armed-qty {
+    grid-column: 2; grid-row: 2;
+    /* The gutter is the grid's job now; the auto margin was what stranded
+       this in the corner. min-width and the right alignment stay, so all six
+       counts still line up as a column down the grid. */
+    margin-left: 0; padding-left: 0;
+  }
+
   /* Stack the waiting list under the products instead of beside them.
      main became a FLEX row when the right panel learned to collapse, but the
      768px rule above still speaks in grid properties -- and grid-template-
@@ -1004,6 +1038,41 @@ main.panel-hidden #right-panel {
      width as the day's takings climb. */
   #chips .chip-today .chip-v { min-width: 52px; }
   #kpi-today-card.chip-today .chev { margin-left: 6px; }
+  /* The state chip reserves 118px so it cannot resize as the phrase changes
+     from "Ready" to "Buttons Unlocked" -- right on a single-row header, and
+     pointless here, where the grid column already fixes the width. What it
+     cost was the alignment: "Ready" is about 45px of ink, so the chip was
+     73px of empty pill with one bold word jammed against its left edge,
+     beside three chips that all read label-left, figure-right.
+
+     Centred, with a dot ahead of the word. The dot takes currentColor, which
+     refresh() already sets on this element per state -- red offline, amber
+     paused -- so a dead machine is no longer announced by the shade of a
+     single word. */
+  /* The columns are pinned, not merely equal. A bare 1fr is minmax(AUTO, 1fr),
+     so a chip whose content is nowrap can push its column past half the header
+     and drag the other three chips out of line with it -- which is exactly
+     what happened once the reservation came off: the state chip went 168px to
+     177px the moment the phrase became "Buttons Unlocked". minmax(0, 1fr)
+     makes the halves absolute, so no phrase can move the grid. */
+  #chips { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  #chips .chip-state { justify-content: center; overflow: hidden; }
+  #chips .chip-state .chip-v {
+    min-width: 0; text-align: center;
+    display: inline-flex; align-items: center; gap: 7px;
+    /* With the column fixed, the type has to fit the worst case rather than
+       the common one -- "Buttons Unlocked" is more than twice the width of
+       "Ready". Sizing everything down to the 12px that phrase needs at 360
+       would shrink the states you actually read all day, so the size follows
+       the width instead: 12.2px at 360, 13.3px at 390, 14.6px at 430, and the
+       full 15px from 441 up. Measured with the longest phrase at each -- fits
+       with nothing clipped and no overflow. */
+    font-size: clamp(12px, 3.4vw, 15px);
+  }
+  #chips .chip-state .chip-v::before {
+    content: ''; width: 8px; height: 8px; border-radius: 50%;
+    background: currentColor; flex-shrink: 0;
+  }
   #status-bar .status-right {
     grid-column: 1 / -1;
     display: flex; align-items: center; justify-content: space-between; gap: 10px;
@@ -1035,7 +1104,10 @@ main.panel-hidden #right-panel {
   .product-card { flex-direction: column; align-items: stretch; gap: 8px; padding: 10px; min-height: auto; }
   .product-icon { width: 100%; max-width: none; aspect-ratio: auto; height: 64px; border-radius: 8px; }
   .product-icon svg { width: 28px; height: 28px; }
-  .product-card .text-panel { padding: 0; text-align: center; }
+  /* Left, to match the 640 rule above -- this block is later in the sheet
+     and at equal specificity it would otherwise re-centre the name and put
+     the third alignment straight back. */
+  .product-card .text-panel { padding: 0; text-align: left; }
   .product-card .product-name { font-size: 12px; }
   .product-card .armed-qty { font-size: 24px; }
   .product-card .status-row { font-size: 10px; gap: 6px; }
