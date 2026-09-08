@@ -913,6 +913,51 @@ main.panel-hidden #right-panel {
   /* Rows sized by content, not by a budget that no longer exists. */
   .grid { grid-template-rows: auto; }
   .product-card { min-height: 132px; }
+
+  /* Stack the waiting list under the products instead of beside them.
+     main became a FLEX row when the right panel learned to collapse, but the
+     768px rule above still speaks in grid properties -- and grid-template-
+     columns does nothing to a flex container. So on a phone the panel kept
+     its fixed 260px and the six product cards shared what was left: measured
+     at 390px wide, each grid column came out ~55px and every product name was
+     clipped to "01P". This is the rule that rule was meant to be. */
+  main { flex-direction: column; }
+  main > section { flex: 0 0 auto; }
+  #right-panel {
+    flex: 0 0 auto; width: 100%; max-width: none;
+    /* The page scrolls on a phone, so the panel must not become a second
+       scroller inside it. */
+    overflow: visible;
+    /* Sliding a full-width block open and shut down the middle of a phone is
+       motion for its own sake. It still collapses, just instantly. */
+    transition: none;
+  }
+
+  /* The chips are nowrap and sat on a single 556px line, which made the whole
+     document 556px wide and let every phone screen pan sideways -- 166px of
+     horizontal overflow at 390px, 196px at 360px. Let them wrap. */
+  #status-bar .status-left { flex-wrap: wrap; min-width: 0; row-gap: 6px; }
+  #chips { flex-wrap: wrap; row-gap: 6px; }
+
+  /* 28px is not a thumb target. These sit in the waiting list and each one
+     voids credits a customer has paid for, so they are the last controls on
+     the page that should be hard to hit accurately. */
+  .btn-negative, #btn-cancel-all, .btn-sm { min-height: 40px; }
+
+  /* Alert and dispensing rows carry two children, but .list-row is a
+     four-column grid whose first track is 20px -- so the label landed in that
+     20px column and broke into four lines. Measured: label=20x70 for
+     "SLOT 04: Product 4". Flex, so the label gets the row.
+
+     NOTE: this is not a phone bug. The same row measures 20x70 at 1280 and
+     1024 too; it is only fixed here because the till layout was to be left
+     alone. Worth lifting out of this block when that changes. */
+  #alert-list .list-row, #queue-list .list-row {
+    display: flex; justify-content: space-between; align-items: center; gap: 10px;
+  }
+  #alert-list .list-row > :first-child, #queue-list .list-row > :first-child {
+    min-width: 0;
+  }
 }
 
 @media (max-width: 480px) {
