@@ -45,28 +45,42 @@
   --shadow:        0 1px 2px rgba(16, 24, 40, .04), 0 8px 24px rgba(16, 24, 40, .06);
   --shadow-soft:   0 1px 2px rgba(16, 24, 40, .04);
 
-  --font:          'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  --font-display:  'Poppins', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  /* One family for the whole screen, as the mockup draws it. Inter stays in
+     the stack as the fallback that renders while the webfont loads and if it
+     ever fails -- both are neutral grotesques, so the swap does not reflow
+     noticeably. */
+  --font:          'Helvetica Neue LT', 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-display:  'Helvetica Neue LT', 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 }
 
-/* The fonts are already self-hosted for the other dashboard. Declared again
-   because @font-face is scoped to the document, not the stylesheet -- the
-   browser still fetches each file only once. Paths are relative to THIS file,
-   which lives in css/, hence ../fonts/. */
+/* ---- Helvetica Neue, supplied with the v2 artwork ------------------------
+   Converted from the delivered OTFs to subset WOFF2: 615KB of Roman becomes
+   21KB once it carries only the ~200 characters this dashboard draws. The set
+   is 40KB against 1.5MB of originals.
+
+   Named 'Helvetica Neue LT' on purpose. Plain "Helvetica Neue" is installed on
+   every Mac and iPad, and a bare @font-face of that name races the local copy
+   -- the iPad would render its own cut and the tablet ours, from the same CSS.
+
+   ONLY 400 AND 700 ARE SHIPPED. The delivered Medium (500) has no U+20B1 PESO
+   SIGN, and every money figure on this screen begins with one; at weight 500
+   the peso alone would drop to a fallback font mid-figure. CSS weight matching
+   resolves 500 down to 400 and 600 up to 700, and both of those cuts have the
+   glyph, so the money always renders in one typeface. Do not add a 500 face
+   without checking its cmap for U+20B1 first. */
+@font-face { font-family:'Helvetica Neue LT'; font-style:normal; font-weight:400; font-display:swap;
+             src:url('../fonts/helvetica-neue-400.woff2') format('woff2'); }
+@font-face { font-family:'Helvetica Neue LT'; font-style:normal; font-weight:700; font-display:swap;
+             src:url('../fonts/helvetica-neue-700.woff2') format('woff2'); }
+
+/* Inter is the fallback and is already self-hosted for the other dashboard.
+   @font-face is scoped to the document rather than the stylesheet, so it is
+   declared again here; the browser still fetches each file only once. Paths
+   are relative to THIS file, which lives in css/, hence ../fonts/. */
 @font-face { font-family:'Inter'; font-style:normal; font-weight:400; font-display:swap;
              src:url('../fonts/inter-v20-latin-regular.woff2') format('woff2'); }
-@font-face { font-family:'Inter'; font-style:normal; font-weight:500; font-display:swap;
-             src:url('../fonts/inter-v20-latin-500.woff2') format('woff2'); }
-@font-face { font-family:'Inter'; font-style:normal; font-weight:600; font-display:swap;
-             src:url('../fonts/inter-v20-latin-600.woff2') format('woff2'); }
 @font-face { font-family:'Inter'; font-style:normal; font-weight:700; font-display:swap;
              src:url('../fonts/inter-v20-latin-700.woff2') format('woff2'); }
-@font-face { font-family:'Poppins'; font-style:normal; font-weight:500; font-display:swap;
-             src:url('../fonts/poppins-v24-latin-500.woff2') format('woff2'); }
-@font-face { font-family:'Poppins'; font-style:normal; font-weight:600; font-display:swap;
-             src:url('../fonts/poppins-v24-latin-600.woff2') format('woff2'); }
-@font-face { font-family:'Poppins'; font-style:normal; font-weight:700; font-display:swap;
-             src:url('../fonts/poppins-v24-latin-700.woff2') format('woff2'); }
 
 /* ---------------------------------------------------------------------------
    RESET / SHELL
@@ -501,6 +515,74 @@ button { font: inherit; color: inherit; }
 }
 .v2-today-row span:last-child { font-weight: 600; font-variant-numeric: tabular-nums; }
 .v2-today-empty { color: var(--ink-2); text-align: center; padding: 18px; }
+
+/* ---- settings ------------------------------------------------------------ */
+#settings-panel {
+  position: fixed; inset: 0; z-index: 55;
+  background: rgba(16, 24, 40, .45);
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+}
+#settings-panel[hidden] { display: none; }
+.v2-sheet-wide { width: min(620px, 100%); }
+
+.v2-group { margin-top: 22px; }
+.v2-group-label {
+  font-size: 12px; font-weight: 700; letter-spacing: .07em;
+  text-transform: uppercase; color: var(--ink-2);
+  padding-bottom: 8px; margin-bottom: 10px;
+  border-bottom: 1px solid var(--line);
+}
+.v2-note { font-size: 13px; color: var(--ink-2); line-height: 1.5; margin: 0 0 10px; }
+.v2-note-row { display: flex; align-items: center; gap: 14px; margin-top: 10px; }
+.v2-note-row .v2-note { margin: 0; flex: 1 1 auto; }
+.v2-history { font-size: 12px; color: var(--ink-3); margin-top: 8px; }
+
+.v2-info-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 14px; padding: 8px 0; font-size: 15px;
+}
+.v2-info-v { color: var(--ink-2); font-size: 14px; text-align: right; word-break: break-all; }
+/* A toggle that is on should look on, not merely be labelled it. */
+.v2-btn-ghost.is-on {
+  border-color: var(--teal); color: var(--teal-strong);
+  background: var(--teal-tint);
+}
+
+.v2-price-row, .v2-prime-row, .v2-wait-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 8px 0;
+}
+.v2-price-row span:first-child, .v2-prime-name, .v2-wait-name {
+  flex: 1 1 auto; min-width: 0; font-size: 15px;
+  /* The name is the thing that varies in length; it yields, not the control
+     beside it. */
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.v2-peso { color: var(--ink-2); font-size: 15px; }
+.v2-price-row input {
+  width: 88px; height: 48px; padding: 0 12px;
+  border: 1px solid var(--line-strong); border-radius: 12px;
+  background: var(--surface);
+  font-family: var(--font); font-size: 16px; font-weight: 600;
+  font-variant-numeric: tabular-nums; text-align: right;
+  color: var(--ink);
+}
+.v2-price-row input.dirty { border-color: var(--teal); background: var(--teal-tint); }
+
+.v2-prime-why, .v2-wait-why {
+  display: block; font-size: 12px; color: var(--ink-3); font-weight: 400;
+}
+.v2-prime-count { font-size: 12px; color: var(--ink-3); min-width: 62px; text-align: right; }
+.v2-prime-count.busy { color: #B26A00; }
+/* Armed by the first tap. The colour change IS the confirmation -- a pump that
+   starts on one mis-tap is the thing this panel must never do. */
+.v2-btn-ghost.confirm { border-color: #E0A800; color: #B26A00; background: #FFF8E6; }
+.v2-wait-qty {
+  font-size: 14px; font-weight: 600; color: var(--teal-strong);
+  font-variant-numeric: tabular-nums; min-width: 78px; text-align: right;
+}
+.v2-empty-note { font-size: 14px; color: var(--ink-3); padding: 10px 0; }
 
 #ask-backdrop { position: fixed; inset: 0; z-index: 60; background: rgba(16, 24, 40, .45); }
 #ask {

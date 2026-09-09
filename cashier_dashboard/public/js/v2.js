@@ -183,12 +183,13 @@
       }
       if (e.data.startsWith('PRICES:')) {
         try { prices = JSON.parse(e.data.slice(7)) || {}; } catch (_) { return; }
+        // Never redraw over someone mid-edit; their unsaved figures would vanish.
+        if (!priceDirty) renderPrices();
         renderCart();
         return;
       }
-      // PRIME_ACK / PRICE_ACK belong to maintenance screens this layout does
-      // not carry. Ignored rather than mis-parsed as a STATUS row.
-      if (e.data.startsWith('PRIME_ACK') || e.data.startsWith('PRICE_ACK')) return;
+      if (e.data.startsWith('PRIME_ACK')) { onPrimeAck(e.data); return; }
+      if (e.data.startsWith('PRICE_ACK')) { onPriceAck(e.data); return; }
       parseStatus(e.data);
     });
     es.addEventListener('error', () => { S.connected = false; renderAll(); });
@@ -395,7 +396,372 @@
     $('btn-cancel-all').disabled = noClear;
   }
 
-  function renderAll() { renderHeader(); renderGrid(); renderCart(); }
+  function renderAll() {
+    renderHeader(); renderGrid(); renderCart();
+    if (!$('settings-panel').hidden) { renderPrime(); renderWaiting(); }
+  }
+
+  // =========================================================================
+  // SETTINGS
+  //
+  // Ported from v1 rather than reinvented: the price editor is the same
+  // two-step contract with the controller, and the prime panel keeps the same
+  // arm-then-fire guard. The one addition is Waiting credits, which v1 showed
+  // in its right-hand panel and this layout otherwise had nowhere for.
+  // =========================================================================
+  const settingsOpen = () => !$('settings-panel').hidden;
+
+  // ---- prices -------------------------------------------------------------
+  let priceDirty = false;
+
+  function renderPrices() {
+    const el = $('price-list');
+    if (!el || !settingsOpen()) return;
+    let h = '';
+    for (let s = 1; s <= ACTIVE; s++) {
+      const v = prices[s] != null ? prices[s] : '';
+      h += '<div class="v2-price-row">'
+         + '<span>' + esc(PRODUCT[s]) + '</span>'
+         + '<span class="v2-peso">₱</span>'
+         + '<input type="number" inputmode="numeric" min="0" max="10000" step="1"'
+         + ' data-price="' + s + '" value="' + v + '"'
+         + ' aria-label="' + esc(PRODUCT[s]) + ' price">'
+         + '</div>';
+    }
+    el.innerHTML = h;
+    priceDirty = false;
+    $('btn-save-prices').disabled = true;
+  }
+
+  function markPriceDirty(input) {
+    const slot = parseInt(input.dataset.price, 10);
+    const changed = String(prices[slot] != null ? prices[slot] : '') !== input.value.trim();
+    input.classList.toggle('dirty', changed);
+    priceDirty = false;
+    $('price-list').querySelectorAll('[data-price]').forEach((i) => {
+      if (i.classList.contains('dirty')) priceDirty = true;
+    });
+    $('btn-save-prices').disabled = !priceDirty;
+  }
+
+  async function savePrices() {
+    const body = {};
+    let bad = null;
+    $('price-list').querySelectorAll('[data-price]').forEach((i) => {
+      const slot = parseInt(i.dataset.price, 10);
+      const val = parseInt(i.value, 10);
+      if (!Number.isFinite(val) || val < 0 || val > 10000) { bad = PRODUCT[slot]; return; }
+      body[slot] = val;
+    });
+    if (bad) { toast('Price for ' + bad + ' is not a whole number of pesos', 'error'); return; }
+
+    $('btn-save-prices').disabled = true;
+    try {
+      const r = await fetch('/api/prices', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prices: body }),
+      });
+      const d = await r.json();
+      if (!d.success) {
+        toast(d.reason === 'controller_offline'
+          ? 'Machine unreachable — prices not changed'
+          : 'Prices rejected: ' + (d.reason || 'unknown'), 'error');
+        $('btn-save-prices').disabled = false;
+        return;
+      }
+      if (!d.changed) { toast('No price changed', 'info'); renderPrices(); return; }
+      // The controller answers each change with PRICE_ACK. Wait for it rather
+      // than claiming success for something it may still refuse.
+      priceDirty = false;
+    } catch (e) {
+      toast('Could not save prices: ' + e.message, 'error');
+      $('btn-save-prices').disabled = false;
+    }
+  }
+
+  function onPriceAck(raw) {
+    const p = raw.split(',');
+    const slot = parseInt(p[1], 10);
+    const result = (p[2] || '').trim();
+    const name = PRODUCT[slot] || ('Slot ' + slot);
+    if (result === 'ok') { toast(name + ' price saved', 'success'); loadPriceHistory(); return; }
+    const why = {
+      sale_in_progress: 'Cannot change prices while a sale is waiting. Finish or cancel it first.',
+      invalid_price:    name + ': price must be a whole number of pesos.',
+      invalid_slot:     'Unknown product.',
+      not_saved:        name + ' changed, but could NOT be saved — it will revert on restart.',
+    };
+    toast(why[result] || (name + ': ' + result), 'error');
+  }
+
+  async function loadPriceHistory() {
+    try {
+      const d = await (await fetch('/api/prices/history')).json();
+      const el = $('price-history');
+      if (!d.changes || !d.changes.length) { el.textContent = ''; return; }
+      const c = d.changes[0];
+      const name = PRODUCT[parseInt(c.slot, 10)] || ('Slot ' + c.slot);
+      el.textContent = 'Last change: ' + name + '  ₱' + c.from + ' → ₱' + c.to
+                     + '   ' + (c.date_created || '');
+    } catch (e) { /* history is context, not essential */ }
+  }
+
+  // ---- waiting credits ----------------------------------------------------
+  // The one thing the mockup has no room for. These are presses a customer has
+  // paid for; cancelling one writes it off, so each is its own button behind a
+  // confirmation rather than a bulk sweep.
+  let waitSig = null;
+
+  function renderWaiting() {
+    const el = $('waiting-list');
+    if (!el || !settingsOpen()) return;
+
+    let sig = '', total = 0;
+    for (let s = 1; s <= ACTIVE; s++) {
+      const owed = (S.armedQty[s] || 0) + (S.queueDepth[s] || 0);
+      total += owed;
+      sig += '|' + owed + S.busy[s];
+    }
+    $('waiting-total').textContent = total;
+    if (sig === waitSig) return;
+    waitSig = sig;
+
+    let h = '';
+    for (let s = 1; s <= ACTIVE; s++) {
+      const armed = S.armedQty[s] || 0, queued = S.queueDepth[s] || 0;
+      if (!armed && !queued) continue;
+      const bits = [];
+      if (armed) bits.push(armed + ' armed');
+      // queueDepth counts queued ENTRIES, not presses, so it is never summed
+      // with armed as though they were the same unit.
+      if (queued) bits.push(queued + ' queued');
+      h += '<div class="v2-wait-row">'
+         + '<span class="v2-wait-name">' + esc(PRODUCT[s])
+         +   (S.busy[s] ? '<span class="v2-wait-why">dispensing now</span>' : '')
+         + '</span>'
+         + '<span class="v2-wait-qty">' + bits.join(' + ') + '</span>'
+         + '<button class="v2-btn v2-btn-danger-ghost v2-btn-sm" type="button"'
+         +   ' data-void="' + s + '">Cancel</button>'
+         + '</div>';
+    }
+    el.innerHTML = h || '<div class="v2-empty-note">Nobody is waiting on a press.</div>';
+  }
+
+  async function voidSlot(slot) {
+    const armed = S.armedQty[slot] || 0, queued = S.queueDepth[slot] || 0;
+    const bits = [];
+    if (armed) bits.push(armed + ' armed press' + (armed !== 1 ? 'es' : ''));
+    if (queued) bits.push(queued + ' queued credit' + (queued !== 1 ? 's' : ''));
+    if (!bits.length) return;
+    const ok = await askConfirm(
+      'Cancel ' + bits.join(' and ') + ' on ' + (PRODUCT[slot] || ('Slot ' + slot))
+      + ' — already paid for?', 'Cancel Credits');
+    if (!ok) return;
+    try {
+      await fetch('/api/cancel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ productId: slot }),
+      });
+      waitSig = null;
+      toast((PRODUCT[slot] || ('Slot ' + slot)) + ' cancelled', 'caution');
+    } catch (e) { toast('Could not cancel: ' + e.message, 'error'); }
+  }
+
+  // ---- prime / clear air --------------------------------------------------
+  let primeCounts = {}, primeArmedSlot = null, primeArmTmr = null, primeSig = null;
+
+  async function loadPrimeInfo() {
+    try {
+      const d = await (await fetch('/api/prime')).json();
+      primeCounts = d.today || {};
+      $('prime-secs').textContent = d.seconds || 3;
+      $('prime-today').textContent = d.todayTotal || 0;
+      primeSig = null;
+      renderPrime();
+    } catch (e) { /* the panel is still usable without the count */ }
+  }
+
+  function disarmPrime() {
+    primeArmedSlot = null;
+    clearTimeout(primeArmTmr);
+    primeSig = null;
+    renderPrime();
+  }
+
+  function renderPrime() {
+    const el = $('prime-list');
+    if (!el || !settingsOpen()) return;
+
+    // STATUS arrives twice a second. Rebuilding blindly would swap the button
+    // out from under a finger mid-tap.
+    let sig = String(primeArmedSlot) + '|' + S.paused + '|' + S.connected;
+    for (let s = 1; s <= ACTIVE; s++) sig += '|' + (primeCounts[s] || 0) + S.wlvl[s] + S.busy[s];
+    if (sig === primeSig) return;
+    primeSig = sig;
+
+    let h = '';
+    for (let s = 1; s <= ACTIVE; s++) {
+      const n = primeCounts[s] || 0;
+      // Say WHY it cannot be pressed. A dead button with no explanation sends
+      // people hunting for a fault that is not there.
+      const why = !S.connected ? 'machine offline'
+                : S.paused     ? 'machine paused'
+                : S.wlvl[s]    ? 'tank empty — refill first'
+                : S.busy[s]    ? 'dispensing now'
+                : null;
+      const armed = primeArmedSlot === s;
+      h += '<div class="v2-prime-row">'
+         + '<span class="v2-prime-name">' + esc(PRODUCT[s])
+         +   (why ? '<span class="v2-prime-why">' + why + '</span>' : '')
+         + '</span>'
+         + '<span class="v2-prime-count' + (n > 0 ? ' busy' : '') + '">'
+         +   (n > 0 ? n + ' today' : '—') + '</span>'
+         + '<button class="v2-btn v2-btn-ghost v2-btn-sm' + (armed ? ' confirm' : '') + '"'
+         +   ' type="button" data-prime="' + s + '"' + (why ? ' disabled' : '') + '>'
+         +   (armed ? 'Tap again' : 'Clear Air') + '</button>'
+         + '</div>';
+    }
+    el.innerHTML = h;
+  }
+
+  function onPrimeTap(slot) {
+    if (primeArmedSlot !== slot) {
+      // The first tap only arms. A pump that starts on a single mis-tap is the
+      // one thing this panel must not do.
+      primeArmedSlot = slot;
+      primeSig = null;
+      renderPrime();
+      clearTimeout(primeArmTmr);
+      primeArmTmr = setTimeout(disarmPrime, 5000);
+      toast('Tap again to clear air from ' + PRODUCT[slot], 'info');
+      return;
+    }
+    disarmPrime();
+    doPrime(slot);
+  }
+
+  async function doPrime(slot) {
+    try {
+      const r = await fetch('/api/prime', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slot: slot }),
+      });
+      const d = await r.json();
+      if (!d.success) {
+        toast(d.reason === 'controller_offline'
+          ? 'Machine unreachable — nothing was sent'
+          : 'Could not clear air: ' + (d.reason || 'unknown'), 'error');
+      }
+      // Success here only means the command was sent. The controller decides,
+      // and answers with PRIME_ACK over SSE.
+    } catch (e) { toast('Could not clear air: ' + e.message, 'error'); }
+  }
+
+  function onPrimeAck(raw) {
+    const p = raw.split(',');
+    const slot = parseInt(p[1], 10);
+    const result = (p[2] || '').trim();
+    const name = PRODUCT[slot] || ('Slot ' + slot);
+    if (result === 'ok') { toast('Cleared air from ' + name, 'success'); loadPrimeInfo(); return; }
+    const why = {
+      slot_busy:        name + ' is dispensing — try again in a moment.',
+      tank_empty:       name + ' tank is empty — refill first.',
+      machine_paused:   'Machine is paused.',
+      invalid_slot:     'Unknown product.',
+    };
+    toast(why[result] || (name + ': ' + result), 'error');
+  }
+
+  // ---- fullscreen ---------------------------------------------------------
+  // Remembered, because fullscreen itself cannot be: no page may put itself
+  // fullscreen on load, so the tablet comes up windowed and enters on the
+  // first touch, which is a gesture and therefore allowed.
+  const FS_KEY = 'sabon-v2-fullscreen';
+  function setupFullscreen() {
+    const root = document.documentElement;
+    if (!root.requestFullscreen || !document.exitFullscreen) return;  // iOS: video only
+    const btn = $('btn-fullscreen');
+    $('row-fullscreen').hidden = false;
+
+    let want = false;
+    try { want = localStorage.getItem(FS_KEY) === '1'; } catch (e) {}
+
+    const paint = () => {
+      btn.textContent = want ? 'On' : 'Off';
+      btn.classList.toggle('is-on', want);
+      btn.setAttribute('aria-pressed', want ? 'true' : 'false');
+    };
+    const remember = (on) => {
+      want = on;
+      try { on ? localStorage.setItem(FS_KEY, '1') : localStorage.removeItem(FS_KEY); } catch (e) {}
+      paint();
+    };
+    const go = () => {
+      if (document.fullscreenElement) return null;
+      const p = root.requestFullscreen();
+      if (p && p.catch) p.catch(() => {});
+      return p;
+    };
+
+    btn.addEventListener('click', () => {
+      if (want) {
+        remember(false);
+        if (document.fullscreenElement) {
+          const p = document.exitFullscreen();
+          if (p && p.catch) p.catch(() => {});
+        }
+      } else { remember(true); go(); }
+    });
+
+    // Re-arm rather than give up. Chrome grants activation on click/touchend,
+    // never on pointerdown, and a refused request must not clear the setting.
+    let armed = false;
+    function arm() {
+      if (armed) return;
+      armed = true;
+      ['click', 'touchend', 'keyup'].forEach((e) =>
+        document.addEventListener(e, tryRestore, true));
+    }
+    function disarm() {
+      armed = false;
+      ['click', 'touchend', 'keyup'].forEach((e) =>
+        document.removeEventListener(e, tryRestore, true));
+    }
+    function tryRestore() {
+      if (!want || document.fullscreenElement) { disarm(); return; }
+      const p = go();
+      if (p && p.then) p.then(disarm, () => {});   // refused: stay armed
+      else disarm();
+    }
+    document.addEventListener('fullscreenchange', () => {
+      if (!document.fullscreenElement && want) arm();
+    });
+    if (want) arm();
+    paint();
+  }
+
+  async function loadMachineInfo() {
+    try {
+      const d = await (await fetch('/api/info')).json();
+      $('info-machine').textContent = d.machineId || '--';
+      $('info-url').textContent = d.lanUrl || location.origin;
+      $('info-controller').textContent = d.controllerConnected ? 'Connected' : 'Not connected';
+    } catch (e) { /* the sheet still opens */ }
+  }
+
+  function openSettings() {
+    $('settings-panel').hidden = false;
+    primeSig = null; waitSig = null;
+    renderPrices(); renderPrime(); renderWaiting();
+    loadPrimeInfo(); loadPriceHistory(); loadMachineInfo();
+  }
+  function closeSettings() {
+    $('settings-panel').hidden = true;
+    disarmPrime();
+  }
 
   // -------------------------------------------------------------------------
   // Cart mutation  --  the only place `cart` changes
@@ -583,15 +949,35 @@
       if (ev.target === $('today-panel')) closeToday();   // the backdrop only
     });
     document.addEventListener('keydown', (ev) => {
-      if (ev.key === 'Escape' && !$('today-panel').hidden) closeToday();
+      if (ev.key !== 'Escape') return;
+      // Innermost first, so Escape does not shut the sheet behind a dialog.
+      if (!$('ask').hidden) return;                        // the dialog owns it
+      if (!$('today-panel').hidden) { closeToday(); return; }
+      if (!$('settings-panel').hidden) closeSettings();
     });
 
-    // The handoff keeps Settings unchanged behind the gear, but that screen is
-    // not ported to this layout yet. Saying so beats a button that swallows the
-    // tap and looks broken.
-    $('btn-settings').addEventListener('click', () => {
-      toast('Settings still lives on the old dashboard', 'caution');
+    // Settings
+    $('btn-settings').addEventListener('click', openSettings);
+    $('btn-settings-close').addEventListener('click', closeSettings);
+    $('settings-panel').addEventListener('click', (ev) => {
+      if (ev.target === $('settings-panel')) closeSettings();   // the backdrop only
     });
+
+    // Delegated: all three lists are rebuilt from scratch as status arrives.
+    $('price-list').addEventListener('input', (ev) => {
+      if (ev.target.dataset.price) markPriceDirty(ev.target);
+    });
+    $('btn-save-prices').addEventListener('click', savePrices);
+    $('prime-list').addEventListener('click', (ev) => {
+      const b = ev.target.closest('[data-prime]');
+      if (b && !b.disabled) onPrimeTap(parseInt(b.dataset.prime, 10));
+    });
+    $('waiting-list').addEventListener('click', (ev) => {
+      const b = ev.target.closest('[data-void]');
+      if (b) voidSlot(parseInt(b.dataset.void, 10));
+    });
+
+    setupFullscreen();
   }
 
   // -------------------------------------------------------------------------
