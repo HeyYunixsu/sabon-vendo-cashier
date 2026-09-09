@@ -287,6 +287,32 @@ function broadcastSSE(data) {
 
 const app = express();
 app.use(express.json());
+// ---------------------------------------------------------------------------
+// Which dashboard answers at /
+//
+// v2 is the one under active work, so it is what the counter gets. v1 is NOT
+// deleted -- it still answers at /v1, so a tablet can fall back to a known
+// working screen without waiting for a deploy. Undoing this is this block and
+// nothing else.
+//
+// These sit above express.static deliberately: static would otherwise serve
+// public/index.html for "/" on its own, and the first matching handler wins.
+// ---------------------------------------------------------------------------
+const PUBLIC_DIR = path.join(__dirname, 'public');
+
+// sendFile does not run the static middleware's setHeaders, so the no-stale
+// rule is applied here too -- otherwise the one file most likely to change
+// during this work would be the one the tablet caches hardest.
+function sendPage(res, file) {
+  res.set('Cache-Control', 'no-cache');
+  res.sendFile(path.join(PUBLIC_DIR, file));
+}
+
+// /index.html is included so an existing bookmark or home-screen shortcut
+// lands on v2 rather than quietly staying on the old screen.
+app.get(['/', '/index.html', '/v2', '/v2.html'], (req, res) => sendPage(res, 'v2.html'));
+app.get(['/v1', '/v1.html'], (req, res) => sendPage(res, 'index.html'));
+
 // The markup, styles and behaviour are now three separate downloads, so the
 // browser can hold a MISMATCHED set -- new index.html with last week's CSS.
 // On a tablet locked in fullscreen that shows up as a broken layout the

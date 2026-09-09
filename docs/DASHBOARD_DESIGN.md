@@ -46,6 +46,31 @@ cashier_dashboard/
         └── poppins-v24-latin-700.woff2
 ```
 
+## Which dashboard is served
+
+There are two, and **v2 is what the counter gets**.
+
+| URL | Serves | Files |
+|---|---|---|
+| `/` , `/index.html` | **v2** (current) | `v2.html`, `css/v2.css`, `js/v2.js` |
+| `/v1` , `/v1.html` | v1 (previous) | `index.html`, `css/01-..04-*.css`, `js/app.js` |
+
+The routes are near the top of `server.js`, deliberately **above**
+`express.static` — static would otherwise serve `public/index.html` for `/` on
+its own, and the first matching handler wins. `/index.html` is routed to v2 as
+well, so an existing bookmark or home-screen shortcut does not quietly stay on
+the old screen.
+
+v1 is not deleted. It still answers at `/v1`, so a tablet can fall back to a
+known working screen without waiting for a deploy. Putting v1 back in charge is
+that one block in `server.js` and nothing else.
+
+The two share the fonts and the API and nothing else — no CSS, no JS — so work
+on one cannot break the other. Both talk to the same controller over the same
+SSE stream, so they can be open at once and stay in step.
+
+---
+
 **Key design choice:** No CDN dependencies, no build step. The fonts load from
 `fonts/` as `@font-face` with `font-display: swap` — fully offline.
 
