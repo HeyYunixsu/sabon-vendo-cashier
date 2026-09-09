@@ -1,0 +1,665 @@
+/* ===========================================================================
+   V2 LAYOUT  --  stylesheet for v2.html only.
+
+   Deliberately shares nothing with 01-base..04-components. Those style the
+   live dashboard, and the point of building this alongside is that a mistake
+   here cannot reach the counter.
+
+   One file, unlike the four the old layout needs. That split exists because
+   1,579 lines had grown in no particular order; this sheet is written in
+   order from the start -- tokens, shell, panels, components, then one fenced
+   responsive region at the end. If it ever grows enough to need cutting, cut
+   it on the banners.
+   =========================================================================== */
+
+/* ---------------------------------------------------------------------------
+   TOKENS
+   Sampled from the mockup. Teal is the only accent; green and red are kept
+   for meaning (ready / add, remove / cancel) so they still carry one.
+   --------------------------------------------------------------------------- */
+:root {
+  --bg:            #EEF1F5;
+  --surface:       #FFFFFF;
+  --surface-sub:   #F7F9FA;
+
+  --ink:           #1F2A37;
+  --ink-2:         #6B7684;
+  --ink-3:         #98A2B3;
+
+  --line:          #E6EAEF;
+  --line-strong:   #D3DAE2;
+
+  --teal:          #00A8A4;
+  --teal-strong:   #009D99;
+  --teal-tint:     #E4F6F5;
+  --teal-tint-2:   #D2EFEE;
+
+  --green:         #22B364;
+  --green-tint:    #DDF5E7;
+  --red:           #E5484D;
+  --red-tint:      #FDE7E8;
+
+  --r-card:        24px;
+  --r-panel:       18px;
+  --r-pill:        999px;
+  --shadow:        0 1px 2px rgba(16, 24, 40, .04), 0 8px 24px rgba(16, 24, 40, .06);
+  --shadow-soft:   0 1px 2px rgba(16, 24, 40, .04);
+
+  --font:          'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-display:  'Poppins', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* The fonts are already self-hosted for the other dashboard. Declared again
+   because @font-face is scoped to the document, not the stylesheet -- the
+   browser still fetches each file only once. Paths are relative to THIS file,
+   which lives in css/, hence ../fonts/. */
+@font-face { font-family:'Inter'; font-style:normal; font-weight:400; font-display:swap;
+             src:url('../fonts/inter-v20-latin-regular.woff2') format('woff2'); }
+@font-face { font-family:'Inter'; font-style:normal; font-weight:500; font-display:swap;
+             src:url('../fonts/inter-v20-latin-500.woff2') format('woff2'); }
+@font-face { font-family:'Inter'; font-style:normal; font-weight:600; font-display:swap;
+             src:url('../fonts/inter-v20-latin-600.woff2') format('woff2'); }
+@font-face { font-family:'Inter'; font-style:normal; font-weight:700; font-display:swap;
+             src:url('../fonts/inter-v20-latin-700.woff2') format('woff2'); }
+@font-face { font-family:'Poppins'; font-style:normal; font-weight:500; font-display:swap;
+             src:url('../fonts/poppins-v24-latin-500.woff2') format('woff2'); }
+@font-face { font-family:'Poppins'; font-style:normal; font-weight:600; font-display:swap;
+             src:url('../fonts/poppins-v24-latin-600.woff2') format('woff2'); }
+@font-face { font-family:'Poppins'; font-style:normal; font-weight:700; font-display:swap;
+             src:url('../fonts/poppins-v24-latin-700.woff2') format('woff2'); }
+
+/* ---------------------------------------------------------------------------
+   RESET / SHELL
+   --------------------------------------------------------------------------- */
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font);
+  font-size: 15px;
+  line-height: 1.4;
+  -webkit-font-smoothing: antialiased;
+  /* Removes double-tap-to-zoom and leaves pinch-zoom alone. Not inherited, so
+     it is repeated on every tappable thing below. */
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+button { font: inherit; color: inherit; }
+
+#v2 {
+  min-height: 100dvh;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.v2-card {
+  background: var(--surface);
+  border-radius: var(--r-card);
+  box-shadow: var(--shadow);
+}
+
+/* ---------------------------------------------------------------------------
+   HEADER
+   --------------------------------------------------------------------------- */
+#v2-header {
+  display: grid;
+  /* Stats takes what is left; identity is sized by its content so the clock
+     never drifts away from the right edge. */
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px;
+  flex: 0 0 auto;
+}
+
+#v2-stats {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 16px;
+  min-width: 0;
+}
+
+.v2-chip {
+  display: inline-flex; align-items: center; gap: 12px;
+  height: 48px; padding: 0 22px;
+  background: var(--surface-sub);
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  white-space: nowrap;
+}
+.v2-chip-k { font-size: 15px; font-weight: 500; color: var(--ink-2); }
+.v2-chip-sep { width: 1px; height: 20px; background: var(--line-strong); flex: 0 0 auto; }
+.v2-chip-v {
+  font-family: var(--font-display);
+  font-size: 17px; font-weight: 700; color: var(--ink);
+  /* Reserved width and tabular figures, so a chip cannot resize as its number
+     changes and shove the row around mid-sale. */
+  font-variant-numeric: tabular-nums;
+  min-width: 18px; text-align: center;
+}
+#chip-state .v2-chip-v { min-width: 0; }
+/* Stock is the figure that means trouble when it drops, so it is coloured by
+   value rather than staying quiet like the rest. Class set from v2.js. */
+#kpi-stock.is-full     { color: var(--green); }
+#kpi-stock.is-low      { color: #D98A00; }
+#kpi-stock.is-critical { color: var(--red); }
+/* Waiting only earns attention while a customer still owes presses. */
+#chip-waiting.is-live { border-color: var(--teal); }
+#chip-waiting.is-live .v2-chip-v { color: var(--teal); }
+
+.v2-chip-today {
+  background: var(--teal); border-color: var(--teal);
+  cursor: pointer; padding-right: 16px;
+  touch-action: manipulation;
+}
+.v2-chip-today .v2-chip-k { color: rgba(255,255,255,.9); }
+.v2-chip-today .v2-chip-v { color: #fff; }
+.v2-chip-today .v2-chip-sep { background: rgba(255,255,255,.4); }
+.v2-chev { display: inline-flex; align-items: center; color: rgba(255,255,255,.95); margin-left: 2px; }
+.v2-chev svg { width: 14px; height: 14px; display: block; }
+
+#v2-identity {
+  display: flex; align-items: center; gap: 16px;
+  padding: 14px 22px;
+}
+.v2-logo {
+  width: 34px; height: 34px; flex: 0 0 auto;
+  display: inline-flex; align-items: center; justify-content: center;
+  color: var(--teal);
+}
+.v2-logo svg { width: 100%; height: 100%; display: block; }
+.v2-who { font-size: 17px; font-weight: 500; white-space: nowrap; }
+.v2-vsep { width: 1px; height: 26px; background: var(--line-strong); flex: 0 0 auto; }
+.v2-clock {
+  font-family: var(--font-display);
+  font-size: 16px; font-weight: 500; color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  /* A fixed box, or the header twitches once a second. */
+  min-width: 92px; text-align: right;
+}
+
+.v2-icon-btn {
+  width: 48px; height: 48px; flex: 0 0 auto;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: transparent; border: none; border-radius: 50%;
+  color: var(--ink); cursor: pointer;
+  touch-action: manipulation;
+}
+.v2-icon-btn svg { width: 22px; height: 22px; display: block; }
+
+#offline-banner {
+  background: var(--red); color: #fff;
+  padding: 10px 16px; border-radius: var(--r-panel);
+  font-size: 14px; font-weight: 600;
+  flex: 0 0 auto;
+}
+#offline-banner[hidden] { display: none; }
+#offline-retry { text-decoration: underline; cursor: pointer; margin-left: 6px; }
+
+/* ---------------------------------------------------------------------------
+   MAIN  --  products left, cart right
+   --------------------------------------------------------------------------- */
+#v2-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 400px;
+  gap: 16px;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.v2-panel-title {
+  font-family: var(--font-display);
+  font-size: 22px; font-weight: 600; margin: 0 0 20px;
+}
+
+#v2-products {
+  padding: 24px;
+  display: flex; flex-direction: column;
+  min-width: 0;
+}
+
+/* ---------------------------------------------------------------------------
+   PRODUCT CARDS
+   --------------------------------------------------------------------------- */
+.v2-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  /* Two fixed rows. A sale must not move the grid under a finger, so the rows
+     are reserved whether or not every slot is filled. */
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.v2-prod {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 118px) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: 10px 16px;
+  align-items: center;
+  padding: 16px;
+  background: var(--surface);
+  border: 2px solid var(--line);
+  border-radius: var(--r-panel);
+  transition: border-color .15s ease, box-shadow .15s ease;
+  touch-action: manipulation;
+}
+/* In the cart, so the card says so without anyone reading the number. */
+.v2-prod.in-cart { border-color: var(--teal); }
+.v2-prod.is-empty { opacity: .55; }
+.v2-prod.is-inactive { opacity: .35; pointer-events: none; }
+
+.v2-prod-img {
+  grid-column: 1; grid-row: 1 / span 2;
+  align-self: stretch;
+  display: flex; align-items: center; justify-content: center;
+  min-width: 0; min-height: 0;
+  padding: 4px;
+  color: var(--teal);
+}
+/* Contained, never cropped -- bottles are tall and a cover fit cuts the caps
+   off. */
+.v2-prod-img img { max-width: 100%; max-height: 100%; object-fit: contain; display: block; }
+.v2-prod-img svg { width: 54px; height: 54px; }
+
+.v2-prod-text { grid-column: 2; grid-row: 1; min-width: 0; align-self: center; }
+.v2-prod-name {
+  font-family: var(--font-display);
+  font-size: 19px; font-weight: 600; line-height: 1.2;
+  /* Two lines then ellipsis. A long name must not push the stepper row down
+     and make one card taller than its neighbours. */
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
+  line-clamp: 2; overflow: hidden;
+}
+.v2-prod-ml { font-size: 15px; color: var(--ink-2); margin-top: 2px; }
+
+.v2-badge {
+  position: absolute; top: 12px; right: 12px;
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 26px; padding: 0 11px;
+  border-radius: var(--r-pill);
+  font-size: 13px; font-weight: 600;
+  background: var(--green-tint); color: #14804A;
+  pointer-events: none;
+}
+.v2-badge .v2-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+/* Colours are the handoff's, not a guess: Ready green, Dispensing amber,
+   Empty grey, Error/Offline red. Empty is grey rather than red on purpose --
+   an empty bottle is a refill, not a fault, and colouring it red spends the
+   alarm colour on the routine case. */
+.v2-badge.is-busy    { background: #FFF1D6; color: #B26A00; }
+.v2-badge.is-empty   { background: #EEF1F5; color: var(--ink-2); }
+.v2-badge.is-offline { background: var(--red-tint); color: #B42318; }
+.v2-badge.is-armed   { background: var(--teal-tint); color: var(--teal-strong); }
+.v2-badge.is-off     { background: #EEF1F5; color: var(--ink-3); }
+
+/* ---- stepper ---- */
+.v2-step-row {
+  grid-column: 2; grid-row: 2;
+  display: grid;
+  /* The steppers get a hard 48px floor and the quantity yields first. A bare
+     1fr let them compress to 44px on a narrow card at 1024 -- under the floor,
+     on the two controls the handoff calls the most-tapped on the screen. */
+  grid-template-columns: minmax(48px, 1fr) minmax(40px, .7fr) minmax(48px, 1fr);
+  gap: 8px; align-items: center;
+}
+.v2-step {
+  height: 56px; min-width: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: none; border-radius: 12px;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: transform .07s ease, filter .12s ease;
+}
+.v2-step svg { width: 26px; height: 26px; display: block; }
+/* Coloured to their symbol: taking away is red, adding is green. Working fast,
+   the colour is read before the glyph. */
+.v2-step-minus { background: var(--red-tint);   color: var(--red); }
+.v2-step-plus  { background: var(--green-tint); color: var(--green); }
+.v2-step:disabled { opacity: .4; cursor: default; }
+.v2-step-qty {
+  height: 56px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--surface-sub);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  font-family: var(--font-display);
+  font-size: 20px; font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- products footer ---- */
+.v2-products-footer {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px; margin-top: 16px; flex: 0 0 auto;
+}
+
+/* ---------------------------------------------------------------------------
+   CART
+   --------------------------------------------------------------------------- */
+#v2-cart {
+  padding: 24px;
+  display: flex; flex-direction: column;
+  min-height: 0; min-width: 0;
+}
+.v2-cart-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; padding-bottom: 16px;
+  border-bottom: 1px solid var(--line);
+  flex: 0 0 auto;
+}
+.v2-cart-title {
+  display: inline-flex; align-items: center; gap: 12px;
+  font-family: var(--font-display);
+  font-size: 22px; font-weight: 600;
+}
+.v2-cart-ico { width: 26px; height: 26px; color: var(--teal); flex: 0 0 auto; }
+
+/* The list scrolls inside itself. Growing the panel instead would push the
+   totals and Unlock off the bottom of a tablet exactly when the sale is
+   biggest. */
+#v2-cart-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 14px 0; }
+.v2-cart-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+
+.v2-cart-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto auto;
+  align-items: center; gap: 12px;
+  padding: 12px 14px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: var(--shadow-soft);
+}
+.v2-cart-row .v2-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--green); flex: 0 0 auto; }
+.v2-cart-name { min-width: 0; }
+.v2-cart-name b {
+  display: block; font-size: 15px; font-weight: 600;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.v2-cart-name span { display: block; font-size: 12px; color: var(--ink-2); }
+.v2-cart-qty { font-size: 14px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.v2-cart-price {
+  padding: 5px 12px; border-radius: var(--r-pill);
+  background: var(--surface-sub); border: 1px solid var(--line);
+  font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums;
+}
+
+.v2-cart-empty {
+  height: 100%;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  text-align: center; padding: 24px 16px; gap: 4px;
+}
+.v2-empty-ico { width: 84px; height: 84px; color: var(--teal-tint-2); margin-bottom: 12px; }
+.v2-empty-title { font-size: 19px; font-weight: 500; margin: 0; }
+.v2-empty-sub { font-size: 15px; color: var(--ink-2); margin: 0; max-width: 26ch; }
+
+.v2-totals {
+  background: var(--teal-tint);
+  border-radius: var(--r-panel);
+  padding: 16px 20px;
+  margin-top: 14px;
+  flex: 0 0 auto;
+}
+.v2-total-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  font-size: 17px; font-weight: 500;
+  padding: 6px 0;
+}
+.v2-total-rule { height: 1px; background: rgba(0,168,164,.25); margin: 4px 0; }
+.v2-total-v {
+  font-family: var(--font-display);
+  font-size: 22px; font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.v2-total-money { color: var(--teal-strong); font-size: 26px; }
+
+/* ---------------------------------------------------------------------------
+   BUTTONS
+   --------------------------------------------------------------------------- */
+.v2-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+  min-height: 48px; padding: 0 20px;
+  border-radius: var(--r-pill);
+  border: 1px solid transparent;
+  background: transparent;
+  font-family: var(--font);
+  font-size: 15px; font-weight: 600;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: filter .12s ease, background .12s ease, border-color .12s ease;
+}
+.v2-btn:disabled { opacity: .45; cursor: default; }
+.v2-btn-ico { width: 20px; height: 20px; flex: 0 0 auto; }
+
+.v2-btn-primary { background: var(--teal); color: #fff; }
+.v2-btn-soft {
+  background: var(--teal-tint); color: var(--teal-strong);
+  border-color: var(--teal-tint-2);
+}
+.v2-btn-ghost { border-color: var(--line-strong); color: var(--ink); background: var(--surface); }
+.v2-btn-danger { background: var(--red); color: #fff; }
+.v2-btn-danger-ghost { border-color: var(--red); color: var(--red); background: var(--surface); }
+/* Smaller type and padding, but never a smaller target -- 48 is the floor
+   for everything tappable, including the per-line Cancel. */
+.v2-btn-sm { min-height: 48px; padding: 0 16px; font-size: 14px; }
+.v2-btn-lg {
+  min-height: 62px; font-size: 18px; margin-top: 14px; width: 100%;
+  flex: 0 0 auto;
+}
+.v2-btn-icon { padding: 0; width: 62px; }
+.v2-btn-icon svg { width: 22px; height: 22px; }
+
+/* Unlock takes a moment. "Please wait" on a button faded to 45% reads as
+   broken; a shimmer reads as working. */
+.v2-btn.is-busy { position: relative; overflow: hidden; opacity: 1; }
+.v2-btn.is-busy::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(100deg, transparent 20%, rgba(255,255,255,.45) 50%, transparent 80%);
+  animation: v2-shimmer 1.1s linear infinite;
+}
+@keyframes v2-shimmer { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
+
+/* Touch never sees hover, so a press has to supply its own feedback. */
+.v2-btn:active, .v2-step:active, .v2-icon-btn:active { filter: brightness(.93); }
+.v2-step:active { transform: scale(.95); }
+@media (hover: hover) {
+  .v2-btn-primary:hover { background: var(--teal-strong); }
+  .v2-btn-soft:hover { background: var(--teal-tint-2); }
+  .v2-btn-ghost:hover { border-color: var(--ink-3); }
+  .v2-btn-danger-ghost:hover { background: var(--red-tint); }
+  .v2-icon-btn:hover { background: var(--surface-sub); }
+  .v2-prod:hover { border-color: var(--line-strong); }
+  .v2-prod.in-cart:hover { border-color: var(--teal); }
+}
+:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
+
+/* ---------------------------------------------------------------------------
+   TODAY PANEL / DIALOG / TOAST
+   --------------------------------------------------------------------------- */
+#today-panel {
+  position: fixed; inset: 0; z-index: 50;
+  background: rgba(16, 24, 40, .45);
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+}
+#today-panel[hidden] { display: none; }
+.v2-sheet { width: min(520px, 100%); max-height: 80dvh; overflow-y: auto; padding: 22px; }
+.v2-sheet-head { display: flex; align-items: center; justify-content: space-between; }
+.v2-sheet-head h2 { font-family: var(--font-display); font-size: 20px; margin: 0; }
+.v2-today-total {
+  display: flex; align-items: center; justify-content: space-between;
+  background: var(--teal-tint); border-radius: var(--r-panel);
+  padding: 14px 18px; margin: 14px 0; font-weight: 500;
+}
+.v2-today-rows { display: grid; gap: 8px; }
+.v2-today-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 10px 14px; border: 1px solid var(--line); border-radius: 12px;
+}
+.v2-today-row span:last-child { font-weight: 600; font-variant-numeric: tabular-nums; }
+.v2-today-empty { color: var(--ink-2); text-align: center; padding: 18px; }
+
+#ask-backdrop { position: fixed; inset: 0; z-index: 60; background: rgba(16, 24, 40, .45); }
+#ask {
+  position: fixed; z-index: 61; left: 50%; top: 50%;
+  transform: translate(-50%, -50%);
+  width: min(440px, calc(100vw - 32px));
+  background: var(--surface); border-radius: var(--r-panel);
+  box-shadow: 0 18px 48px rgba(16, 24, 40, .28);
+  padding: 22px;
+}
+#ask-backdrop[hidden], #ask[hidden] { display: none; }
+#ask-text { font-size: 16px; font-weight: 500; line-height: 1.45; margin-bottom: 20px; }
+#ask-actions { display: flex; gap: 10px; }
+/* Equal halves, Cancel on the left. Both of this project's confirmations agree
+   on that, so one reflex is right everywhere. */
+#ask-actions .v2-btn { flex: 1 1 0; min-width: 0; min-height: 48px; }
+
+#toast {
+  position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%) translateY(8px);
+  z-index: 70; padding: 12px 20px; border-radius: var(--r-pill);
+  background: var(--surface); box-shadow: 0 10px 30px rgba(16,24,40,.18);
+  border: 1px solid var(--line);
+  font-size: 14px; font-weight: 500;
+  opacity: 0; pointer-events: none; transition: opacity .22s ease, transform .22s ease;
+}
+#toast.visible { opacity: 1; transform: translateX(-50%) translateY(0); }
+#toast.success { border-color: var(--green); color: #14804A; }
+#toast.error   { border-color: var(--red);   color: #B42318; }
+#toast.caution { border-color: #E0A800;      color: #B26A00; }
+
+/* Above 640 the per-row Cancel is a word, so the icon inside it stays out.
+   Declared before the responsive region so the phone rule can override it. */
+.v2-cart-row .v2-cancel-ico { display: none; }
+
+/* ===========================================================================
+   RESPONSIVE  --  self-contained region.
+
+   Everything width-specific lives between this banner and "end RESPONSIVE",
+   so a layout problem at one width is fixed in exactly one place.
+   =========================================================================== */
+
+/* ---- laptops: narrow the cart before touching the product grid ----------- */
+@media (max-width: 1400px) {
+  #v2-main { grid-template-columns: minmax(0, 1fr) 350px; }
+  .v2-prod { grid-template-columns: minmax(0, 96px) minmax(0, 1fr); }
+  .v2-prod-name { font-size: 17px; }
+}
+
+/* ---- tablet landscape: two product columns, three rows ------------------- */
+@media (max-width: 1180px) {
+  #v2-main { grid-template-columns: minmax(0, 1fr) 320px; }
+  .v2-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(3, minmax(0, 1fr)); }
+  .v2-chip { padding: 0 16px; gap: 10px; }
+  .v2-chip-k { font-size: 14px; }
+}
+
+/* ---- tablet portrait: the cart moves under the products ------------------
+   Below this the split stops being a split: 320px of cart against 400px of
+   products makes both unusable. Stacked, each gets the full width. */
+@media (max-width: 900px) {
+  #v2-main { grid-template-columns: minmax(0, 1fr); }
+  #v2-cart { min-height: 0; }
+  #v2-cart-body { max-height: 320px; }
+  #v2-header { grid-template-columns: minmax(0, 1fr); }
+  #v2-identity { justify-content: flex-end; }
+  #v2-stats { flex-wrap: wrap; }
+}
+
+/* ===========================================================================
+   PHONE  --  the fenced region.
+
+   Kept together on purpose. The old dashboard's phone rules are fenced the
+   same way and for the same reason: phone work should never be a diff spread
+   through the whole sheet, and it must be possible to leave it alone.
+   =========================================================================== */
+@media (max-width: 640px) {
+  #v2 { padding: 10px; gap: 10px; }
+
+  /* Header: four chips as a 2x2 block, identity on its own row.
+     align-items must be RESTATED. #v2-stats is a flex row with
+     align-items:center above, and switching display to grid does NOT reset
+     it -- centred grid items keep their natural height instead of filling the
+     row, which leaves the chips visibly ragged. Learned the hard way on the
+     other dashboard. */
+  #v2-stats {
+    display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 8px; padding: 10px;
+    align-items: stretch; grid-auto-rows: 1fr;
+  }
+  .v2-chip {
+    width: 100%; height: auto; min-height: 48px;
+    padding: 0 12px; justify-content: space-between; gap: 8px;
+  }
+  .v2-chip-sep { display: none; }
+  .v2-chip-k { font-size: 12px; }
+  .v2-chip-v { font-size: 15px; }
+  #chip-state { justify-content: center; }
+  /* Sized to the widest phrase the state can hold ("Buttons Unlocked"), not
+     the one it usually shows, so it cannot overflow its half. */
+  #chip-state .v2-chip-v { font-size: clamp(12px, 3.4vw, 15px); }
+
+  #v2-identity { padding: 10px 12px; gap: 10px; }
+  .v2-who { font-size: 15px; overflow: hidden; text-overflow: ellipsis; }
+  .v2-clock { font-size: 14px; min-width: 76px; margin-left: auto; }
+  .v2-logo { width: 28px; height: 28px; }
+
+  /* Products one per row. Two columns of bottle photo at 360px leaves nothing
+     for the name. */
+  #v2-products, #v2-cart { padding: 14px; border-radius: 18px; }
+  .v2-panel-title { font-size: 19px; margin-bottom: 14px; }
+  .v2-grid { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto; gap: 10px; }
+  .v2-prod {
+    grid-template-columns: minmax(0, 84px) minmax(0, 1fr);
+    gap: 8px 12px; padding: 12px;
+  }
+  .v2-prod-img { min-height: 84px; }
+  .v2-prod-img svg { width: 40px; height: 40px; }
+  .v2-prod-name { font-size: 16px; -webkit-line-clamp: 1; line-clamp: 1; }
+  .v2-prod-ml { font-size: 13px; }
+  /* The badge overlays the card, so the name is given room rather than running
+     underneath it. */
+  .v2-prod-text { padding-right: 68px; }
+  .v2-badge { top: 10px; right: 10px; height: 22px; font-size: 11px; padding: 0 8px; }
+  .v2-step { height: 48px; }
+  .v2-step svg { width: 22px; height: 22px; }
+  .v2-step-qty { height: 48px; font-size: 17px; }
+
+  .v2-products-footer { grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+  .v2-btn-icon { width: 52px; }
+
+  /* The cart is a window on the list, not a growing block -- growing pushes
+     the totals and Unlock off the page exactly when the sale is biggest. */
+  #v2-cart-body { max-height: 260px; padding: 10px 0; }
+  .v2-cart-title { font-size: 19px; }
+  .v2-cart-row { grid-template-columns: auto minmax(0, 1fr) auto auto; gap: 8px; padding: 10px 12px; }
+  /* The per-row Cancel becomes an icon: at 360px a worded button squeezed the
+     product name down to nothing. */
+  .v2-cart-row .v2-btn-sm { padding: 0; width: 48px; min-height: 48px; }
+  .v2-cart-row .v2-cancel-word { display: none; }
+  .v2-cart-row .v2-cancel-ico { display: block; width: 18px; height: 18px; }
+  .v2-cart-qty { font-size: 13px; }
+  .v2-cart-price { padding: 4px 9px; font-size: 13px; }
+  .v2-empty-ico { width: 60px; height: 60px; }
+  .v2-empty-title { font-size: 17px; }
+  .v2-empty-sub { font-size: 14px; }
+
+  .v2-totals { padding: 12px 14px; margin-top: 10px; }
+  .v2-total-row { font-size: 15px; padding: 4px 0; }
+  .v2-total-v { font-size: 19px; }
+  .v2-total-money { font-size: 22px; }
+  .v2-btn-lg { min-height: 56px; font-size: 16px; }
+}
+/* =============================== end PHONE ================================ */
+/* ============================ end RESPONSIVE ============================== */
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: .01ms !important; animation-iteration-count: 1 !important;
+      transition-duration: .01ms !important; }
+  /* The press still has to be visible without motion, or a tablet with reduced
+     motion switched on gives no feedback at all. */
+  .v2-btn:active, .v2-step:active, .v2-icon-btn:active { filter: brightness(.9); }
+}

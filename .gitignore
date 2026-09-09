@@ -38,3 +38,12 @@ cashier_dashboard/.resolved_credits.json
 
 # editor workspace files (local, per-developer)
 *.code-workspace
+
+# Design source assets. The 1024x1536 product renders are ~1.4MB each and the
+# Helvetica Neue family another 8MB -- 15MB of originals that would sit in
+# every clone of a Raspberry Pi project forever. What the dashboard actually
+# serves is checked in: cashier_dashboard/public/img/products/*.webp, 214KB for
+# the set, re-encoded from these. Keep the originals somewhere shared instead.
+Sabon UI resources/
+drive-download-*/
+drive-download-*.zip

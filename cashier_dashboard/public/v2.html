@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Sabon Vendo</title>
+
+<!-- ===========================================================================
+     V2 LAYOUT  --  cart-on-the-right redesign.
+
+     A SECOND dashboard, served at /v2 alongside the live one at /. The counter
+     keeps running the old layout until this is signed off; nothing here can
+     break it, because they share no CSS and no JS.
+
+     Same protocol, different shape. This page speaks exactly the same API as
+     index.html -- the SSE status stream, /api/arm, /api/cancel-all -- so both
+     screens can be open at once and stay in step.
+
+     What changed from the old layout:
+       - Quantity is set ON THE PRODUCT CARD. The cart lists what was chosen
+         and offers Cancel per row; it has no steppers of its own.
+       - The staged sale is a "cart" panel down the right, always visible,
+         with its own empty state, instead of a strip that appears and vanishes.
+       - Product photos rather than drawn glyphs. See PRODUCT_IMG in v2.js for
+         where to drop the files -- until they exist each card falls back to
+         the glyph the old dashboard uses, so nothing renders broken.
+     =========================================================================== -->
+
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Sabon Vendo">
+<meta name="theme-color" content="#00A8A4">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="stylesheet" href="css/v2.css">
+</head>
+<body>
+
+<div id="v2">
+
+  <!-- ================== HEADER ================== -->
+  <header id="v2-header">
+
+    <div class="v2-card" id="v2-stats">
+      <span class="v2-chip" id="chip-waiting">
+        <span class="v2-chip-k">Waiting</span>
+        <span class="v2-chip-sep"></span>
+        <span class="v2-chip-v" id="kpi-waiting">0</span>
+      </span>
+      <span class="v2-chip" id="chip-stock">
+        <span class="v2-chip-k">Stock</span>
+        <span class="v2-chip-sep"></span>
+        <span class="v2-chip-v" id="kpi-stock">6/6</span>
+      </span>
+      <span class="v2-chip" id="chip-state">
+        <span class="v2-chip-v" id="kpi-state">Ready</span>
+      </span>
+      <button class="v2-chip v2-chip-today" id="chip-today" type="button"
+              aria-expanded="false" aria-controls="today-panel">
+        <span class="v2-chip-k">Today</span>
+        <span class="v2-chip-sep"></span>
+        <span class="v2-chip-v" id="kpi-today">&#8369;0</span>
+        <span class="v2-chev" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"
+               stroke-linecap="round" stroke-linejoin="round"><path d="M6 9.5l6 6 6-6"/></svg>
+        </span>
+      </button>
+    </div>
+
+    <div class="v2-card" id="v2-identity">
+      <!-- Placeholder mark. Swap for the real logo when it arrives; the box is
+           sized so a square asset drops straight in. -->
+      <span class="v2-logo" aria-hidden="true">
+        <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2.4"
+             stroke-linecap="round"><path d="M22 8.5C20 6.5 17.5 6 15 7c-3.5 1.4-4 5.6-1 7.3 2.6 1.5 6.5 1 8 3.4 1.6 2.6-1 6-4.6 6.2-2.6.2-4.8-1-6.4-2.9"/></svg>
+      </span>
+      <!-- Placeholder name. Nothing sits behind it yet: the dashboard has no
+           login, so whatever fills this has to come from config rather than a
+           sign-in. Static until that is decided. -->
+      <span class="v2-who" id="v2-who">Jonathan</span>
+      <button id="btn-settings" class="v2-icon-btn" type="button" aria-label="Settings" title="Settings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"
+             stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      </button>
+      <span class="v2-vsep"></span>
+      <span class="v2-clock" id="v2-clock">--:--:--</span>
+    </div>
+
+  </header>
+
+  <!-- A dropped controller is the one thing that must interrupt whatever else
+       the screen is saying, so it gets a band of its own. -->
+  <div id="offline-banner" hidden>
+    Machine unreachable. <span id="offline-retry">Retry connection</span>
+  </div>
+
+  <!-- ================== MAIN ================== -->
+  <main id="v2-main">
+
+    <!-- ---------- products ---------- -->
+    <section class="v2-card" id="v2-products">
+      <h1 class="v2-panel-title">Product List</h1>
+
+      <div id="v2-grid" class="v2-grid"><!-- rendered by v2.js --></div>
+
+      <div class="v2-products-footer">
+        <button id="btn-one-each" class="v2-btn v2-btn-soft" type="button">
+          <svg class="v2-btn-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+          Add One Of Each
+        </button>
+        <button id="btn-clear-cart" class="v2-btn v2-btn-danger-ghost v2-btn-icon" type="button"
+                aria-label="Clear the cart" title="Clear the cart">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/><path d="M10 11v6M14 11v6"/></svg>
+        </button>
+      </div>
+    </section>
+
+    <!-- ---------- cart ---------- -->
+    <aside class="v2-card" id="v2-cart">
+      <div class="v2-cart-head">
+        <span class="v2-cart-title">
+          <svg class="v2-cart-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="20" r="1.6"/><circle cx="18" cy="20" r="1.6"/><path d="M2 3h2.2l2.4 12.1a1.6 1.6 0 0 0 1.6 1.3h8.9a1.6 1.6 0 0 0 1.6-1.3L21 7H5.2"/></svg>
+          Your Cart
+        </span>
+        <button id="btn-cancel-all" class="v2-btn v2-btn-danger-ghost v2-btn-sm" type="button">Cancel All</button>
+      </div>
+
+      <div id="v2-cart-body">
+        <ul id="v2-cart-list" class="v2-cart-list"><!-- rendered by v2.js --></ul>
+
+        <div id="v2-cart-empty" class="v2-cart-empty">
+          <svg class="v2-empty-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="20" r="1.6"/><circle cx="18" cy="20" r="1.6"/><path d="M2 3h2.2l2.4 12.1a1.6 1.6 0 0 0 1.6 1.3h8.9a1.6 1.6 0 0 0 1.6-1.3L21 7H5.2"/></svg>
+          <p class="v2-empty-title">Your cart is empty</p>
+          <p class="v2-empty-sub">Select items from the product list to add to your cart</p>
+        </div>
+      </div>
+
+      <div class="v2-totals">
+        <div class="v2-total-row">
+          <span>Total Items</span>
+          <span class="v2-total-v" id="total-items">0</span>
+        </div>
+        <div class="v2-total-rule"></div>
+        <div class="v2-total-row">
+          <span>Total Amount</span>
+          <span class="v2-total-v v2-total-money" id="total-amount">&#8369;0</span>
+        </div>
+      </div>
+
+      <button id="btn-arm" class="v2-btn v2-btn-primary v2-btn-lg" type="button" disabled>
+        <svg class="v2-btn-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10.5" width="16" height="10" rx="2.2"/><path d="M8 10.5V7.6a4 4 0 0 1 8 0v2.9"/></svg>
+          <span id="btn-arm-label">Unlock Buttons</span>
+      </button>
+    </aside>
+
+  </main>
+
+  <!-- ================== TODAY PANEL ================== -->
+  <div id="today-panel" hidden>
+    <div class="v2-card v2-sheet">
+      <div class="v2-sheet-head">
+        <h2>Today</h2>
+        <button id="btn-today-close" class="v2-icon-btn" type="button" aria-label="Close">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+               stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+      </div>
+      <div class="v2-today-total">
+        <span>Takings</span><span class="v2-total-money" id="today-pesos">&#8369;0</span>
+      </div>
+      <div id="today-rows" class="v2-today-rows"></div>
+    </div>
+  </div>
+
+  <!-- ================== CONFIRM DIALOG ================== -->
+  <!-- In-page, not window.confirm(). A native dialog is drawn by the browser,
+       and Android Chrome leaves fullscreen to show it, so the kiosk visibly
+       drops out mid-sale. Same reason as the old layout. -->
+  <div id="ask-backdrop" hidden></div>
+  <div id="ask" hidden role="alertdialog" aria-modal="true" aria-labelledby="ask-text">
+    <div id="ask-text"></div>
+    <div id="ask-actions">
+      <button id="ask-no" class="v2-btn v2-btn-ghost" type="button">Cancel</button>
+      <button id="ask-yes" class="v2-btn v2-btn-danger" type="button">Confirm</button>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+
+</div>
+
+<script src="js/v2.js"></script>
+</body>
+</html>
