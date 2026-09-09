@@ -301,7 +301,10 @@
       let cls = 'v2-prod';
       if (st === 'off') cls += ' is-inactive';
       else if (st === 'empty' || st === 'offline') cls += ' is-empty';
+      // Two different borders for two different things, per the design: blue
+      // for in this cart, teal for presses the machine is already holding.
       if (qty > 0) cls += ' in-cart';
+      else if (st === 'unlocked') cls += ' is-armed';
 
       h += '<div class="' + cls + '" data-slot="' + s + '">'
          + '<div class="v2-badge' + badge.cls + '"><span class="v2-dot"></span>' + badge.label + '</div>'
@@ -879,18 +882,35 @@
     } catch (e) { /* unpriced is a legible state; leave it */ }
   }
 
+  // A colour per slot, in grid order, so a row in the Today list is picked out
+  // by its dot rather than by reading down the names.
+  const SLOT_DOT = { 1: '#1F86FF', 2: '#8B5CF6', 3: '#EC4A73',
+                     4: '#9B5DE5', 5: '#7FC8F8', 6: '#F5B93B' };
+
   async function loadToday() {
     try {
       const d = await (await fetch('/api/sales/today')).json();
       const pesos = d.pesos || 0;
       $('kpi-today').textContent = '₱' + pesos;
       $('today-pesos').textContent = '₱' + pesos;
+      $('today-presses').textContent = d.presses || 0;
 
-      const rows = (d.products || []).slice().sort((a, b) => (b.pesos || 0) - (a.pesos || 0));
-      $('today-rows').innerHTML = rows.length
-        ? rows.map((r) => '<div class="v2-today-row"><span>' + esc(r.name || '')
-            + '</span><span>₱' + (r.pesos || 0) + '</span></div>').join('')
-        : '<div class="v2-today-empty">Nothing sold yet today.</div>';
+      // Every slot, in slot order, including the ones that sold nothing -- the
+      // zeroes are the point. A list that hides them makes "nothing sold" look
+      // the same as "that product is missing from the report".
+      const bySlot = {};
+      (d.products || []).forEach((r) => { if (r.slot) bySlot[r.slot] = r; });
+      let h = '';
+      for (let s = 1; s <= ACTIVE; s++) {
+        const r = bySlot[s] || {};
+        h += '<div class="v2-today-row">'
+           + '<span class="v2-today-dot" style="background:' + (SLOT_DOT[s] || '#98A2B3') + '"></span>'
+           + '<span class="v2-today-name">' + esc(r.name || PRODUCT[s]) + '</span>'
+           + '<span class="v2-today-qty">x' + (r.presses || 0) + '</span>'
+           + '<span class="v2-today-pesos">₱' + (r.pesos || 0) + '</span>'
+           + '</div>';
+      }
+      $('today-rows').innerHTML = h;
     } catch (e) { /* leave the last known figure rather than blanking it */ }
   }
 
@@ -933,10 +953,22 @@
 
     $('offline-retry').addEventListener('click', () => location.reload());
 
-    // Today panel
+    // Today dropdown. Hung under the chip that opens it, so the figure and the
+    // detail behind it are visibly the same control.
+    function placeToday() {
+      const chip = $('chip-today').getBoundingClientRect();
+      const card = $('today-card');
+      card.style.top = Math.round(chip.bottom + 10) + 'px';
+      // Left-aligned to the chip, then pulled back if that would run the card
+      // off the right edge -- which it does on a narrow screen.
+      const w = card.offsetWidth || 340;
+      const left = Math.min(chip.left, window.innerWidth - w - 12);
+      card.style.left = Math.round(Math.max(12, left)) + 'px';
+    }
     const openToday = () => {
       loadToday();
       $('today-panel').hidden = false;
+      placeToday();
       $('chip-today').setAttribute('aria-expanded', 'true');
     };
     const closeToday = () => {
@@ -944,10 +976,11 @@
       $('chip-today').setAttribute('aria-expanded', 'false');
     };
     $('chip-today').addEventListener('click', openToday);
-    $('btn-today-close').addEventListener('click', closeToday);
     $('today-panel').addEventListener('click', (ev) => {
       if (ev.target === $('today-panel')) closeToday();   // the backdrop only
     });
+    // A dropdown pinned to a rect has to follow that rect.
+    window.addEventListener('resize', () => { if (!$('today-panel').hidden) placeToday(); });
     document.addEventListener('keydown', (ev) => {
       if (ev.key !== 'Escape') return;
       // Innermost first, so Escape does not shut the sheet behind a dialog.

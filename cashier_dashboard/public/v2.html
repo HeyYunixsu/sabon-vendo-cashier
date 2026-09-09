@@ -163,19 +163,17 @@
   </main>
 
   <!-- ================== TODAY PANEL ================== -->
+  <!-- A dropdown hung under the Today chip, not a centred modal -- the design
+       ties the figure to the control that opens it. Position is set from JS
+       against the chip's own rect, so it stays put at any width. -->
   <div id="today-panel" hidden>
-    <div class="v2-card v2-sheet">
-      <div class="v2-sheet-head">
-        <h2>Today</h2>
-        <button id="btn-today-close" class="v2-icon-btn" type="button" aria-label="Close">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
-               stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
-        </button>
+    <div class="v2-today-card" id="today-card" role="dialog" aria-label="Today's sales">
+      <div class="v2-today-head"><h2>Today&rsquo;s Sales</h2></div>
+      <div class="v2-today-body">
+        <div class="v2-today-total" id="today-pesos">&#8369;0</div>
+        <div class="v2-today-presses"><span id="today-presses">0</span> presses</div>
+        <div id="today-rows" class="v2-today-rows"></div>
       </div>
-      <div class="v2-today-total">
-        <span>Takings</span><span class="v2-total-money" id="today-pesos">&#8369;0</span>
-      </div>
-      <div id="today-rows" class="v2-today-rows"></div>
     </div>
   </div>
 
