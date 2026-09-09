@@ -270,7 +270,11 @@ button { font: inherit; color: inherit; }
      tablet, 1fr rows would crush the card until the photo and the steppers
      were unusable; with a floor the cards keep their size and the GRID
      scrolls instead -- inside the panel, never the page. */
-  grid-template-rows: repeat(2, minmax(172px, 1fr));
+  /* The bottles are 2:3, so a SHORT card limits them by height however wide
+     the column is -- at 172px the artwork drew 85px wide. Taller rows are what
+     actually enlarge the photo; the grid scrolls inside its own panel when
+     they stop fitting, which is the behaviour asked for. */
+  grid-template-rows: repeat(2, minmax(210px, 1fr));
   gap: 16px;
   flex: 1 1 auto;
   min-height: 0;
@@ -280,7 +284,10 @@ button { font: inherit; color: inherit; }
 .v2-prod {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 118px) minmax(0, 1fr);
+  /* The photo is what a cashier recognises before reading anything, so it
+     gets real width. At 118px the bottle drew 110px and filled 17% of the
+     card -- the column was the limit, not the artwork. */
+  grid-template-columns: minmax(0, 150px) minmax(0, 1fr);
   /* Three rows: badge, text, steppers. The badge used to be absolutely
      positioned over the card's top-right, which put it ON TOP of the product
      name -- invisible with "Ready" and a short name, obvious the moment the
@@ -289,7 +296,7 @@ button { font: inherit; color: inherit; }
   grid-template-rows: auto minmax(0, 1fr) auto;
   gap: 10px 16px;
   align-items: center;
-  padding: 16px;
+  padding: 14px;
   background: var(--surface);
   border: 2px solid var(--line);
   border-radius: var(--r-panel);
@@ -676,17 +683,24 @@ button { font: inherit; color: inherit; }
   .v2-cart-row .v2-btn-sm { padding: 0; width: 48px; }
   .v2-cart-row .v2-cancel-word { display: none; }
   .v2-cart-row .v2-cancel-ico { display: block; width: 18px; height: 18px; }
-  .v2-prod { grid-template-columns: minmax(0, 96px) minmax(0, 1fr); }
+  /* Two columns from here down, not three. At 1280 a third column left each
+     card 267px wide, and a photo big enough to read would have squeezed the
+     name to about 70px. Two columns give a ~409px card, which fits a 150px
+     bottle AND 200px of name -- roughly the mockup's proportions. */
+  .v2-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: repeat(3, minmax(210px, 1fr));
+  }
   .v2-prod-name { font-size: 17px; }
 }
 
 /* ---- tablet landscape: two product columns, three rows ------------------- */
 @media (max-width: 1180px) {
   #v2-main { grid-template-columns: minmax(0, 1fr) 320px; }
-  .v2-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    grid-template-rows: repeat(3, minmax(172px, 1fr));
-  }
+  /* The card is ~290px here, and a 150px photo left the name 91px. The photo
+     is height-limited at this size anyway, so the extra column width was
+     buying nothing -- give it back to the name. */
+  .v2-prod { grid-template-columns: minmax(0, 124px) minmax(0, 1fr); }
   .v2-chip { padding: 0 16px; gap: 10px; }
   .v2-chip-k { font-size: 14px; }
 }
@@ -752,10 +766,10 @@ button { font: inherit; color: inherit; }
   .v2-panel-title { font-size: 19px; margin-bottom: 14px; }
   .v2-grid { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto; gap: 10px; }
   .v2-prod {
-    grid-template-columns: minmax(0, 84px) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 112px) minmax(0, 1fr);
     gap: 8px 12px; padding: 12px;
   }
-  .v2-prod-img { min-height: 84px; }
+  .v2-prod-img { min-height: 130px; }
   .v2-prod-img svg { width: 40px; height: 40px; }
   .v2-prod-name { font-size: 16px; -webkit-line-clamp: 1; line-clamp: 1; }
   .v2-prod-ml { font-size: 13px; }
