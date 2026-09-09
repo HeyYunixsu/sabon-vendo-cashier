@@ -264,17 +264,17 @@ button { font: inherit; color: inherit; }
 .v2-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  /* Two fixed rows. A sale must not move the grid under a finger, so the rows
-     are reserved whether or not every slot is filled. */
-  /* A 150px floor per row rather than a bare 1fr. On a short landscape
-     tablet, 1fr rows would crush the card until the photo and the steppers
-     were unusable; with a floor the cards keep their size and the GRID
-     scrolls instead -- inside the panel, never the page. */
-  /* The bottles are 2:3, so a SHORT card limits them by height however wide
-     the column is -- at 172px the artwork drew 85px wide. Taller rows are what
-     actually enlarge the photo; the grid scrolls inside its own panel when
-     they stop fitting, which is the behaviour asked for. */
-  grid-template-rows: repeat(2, minmax(210px, 1fr));
+  /* Six products, two rows, all of them on screen at once -- a till where the
+     cashier has to scroll to reach half the stock is slower than one with
+     smaller pictures. So the rows DIVIDE the panel rather than claiming a
+     fixed height it then has to scroll to reach: minmax(140px, 1fr) fits
+     whatever height is going, and the 140px floor only bites on a viewport
+     too short to be a till at all, where scrolling is better than crushing
+     the steppers below a thumb.
+
+     The rows are still reserved whether or not a slot is filled, so adding to
+     the sale never moves the grid under a finger. */
+  grid-template-rows: repeat(2, minmax(140px, 1fr));
   gap: 16px;
   flex: 1 1 auto;
   min-height: 0;
@@ -293,7 +293,16 @@ button { font: inherit; color: inherit; }
      name -- invisible with "Ready" and a short name, obvious the moment the
      card narrowed or the state became "Dispensing", which is half again as
      wide. In the grid it cannot overlap anything by construction. */
-  grid-template-rows: auto minmax(0, 1fr) auto;
+  /* A PIXEL floor, not min-content and not 0.
+       - 0 lets the row collapse on a short card, and .v2-prod-text is centred
+         in its row, so the name overflowed both ways and landed on the badge.
+       - min-content looks right and is a trap: in the ROW axis it means the
+         height the text would need at its NARROWEST width, i.e. fully
+         wrapped. It asked for 83px to hold 36px of text and pushed the card
+         31px past its own box, which is what made the panel scrollable.
+     40px holds one line of name plus the volume at the compact size, and the
+     1fr still takes all the slack on a tall card so the photo grows. */
+  grid-template-rows: auto minmax(40px, 1fr) auto;
   gap: 10px 16px;
   align-items: center;
   padding: 14px;
@@ -683,24 +692,71 @@ button { font: inherit; color: inherit; }
   .v2-cart-row .v2-btn-sm { padding: 0; width: 48px; }
   .v2-cart-row .v2-cancel-word { display: none; }
   .v2-cart-row .v2-cancel-ico { display: block; width: 18px; height: 18px; }
-  /* Two columns from here down, not three. At 1280 a third column left each
-     card 267px wide, and a photo big enough to read would have squeezed the
-     name to about 70px. Two columns give a ~409px card, which fits a 150px
-     bottle AND 200px of name -- roughly the mockup's proportions. */
-  .v2-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    grid-template-rows: repeat(3, minmax(210px, 1fr));
-  }
+  /* Three columns, two rows -- 3x2 is the shape that puts all six on one
+     screen. Two columns needed three rows, and three rows of a card tall
+     enough to be usable did not fit 800px of tablet.
+
+     The image column narrows instead. At a 267px card, 150px of photo left
+     the name about 70px; 120px leaves it ~103px and the photo is still
+     larger than it was before this round, because the card is taller now
+     that the grid is 2 rows rather than 3. */
+  .v2-prod { grid-template-columns: minmax(0, 120px) minmax(0, 1fr); }
   .v2-prod-name { font-size: 17px; }
 }
 
 /* ---- tablet landscape: two product columns, three rows ------------------- */
+/* ---- 1181-1400: three columns, but a card too narrow for a side-by-side
+   stepper row. Bounded on BOTH sides on purpose -- below 1181 the layout is
+   two columns and the card is wide enough again, and applying this there
+   would cost the photo two thirds of its height for nothing.
+
+   At 1280 the card is 267px: a 120px photo leaves the text column 99px, and
+   three 48px steppers with gaps need 152px. The row overflowed by 37px and
+   the + button was cut off the side of every card -- with the grid quietly
+   scrolling sideways to hide it. The steppers take the card's full width
+   here instead, which is 247px. */
+@media (min-width: 1181px) and (max-width: 1400px) {
+  .v2-prod-img { grid-row: 1 / span 2; }
+  .v2-step-row { grid-column: 1 / -1; grid-row: 3; }
+  /* 100px, not 120: at 1181 a 120px photo left the name 82px, which is not
+     enough for "Bleach Original" on two lines. */
+  .v2-prod { grid-template-columns: minmax(0, 100px) minmax(0, 1fr); }
+}
+
 @media (max-width: 1180px) {
   #v2-main { grid-template-columns: minmax(0, 1fr) 320px; }
-  /* The card is ~290px here, and a 150px photo left the name 91px. The photo
-     is height-limited at this size anyway, so the extra column width was
-     buying nothing -- give it back to the name. */
-  .v2-prod { grid-template-columns: minmax(0, 124px) minmax(0, 1fr); }
+  /* Below 1180 a third column leaves ~192px per card, too narrow for a photo
+     beside a name. Back to two columns and three rows -- still all six on one
+     screen, just shorter cards. The photo is height-limited at this size, so
+     a wide column would buy nothing while costing the name. */
+  .v2-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: repeat(3, minmax(120px, 1fr));
+  }
+  /* At 1024x768 three rows leave a 150px card, and the full-size card needs
+     about 178px: badge 26 + name over two lines + a 48px stepper that cannot
+     shrink, plus padding. Something has to give and it is not the stepper, so
+     the card compacts -- one line of name, a smaller badge, tighter padding.
+     Measured to 145px, which fits. */
+  .v2-prod {
+    grid-template-columns: minmax(0, 110px) minmax(0, 1fr);
+    /* 10/4, measured not guessed. The card is 150px at 1024x768, so its
+       content box is 130px and the rows need 22 badge + 40 text + 48 stepper
+       = 110 plus gaps. At 12px padding and 6px gaps the total came to 128
+       against 126 available -- a two-pixel spill, which is enough to make the
+       panel scrollable and lose the one-screen guarantee. */
+    padding: 10px; gap: 4px 12px;
+  }
+  .v2-prod-name { font-size: 15px; -webkit-line-clamp: 1; line-clamp: 1; }
+  .v2-prod-ml { font-size: 13px; margin-top: 0; }
+  .v2-badge { height: 22px; font-size: 11px; padding: 0 9px; }
+  .v2-badge .v2-dot { width: 6px; height: 6px; }
+  /* 48px, the floor the handoff sets, rather than the roomy 56px the wide
+     layout uses. Those 8px are the difference between six cards fitting a
+     768px tablet and the panel scrolling. */
+  .v2-step, .v2-step-qty { height: 48px; }
+  .v2-step svg { width: 22px; height: 22px; }
+  .v2-step-qty { font-size: 18px; }
   .v2-chip { padding: 0 16px; gap: 10px; }
   .v2-chip-k { font-size: 14px; }
 }
