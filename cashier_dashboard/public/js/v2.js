@@ -255,7 +255,7 @@
     else {
       state = phases[S.phase] || 'Ready';
       colour = S.bundleComplete ? 'var(--green)'
-             : (S.phase === 3 ? 'var(--teal-strong)' : 'var(--ink)');
+             : (S.phase === 3 ? 'var(--brand-strong)' : 'var(--ink)');
     }
     $('kpi-state').textContent = state;
     $('kpi-state').style.color = colour;

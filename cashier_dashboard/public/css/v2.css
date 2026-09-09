@@ -14,8 +14,8 @@
 
 /* ---------------------------------------------------------------------------
    TOKENS
-   Sampled from the mockup. Teal is the only accent; green and red are kept
-   for meaning (ready / add, remove / cancel) so they still carry one.
+   One accent only -- see --brand below; green and red are kept for meaning
+   (ready / add, remove / cancel) so they still carry one.
    --------------------------------------------------------------------------- */
 :root {
   --bg:            #EEF1F5;
@@ -29,10 +29,18 @@
   --line:          #E6EAEF;
   --line-strong:   #D3DAE2;
 
-  --teal:          #00A8A4;
-  --teal-strong:   #009D99;
-  --teal-tint:     #E4F6F5;
-  --teal-tint-2:   #D2EFEE;
+  /* THE accent. Everything on the screen that is "brand coloured" derives
+     from this one value -- the Today chip, Unlock, the in-cart border, the
+     totals block, focus rings. Changing the scheme is these four lines and
+     the two theme-color declarations, nothing else.
+
+     The name is deliberately not a colour. It was "teal" for one afternoon
+     and the next request was to make it blue, which turned a one-line edit
+     into a search and replace. */
+  --brand:          #034EA2;
+  --brand-strong:   #023A7A;   /* pressed / hover, ~25% darker */
+  --brand-tint:     #E6EDF6;   /* 10% brand on white -- panel fills */
+  --brand-tint-2:   #D2DFEE;   /* 18% -- borders and the empty-cart glyph */
 
   --green:         #22B364;
   --green-tint:    #DDF5E7;
@@ -86,6 +94,11 @@
    RESET / SHELL
    --------------------------------------------------------------------------- */
 * { box-sizing: border-box; }
+/* The `hidden` attribute is only a UA rule of `display: none`, so ANY class
+   that sets display outranks it -- .v2-cart-empty { display: flex } quietly
+   defeated el.hidden = true, and the empty state sat underneath a cart with
+   items in it. One rule, so no future component can reintroduce that. */
+[hidden] { display: none !important; }
 html, body { margin: 0; padding: 0; }
 body {
   background: var(--bg);
@@ -158,11 +171,11 @@ button { font: inherit; color: inherit; }
 #kpi-stock.is-low      { color: #D98A00; }
 #kpi-stock.is-critical { color: var(--red); }
 /* Waiting only earns attention while a customer still owes presses. */
-#chip-waiting.is-live { border-color: var(--teal); }
-#chip-waiting.is-live .v2-chip-v { color: var(--teal); }
+#chip-waiting.is-live { border-color: var(--brand); }
+#chip-waiting.is-live .v2-chip-v { color: var(--brand); }
 
 .v2-chip-today {
-  background: var(--teal); border-color: var(--teal);
+  background: var(--brand); border-color: var(--brand);
   cursor: pointer; padding-right: 16px;
   touch-action: manipulation;
 }
@@ -179,7 +192,7 @@ button { font: inherit; color: inherit; }
 .v2-logo {
   width: 34px; height: 34px; flex: 0 0 auto;
   display: inline-flex; align-items: center; justify-content: center;
-  color: var(--teal);
+  color: var(--brand);
 }
 .v2-logo svg { width: 100%; height: 100%; display: block; }
 .v2-who { font-size: 17px; font-weight: 500; white-space: nowrap; }
@@ -261,7 +274,7 @@ button { font: inherit; color: inherit; }
   touch-action: manipulation;
 }
 /* In the cart, so the card says so without anyone reading the number. */
-.v2-prod.in-cart { border-color: var(--teal); }
+.v2-prod.in-cart { border-color: var(--brand); }
 .v2-prod.is-empty { opacity: .55; }
 .v2-prod.is-inactive { opacity: .35; pointer-events: none; }
 
@@ -271,7 +284,7 @@ button { font: inherit; color: inherit; }
   display: flex; align-items: center; justify-content: center;
   min-width: 0; min-height: 0;
   padding: 4px;
-  color: var(--teal);
+  color: var(--brand);
 }
 /* Contained, never cropped -- bottles are tall and a cover fit cuts the caps
    off. */
@@ -306,7 +319,7 @@ button { font: inherit; color: inherit; }
 .v2-badge.is-busy    { background: #FFF1D6; color: #B26A00; }
 .v2-badge.is-empty   { background: #EEF1F5; color: var(--ink-2); }
 .v2-badge.is-offline { background: var(--red-tint); color: #B42318; }
-.v2-badge.is-armed   { background: var(--teal-tint); color: var(--teal-strong); }
+.v2-badge.is-armed   { background: var(--brand-tint); color: var(--brand-strong); }
 .v2-badge.is-off     { background: #EEF1F5; color: var(--ink-3); }
 
 /* ---- stepper ---- */
@@ -369,7 +382,7 @@ button { font: inherit; color: inherit; }
   font-family: var(--font-display);
   font-size: 22px; font-weight: 600;
 }
-.v2-cart-ico { width: 26px; height: 26px; color: var(--teal); flex: 0 0 auto; }
+.v2-cart-ico { width: 26px; height: 26px; color: var(--brand); flex: 0 0 auto; }
 
 /* The list scrolls inside itself. Growing the panel instead would push the
    totals and Unlock off the bottom of a tablet exactly when the sale is
@@ -406,12 +419,12 @@ button { font: inherit; color: inherit; }
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   text-align: center; padding: 24px 16px; gap: 4px;
 }
-.v2-empty-ico { width: 84px; height: 84px; color: var(--teal-tint-2); margin-bottom: 12px; }
+.v2-empty-ico { width: 84px; height: 84px; color: var(--brand-tint-2); margin-bottom: 12px; }
 .v2-empty-title { font-size: 19px; font-weight: 500; margin: 0; }
 .v2-empty-sub { font-size: 15px; color: var(--ink-2); margin: 0; max-width: 26ch; }
 
 .v2-totals {
-  background: var(--teal-tint);
+  background: var(--brand-tint);
   border-radius: var(--r-panel);
   padding: 16px 20px;
   margin-top: 14px;
@@ -422,13 +435,18 @@ button { font: inherit; color: inherit; }
   font-size: 17px; font-weight: 500;
   padding: 6px 0;
 }
-.v2-total-rule { height: 1px; background: rgba(0,168,164,.25); margin: 4px 0; }
+/* Derived, not typed: a literal rgba() here is exactly the kind of stray
+   hex the handoff asks to avoid, and it would have stayed teal. */
+.v2-total-rule {
+  height: 1px; margin: 4px 0;
+  background: color-mix(in srgb, var(--brand) 25%, transparent);
+}
 .v2-total-v {
   font-family: var(--font-display);
   font-size: 22px; font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
-.v2-total-money { color: var(--teal-strong); font-size: 26px; }
+.v2-total-money { color: var(--brand-strong); font-size: 26px; }
 
 /* ---------------------------------------------------------------------------
    BUTTONS
@@ -448,10 +466,10 @@ button { font: inherit; color: inherit; }
 .v2-btn:disabled { opacity: .45; cursor: default; }
 .v2-btn-ico { width: 20px; height: 20px; flex: 0 0 auto; }
 
-.v2-btn-primary { background: var(--teal); color: #fff; }
+.v2-btn-primary { background: var(--brand); color: #fff; }
 .v2-btn-soft {
-  background: var(--teal-tint); color: var(--teal-strong);
-  border-color: var(--teal-tint-2);
+  background: var(--brand-tint); color: var(--brand-strong);
+  border-color: var(--brand-tint-2);
 }
 .v2-btn-ghost { border-color: var(--line-strong); color: var(--ink); background: var(--surface); }
 .v2-btn-danger { background: var(--red); color: #fff; }
@@ -480,15 +498,15 @@ button { font: inherit; color: inherit; }
 .v2-btn:active, .v2-step:active, .v2-icon-btn:active { filter: brightness(.93); }
 .v2-step:active { transform: scale(.95); }
 @media (hover: hover) {
-  .v2-btn-primary:hover { background: var(--teal-strong); }
-  .v2-btn-soft:hover { background: var(--teal-tint-2); }
+  .v2-btn-primary:hover { background: var(--brand-strong); }
+  .v2-btn-soft:hover { background: var(--brand-tint-2); }
   .v2-btn-ghost:hover { border-color: var(--ink-3); }
   .v2-btn-danger-ghost:hover { background: var(--red-tint); }
   .v2-icon-btn:hover { background: var(--surface-sub); }
   .v2-prod:hover { border-color: var(--line-strong); }
-  .v2-prod.in-cart:hover { border-color: var(--teal); }
+  .v2-prod.in-cart:hover { border-color: var(--brand); }
 }
-:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
+:focus-visible { outline: 3px solid var(--brand); outline-offset: 2px; }
 
 /* ---------------------------------------------------------------------------
    TODAY PANEL / DIALOG / TOAST
@@ -505,7 +523,7 @@ button { font: inherit; color: inherit; }
 .v2-sheet-head h2 { font-family: var(--font-display); font-size: 20px; margin: 0; }
 .v2-today-total {
   display: flex; align-items: center; justify-content: space-between;
-  background: var(--teal-tint); border-radius: var(--r-panel);
+  background: var(--brand-tint); border-radius: var(--r-panel);
   padding: 14px 18px; margin: 14px 0; font-weight: 500;
 }
 .v2-today-rows { display: grid; gap: 8px; }
@@ -545,8 +563,8 @@ button { font: inherit; color: inherit; }
 .v2-info-v { color: var(--ink-2); font-size: 14px; text-align: right; word-break: break-all; }
 /* A toggle that is on should look on, not merely be labelled it. */
 .v2-btn-ghost.is-on {
-  border-color: var(--teal); color: var(--teal-strong);
-  background: var(--teal-tint);
+  border-color: var(--brand); color: var(--brand-strong);
+  background: var(--brand-tint);
 }
 
 .v2-price-row, .v2-prime-row, .v2-wait-row {
@@ -568,7 +586,7 @@ button { font: inherit; color: inherit; }
   font-variant-numeric: tabular-nums; text-align: right;
   color: var(--ink);
 }
-.v2-price-row input.dirty { border-color: var(--teal); background: var(--teal-tint); }
+.v2-price-row input.dirty { border-color: var(--brand); background: var(--brand-tint); }
 
 .v2-prime-why, .v2-wait-why {
   display: block; font-size: 12px; color: var(--ink-3); font-weight: 400;
@@ -579,7 +597,7 @@ button { font: inherit; color: inherit; }
    starts on one mis-tap is the thing this panel must never do. */
 .v2-btn-ghost.confirm { border-color: #E0A800; color: #B26A00; background: #FFF8E6; }
 .v2-wait-qty {
-  font-size: 14px; font-weight: 600; color: var(--teal-strong);
+  font-size: 14px; font-weight: 600; color: var(--brand-strong);
   font-variant-numeric: tabular-nums; min-width: 78px; text-align: right;
 }
 .v2-empty-note { font-size: 14px; color: var(--ink-3); padding: 10px 0; }
@@ -627,6 +645,14 @@ button { font: inherit; color: inherit; }
 /* ---- laptops: narrow the cart before touching the product grid ----------- */
 @media (max-width: 1400px) {
   #v2-main { grid-template-columns: minmax(0, 1fr) 350px; }
+  /* The panel loses 50px here and the row has five columns to fit. The worded
+     Cancel is the widest thing that is not the product name, and the name is
+     the one the cashier actually reads -- at 350px it was truncating to
+     "Produ...". The icon says the same thing in 48px. */
+  .v2-cart-row { grid-template-columns: auto minmax(0, 1fr) auto auto auto; gap: 10px; padding: 12px; }
+  .v2-cart-row .v2-btn-sm { padding: 0; width: 48px; }
+  .v2-cart-row .v2-cancel-word { display: none; }
+  .v2-cart-row .v2-cancel-ico { display: block; width: 18px; height: 18px; }
   .v2-prod { grid-template-columns: minmax(0, 96px) minmax(0, 1fr); }
   .v2-prod-name { font-size: 17px; }
 }
