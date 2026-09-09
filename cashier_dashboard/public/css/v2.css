@@ -115,7 +115,17 @@ body {
 button { font: inherit; color: inherit; }
 
 #v2 {
-  min-height: 100dvh;
+  /* HEIGHT, not min-height. min-height only sets a floor, so the shell grew
+     as the cart filled and the document scrolled -- which also meant the
+     panels never had a bounded height, so their own overflow:auto had nothing
+     to scroll within and simply never engaged. Pinning the shell to one
+     viewport is what pushes the scrolling down into the panels.
+
+     Below 900px this is deliberately undone: the layout stacks there and a
+     stacked till does not fit one screen, so the document scrolls normally
+     again. See the responsive region. */
+  height: 100dvh;
+  overflow: hidden;
   padding: 16px;
   display: flex;
   flex-direction: column;
@@ -243,6 +253,9 @@ button { font: inherit; color: inherit; }
   padding: 24px;
   display: flex; flex-direction: column;
   min-width: 0;
+  /* min-height:0 is what lets a flex child shrink below its content and hand
+     the overflow to .v2-grid instead of pushing the panel taller. */
+  min-height: 0;
 }
 
 /* ---------------------------------------------------------------------------
@@ -253,17 +266,27 @@ button { font: inherit; color: inherit; }
   grid-template-columns: repeat(3, minmax(0, 1fr));
   /* Two fixed rows. A sale must not move the grid under a finger, so the rows
      are reserved whether or not every slot is filled. */
-  grid-template-rows: repeat(2, minmax(0, 1fr));
+  /* A 150px floor per row rather than a bare 1fr. On a short landscape
+     tablet, 1fr rows would crush the card until the photo and the steppers
+     were unusable; with a floor the cards keep their size and the GRID
+     scrolls instead -- inside the panel, never the page. */
+  grid-template-rows: repeat(2, minmax(172px, 1fr));
   gap: 16px;
   flex: 1 1 auto;
   min-height: 0;
+  overflow-y: auto;
 }
 
 .v2-prod {
   position: relative;
   display: grid;
   grid-template-columns: minmax(0, 118px) minmax(0, 1fr);
-  grid-template-rows: minmax(0, 1fr) auto;
+  /* Three rows: badge, text, steppers. The badge used to be absolutely
+     positioned over the card's top-right, which put it ON TOP of the product
+     name -- invisible with "Ready" and a short name, obvious the moment the
+     card narrowed or the state became "Dispensing", which is half again as
+     wide. In the grid it cannot overlap anything by construction. */
+  grid-template-rows: auto minmax(0, 1fr) auto;
   gap: 10px 16px;
   align-items: center;
   padding: 16px;
@@ -279,7 +302,7 @@ button { font: inherit; color: inherit; }
 .v2-prod.is-inactive { opacity: .35; pointer-events: none; }
 
 .v2-prod-img {
-  grid-column: 1; grid-row: 1 / span 2;
+  grid-column: 1; grid-row: 1 / span 3;
   align-self: stretch;
   display: flex; align-items: center; justify-content: center;
   min-width: 0; min-height: 0;
@@ -291,7 +314,7 @@ button { font: inherit; color: inherit; }
 .v2-prod-img img { max-width: 100%; max-height: 100%; object-fit: contain; display: block; }
 .v2-prod-img svg { width: 54px; height: 54px; }
 
-.v2-prod-text { grid-column: 2; grid-row: 1; min-width: 0; align-self: center; }
+.v2-prod-text { grid-column: 2; grid-row: 2; min-width: 0; align-self: center; }
 .v2-prod-name {
   font-family: var(--font-display);
   font-size: 19px; font-weight: 600; line-height: 1.2;
@@ -303,7 +326,7 @@ button { font: inherit; color: inherit; }
 .v2-prod-ml { font-size: 15px; color: var(--ink-2); margin-top: 2px; }
 
 .v2-badge {
-  position: absolute; top: 12px; right: 12px;
+  grid-column: 2; grid-row: 1; justify-self: end;
   display: inline-flex; align-items: center; gap: 6px;
   height: 26px; padding: 0 11px;
   border-radius: var(--r-pill);
@@ -324,7 +347,7 @@ button { font: inherit; color: inherit; }
 
 /* ---- stepper ---- */
 .v2-step-row {
-  grid-column: 2; grid-row: 2;
+  grid-column: 2; grid-row: 3;
   display: grid;
   /* The steppers get a hard 48px floor and the quantity yields first. A bare
      1fr let them compress to 44px on a narrow card at 1024 -- under the floor,
@@ -660,7 +683,10 @@ button { font: inherit; color: inherit; }
 /* ---- tablet landscape: two product columns, three rows ------------------- */
 @media (max-width: 1180px) {
   #v2-main { grid-template-columns: minmax(0, 1fr) 320px; }
-  .v2-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(3, minmax(0, 1fr)); }
+  .v2-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: repeat(3, minmax(172px, 1fr));
+  }
   .v2-chip { padding: 0 16px; gap: 10px; }
   .v2-chip-k { font-size: 14px; }
 }
@@ -669,6 +695,11 @@ button { font: inherit; color: inherit; }
    Below this the split stops being a split: 320px of cart against 400px of
    products makes both unusable. Stacked, each gets the full width. */
 @media (max-width: 900px) {
+  /* Stacked, one screen is not a goal any more -- products above a cart in a
+     single column cannot fit a portrait tablet, let alone a phone. Hand the
+     scrolling back to the document and let both panels size to content. */
+  #v2 { height: auto; min-height: 100dvh; overflow: visible; }
+  .v2-grid { overflow-y: visible; grid-template-rows: auto; }
   #v2-main { grid-template-columns: minmax(0, 1fr); }
   #v2-cart { min-height: 0; }
   #v2-cart-body { max-height: 320px; }
@@ -728,9 +759,6 @@ button { font: inherit; color: inherit; }
   .v2-prod-img svg { width: 40px; height: 40px; }
   .v2-prod-name { font-size: 16px; -webkit-line-clamp: 1; line-clamp: 1; }
   .v2-prod-ml { font-size: 13px; }
-  /* The badge overlays the card, so the name is given room rather than running
-     underneath it. */
-  .v2-prod-text { padding-right: 68px; }
   .v2-badge { top: 10px; right: 10px; height: 22px; font-size: 11px; padding: 0 8px; }
   .v2-step { height: 48px; }
   .v2-step svg { width: 22px; height: 22px; }
