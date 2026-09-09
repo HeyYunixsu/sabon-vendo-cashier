@@ -154,7 +154,20 @@
     align-items: stretch; gap: 8px;
   }
   #status-bar .status-left { grid-column: 1 / -1; display: block; min-width: 0; }
-  #chips { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  /* align-items must be restated. The base rule is
+     `#chips { display: flex; align-items: center }`, and switching display to
+     grid does NOT reset it -- centred grid items keep their natural height
+     instead of filling the row, so the four chips came out 35/35/30/38 and
+     the second row sat visibly ragged. Stretch makes all four one height. */
+  #chips {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+    align-items: stretch;
+    /* Equal rows too, not just equal columns. The Today chip carries larger
+       type and a chevron, so its row measured 38px against the first row's
+       35px -- four pills in a 2x2 block, three of one height. 1fr rows take
+       the tallest and give it to both. */
+    grid-auto-rows: 1fr;
+  }
   /* Label left, figure right, the way a row of readings should line up. */
   #chips .chip { width: 100%; justify-content: space-between; }
   /* 72px of reserved figure is right on a wide header and too much on half a
