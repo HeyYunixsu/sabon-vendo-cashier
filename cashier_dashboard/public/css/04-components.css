@@ -1,0 +1,485 @@
+/* ---------------------------------------------------------------------------
+   Touch behaviour (iPad / iOS Safari)
+
+   iOS Safari 10+ deliberately ignores `user-scalable=no` in the viewport tag
+   for accessibility, so double-tap-to-zoom stays enabled no matter what the
+   <head> says. `touch-action: manipulation` is what actually removes the
+   double-tap gesture -- and it leaves PINCH-zoom working, so the page can
+   still be magnified deliberately.
+
+   It has to be set on every element that can be tapped: touch-action is not
+   inherited, and .btn was the only rule carrying it, which is why the stepper
+   +/- and the product cards still zoomed.
+   --------------------------------------------------------------------------- */
+html, body { touch-action: manipulation; }
+
+button, input, select, textarea, a,
+.btn,
+.product-card, .staged-card,
+.list-row, .tab, .chip {
+  touch-action: manipulation;
+}
+
+/* Double-tapping text selects it and flashes a highlight before the zoom is
+   suppressed. Controls are not meant to be selectable. */
+button, .btn, .product-card, .staged-card, .tab {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+
+/* Hover styles latch on iOS: a tapped control keeps its hover appearance
+   until you tap somewhere else, so buttons read as stuck-selected after
+   every sale. Confining them to pointer devices means touch simply never
+   applies them -- no sticking, and no half-styled control either. */
+@media (hover: hover) {
+  #btn-settings:hover { border-color: var(--border-strong); color: var(--accent-action); }
+  #settings-close:hover, #today-close:hover {
+    border-color: var(--status-negative); color: var(--status-negative);
+  }
+  #sale-strip .btn-outline:hover { border-color: var(--accent-action); color: var(--accent-action); }
+  /* Colour only, deliberately no lift. A translateY(-1px) here put the top
+     row 1px above #pages, which is a scroll container, so it clipped exactly
+     that 1px and the top border of every card in the first row disappeared
+     while the pointer was over it. Measured: card top 308.0, #pages top
+     309.0. Padding the container to make room is not an option either --
+     #pages > main is height: 100%, so top padding pushes the total past the
+     container and brings back the scrollbar the one-screen layout removed. */
+  .product-card:hover { border-color: var(--border-strong); }
+  .btn-remove:hover { border-color: var(--status-negative); color: var(--status-negative); }
+  .btn-primary:hover { background: var(--accent-action-hover); }
+  .btn-outline:hover { border-color: var(--border-strong); color: var(--accent-action); }
+  /* Clear List is deliberately exempt: it stays red border, red text, never
+     filled and never recoloured, so it reads the same on every device. */
+  #sale-strip #btn-clear-sale:hover { border-color: var(--status-negative); color: var(--status-negative); background: transparent; }
+  #btn-select-all:hover { background: var(--accent-action); color: #fff; }
+  .btn-sm:hover { border-color: var(--border-strong); color: var(--accent-action); }
+  .btn-sm.retry:hover { background: var(--accent-action); color: #fff; }
+  .btn-sm.dismiss:hover { border-color: var(--status-negative); color: var(--status-negative); }
+  .btn-negative:hover { background: var(--status-negative); color: #fff; }
+}
+
+/* ===================================================================
+   PRESS FEEDBACK
+
+   The page sets -webkit-tap-highlight-color: transparent in two places,
+   which removes the browser's own tap flash, and nothing replaced it. Until
+   now a touch produced no acknowledgement at all until the data changed --
+   and in a slow moment that reads as a dead control, which gets tapped
+   again. On a till a double-tap is a double charge.
+
+   Scale DOWN, never up and never across. #pages is a scroll container and
+   the first row of cards sits flush against its edge, so anything that
+   grows or moves is clipped there -- that is exactly what the hover lift
+   did. Shrinking cannot be clipped and cannot nudge a neighbour.
+
+   :active is used rather than a JS class because it is the only thing that
+   survives a finger being held down, and because it costs nothing to keep
+   correct. Unlike :hover it does not latch on iOS -- it ends with the
+   touch -- so it does not need the (hover: hover) guard above.
+   =================================================================== */
+button:active, .btn:active, .product-card:active,
+.staged-step:active,
+.chip-today:active, .tab:active,
+.is-pressed {
+  transform: scale(0.96);
+  /* The tint carries the press, not the scale. It has to be strong enough to
+     read on its own, because it is all that is left when the device has
+     reduced motion turned on -- and on Android that is a single toggle in
+     Accessibility, or just Battery Saver. brightness() is used rather than an
+     inset shadow so the armed card's green ring is not clobbered. */
+  filter: brightness(0.92);
+  transition: transform .07s ease, filter .07s ease;
+}
+/* The steppers dip into their own colour, so a press reads as "one less" or
+   "one more" rather than as one anonymous button being poked. */
+.staged-card .staged-step[data-delta="-1"]:active,
+.staged-card .staged-step[data-delta="-1"].is-pressed {
+  background: color-mix(in srgb, var(--status-negative) 30%, var(--bg-surface-tertiary));
+}
+.staged-card .staged-step[data-delta="1"]:active,
+.staged-card .staged-step[data-delta="1"].is-pressed {
+  background: color-mix(in srgb, var(--status-positive) 30%, var(--bg-surface-tertiary));
+}
+/* Hold a card to bring up its remove popup. The card dimming while the finger
+   is down is the whole reason the gesture is findable at all: it starts the
+   moment the finger lands and runs exactly as long as the hold does, so anyone
+   who rests a finger a moment too long sees something happening. A hold with
+   no feedback is indistinguishable from a control that occasionally misfires. */
+#sale-strip .staged-card.holding {
+  filter: brightness(0.93);
+  transition: filter .5s linear;
+}
+
+/* ===================================================================
+   ASK DIALOG
+
+   Replaces window.confirm(). A native dialog is drawn by the browser, not
+   the page, and Android Chrome drops out of fullscreen to show it -- the
+   kiosk visibly falls back to a normal window and then re-enters once the
+   dialog is gone. This one is ordinary DOM, so fullscreen never breaks.
+
+   It also lets the destructive choice be styled as destructive, which a
+   native OK/Cancel cannot do.
+   =================================================================== */
+#ask-backdrop {
+  position: fixed; inset: 0; z-index: 60;
+  background: rgba(0,0,0,.45);
+}
+#ask {
+  position: fixed; z-index: 61;
+  left: 50%; top: 50%; transform: translate(-50%, -50%);
+  width: min(420px, calc(100vw - 32px));
+  background: var(--bg-surface-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: 14px;
+  box-shadow: 0 18px 48px rgba(0,0,0,.32);
+  padding: 20px;
+}
+#ask-backdrop[hidden], #ask[hidden] { display: none; }
+#ask-text {
+  font-size: 15px; line-height: 1.45; font-weight: 500;
+  color: var(--text-content-primary);
+  margin-bottom: 18px;
+}
+#ask-actions { display: flex; gap: 10px; }
+/* Equal halves spanning the dialog, so the destructive choice is never the
+   easier target and the pair matches the staged card's remove popup exactly
+   -- same order, same widths, same height, same pill.
+
+   They were 116px in a 378px row, pinned to the right: a third the width of
+   the 318px Clear List button that opens this dialog, with 245px of empty
+   white beside them. Small, cornered buttons read as an afterthought on the
+   one surface that should read as deliberate. */
+#ask-actions .btn { flex: 1 1 0; min-width: 0; height: 44px; }
+#ask-no {
+  background: transparent; color: var(--text-content-primary);
+  border: 1px solid var(--border-default);
+}
+#ask-yes {
+  background: var(--status-negative); color: #fff; border: 1px solid transparent;
+}
+
+/* The popup itself. It covers its own card rather than floating over the page:
+   anchored to the thing being removed, impossible to mis-read as belonging to
+   the card beside it, and it needs no positioning maths that could push it
+   outside the strip and get clipped. */
+.staged-card .staged-confirm {
+  position: absolute; inset: 0; z-index: 3;
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  padding: 0 10px;
+  background: var(--bg-surface-secondary);
+  border-radius: 8px;
+  animation: confirm-in .12s ease-out;
+}
+@keyframes confirm-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+/* Both buttons, one shape. They used to disagree with the ask dialog on
+   every axis at once -- measured at 1280: Remove 298px wide against Cancel's
+   74px, 46px tall against the dialog's 44px, 8px corners against the pill
+   every other button in the app wears. Equal halves instead, so neither
+   choice is four times easier to hit than the other, and the same 44px pill
+   as the dialog so the two popups read as the same control. */
+.staged-confirm button {
+  flex: 1 1 0; min-width: 0;
+  height: 44px; border-radius: var(--radius-pill); cursor: pointer;
+  font-family: 'Inter', system-ui, sans-serif; font-size: 13px; font-weight: 600;
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+}
+.staged-confirm .confirm-remove {
+  background: var(--status-negative); color: #fff; border: 1px solid transparent;
+}
+.staged-confirm .confirm-remove svg { width: 16px; height: 16px; flex-shrink: 0; }
+.staged-confirm .confirm-cancel {
+  background: transparent; color: var(--text-content-primary);
+  border: 1px solid var(--border-default);
+}
+/* Touch never sees the hover border, so pressing has to supply it. */
+.product-card:active, .product-card.is-pressed { border-color: var(--border-strong); }
+
+/* The count pops when it changes. This answers a different question from the
+   press state above -- not "did the screen see my finger" but "did my press
+   count" -- and it is the one that matters when a cashier is adding the
+   fourth of something. */
+@keyframes pop-count {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.16); }
+  100% { transform: scale(1); }
+}
+.staged-card .staged-card-qty.pop { animation: pop-count .32s ease; }
+/* A second, motion-free way to say the same thing. Used in place of the pop
+   when the device asks for reduced motion: a colour beat is not movement, and
+   silently showing nothing at all was how this went unnoticed on Android. */
+@keyframes flash-count {
+  0%, 100% { color: var(--accent-action); }
+  35%      { color: var(--status-positive); }
+}
+
+/* Working, not unavailable. Unlock is the one control with a real round trip
+   to the controller, and .btn-primary:disabled drops it to 25% opacity --
+   which reads as "you cannot press this" rather than "the machine is
+   arming". A cashier who reads it as dead presses it again. */
+.btn.is-busy:disabled { opacity: 1; pointer-events: none; }
+.btn.is-busy { position: relative; overflow: hidden; }
+.btn.is-busy::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.38), transparent);
+  background-size: 200% 100%;
+  animation: shimmer 1.1s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* The brightness tint stays: reduced motion means no movement, not no
+     feedback. Removing both would leave these users with the dead controls
+     this whole section exists to fix. */
+  button:active, .btn:active, .product-card:active,
+  .staged-step:active,
+  .chip-today:active, .tab:active,
+  .is-pressed { transform: none; }
+  /* Not "no feedback" -- the same message without the movement. */
+  .staged-card .staged-card-qty.pop { animation: flash-count .4s ease; }
+  /* The dots keep their colour and their glow, they just stop breathing.
+     Green still means ready and red still means empty. */
+  .dot-ready, .dot-negative, .dot-caution { animation: none; }
+  .dot-ready { box-shadow: 0 0 8px rgba(52,211,153,.6); }
+  .dot-negative { box-shadow: 0 0 8px rgba(248,113,113,.8); }
+  .btn.is-busy::after { animation: none; }
+}
+
+
+/* Maintenance / prime.
+   Deliberately understated and collapsed: priming dispenses product without
+   recording a sale, so it should never sit next to Arm looking like part of
+   the normal flow. */
+.maint-note {
+  font-size: 10px;
+  line-height: 1.5;
+  color: var(--text-content-secondary);
+  margin: 8px 0 6px;
+}
+.maint-note strong { color: var(--status-caution); }
+.prime-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 0;
+  border-bottom: 1px solid var(--border-default);
+}
+.prime-row:last-child { border-bottom: none; }
+.prime-row .prime-name { flex: 1; font-size: 11px; }
+.prime-row .prime-why {
+  display: block; font-size: 9px; margin-top: 1px;
+  color: var(--status-caution);
+}
+.prime-row .prime-count {
+  font-size: 10px;
+  color: var(--text-content-secondary);
+  min-width: 44px;
+  text-align: right;
+}
+.prime-row .prime-count.busy { color: var(--status-caution); }
+.prime-row .btn-sm {
+  /* Wide enough for both labels so the row does not jump when the button
+     switches from "Clear Air" to "Tap again". */
+  flex: 0 0 auto; min-width: 86px;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.prime-row .btn-sm.confirm {
+  border-color: var(--status-caution);
+  color: var(--status-caution);
+}
+
+/* ===================================================================
+   SETTINGS SHEET
+   Things a cashier touches rarely: theme, maintenance, machine identity.
+   Kept behind a gear so the main screen stays about selling.
+   =================================================================== */
+/* The status bar is space-between, so the right-hand group is pinned to the
+   edge and anything that changes width pushes its siblings. The clock does
+   exactly that as digits change, which walked the gear icon left and right.
+   Fixed box, tabular figures, so it never reflows. */
+#last-update {
+  font-variant-numeric: tabular-nums;
+  min-width: 62px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+#btn-settings {
+  background: none; border: 1px solid var(--border-default);
+  border-radius: var(--radius-element); color: var(--text-content-secondary);
+  cursor: pointer; padding: 5px 9px; line-height: 0; transition: all .18s;
+}
+#btn-settings svg { width: 18px; height: 18px; display: block; }
+
+#settings-backdrop {
+  position: fixed; inset: 0; background: rgba(0,0,0,.55);
+  z-index: 200;
+}
+#settings-sheet {
+  position: fixed; z-index: 201;
+  top: 50%; left: 50%; transform: translate(-50%, -50%);
+  width: min(460px, calc(100vw - 32px));
+  max-height: min(78vh, 680px);
+  display: flex; flex-direction: column;
+  background: var(--bg-surface-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-container);
+  box-shadow: 0 24px 60px rgba(0,0,0,.45);
+  overflow: hidden;
+}
+#settings-backdrop[hidden], #settings-sheet[hidden] { display: none; }
+
+.sheet-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 16px; border-bottom: 1px solid var(--border-default);
+  font-size: 14px; font-weight: 700;
+}
+/* Today's takings.
+   A panel on the page rather than an overlay: the card scrolls the page down
+   to it, so the tap has a visible destination instead of something appearing
+   over the top with no explanation of where it came from. */
+#kpi-today-card { cursor: pointer; }
+#kpi-today-card .chev { display: inline-block; transition: transform .18s; }
+#kpi-today-card[aria-expanded="true"] .chev { transform: rotate(180deg); }
+#kpi-today-card[aria-expanded="true"] {
+  border-color: var(--accent-action);
+}
+
+#today-panel {
+  margin-top: 12px; flex-shrink: 0;
+  background: var(--bg-surface-secondary);
+  border: 1px solid var(--border-default);
+  border-left: 3px solid var(--accent-action);
+  border-radius: var(--radius-container);
+  scroll-margin-top: 12px;
+}
+#today-panel[hidden] { display: none; }
+#today-panel .sheet-body { padding: 4px 16px 16px; }
+
+/* A brief ring on arrival, so the eye lands on what the tap produced. */
+@keyframes today-arrive {
+  from { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-action) 45%, transparent); }
+  to   { box-shadow: 0 0 0 3px transparent; }
+}
+#today-panel.arrived { animation: today-arrive 1.1s ease-out; }
+@media (prefers-reduced-motion: reduce) {
+  #today-panel.arrived { animation: none; }
+}
+.today-total {
+  display: flex; align-items: baseline; gap: 10px;
+  padding: 4px 0 12px;
+}
+.today-total .big {
+  font-family: 'Poppins', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-size: 30px; font-weight: 700; font-variant-numeric: tabular-nums;
+}
+.today-total .sub { font-size: 12px; color: var(--text-content-secondary); }
+.mix-bar {
+  display: flex; height: 14px; width: 100%; border-radius: var(--radius-pill);
+  overflow: hidden; background: var(--bg-surface-tertiary); margin-bottom: 12px;
+}
+.mix-bar span { height: 100%; }
+.today-row {
+  display: grid; grid-template-columns: 12px 1fr auto auto;
+  align-items: center; gap: 10px;
+  padding: 7px 0; border-bottom: 1px solid var(--border-default);
+  font-size: 12px;
+}
+.today-row:last-child { border-bottom: none; }
+.today-row .swatch { width: 10px; height: 10px; border-radius: 3px; }
+.today-row .t-presses {
+  font-variant-numeric: tabular-nums; color: var(--text-content-secondary);
+  font-size: 11px; min-width: 66px; text-align: right;
+}
+.today-row .t-pesos {
+  font-family: 'Poppins', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-weight: 600; font-variant-numeric: tabular-nums;
+  min-width: 62px; text-align: right;
+}
+.today-row.zero { opacity: .45; }
+.interrupted-row {
+  padding: 7px 0; border-bottom: 1px solid var(--border-default);
+  font-size: 11px; color: var(--status-caution);
+}
+.interrupted-row:last-child { border-bottom: none; }
+.interrupted-row .i-head { display: flex; justify-content: space-between; gap: 8px; font-weight: 600; }
+.interrupted-row .i-why { font-size: 9px; opacity: .85; margin-top: 2px; }
+.interrupted-row .i-actions { display: flex; gap: 6px; margin-top: 6px; }
+.interrupted-row .i-actions .btn { flex: 1; height: 32px; font-size: 12px; }
+.today-note {
+  font-size: 10px; line-height: 1.6;
+  color: var(--text-content-secondary); margin-top: 12px;
+}
+.price-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 6px 0; border-bottom: 1px solid var(--border-default);
+}
+.price-row:last-of-type { border-bottom: none; }
+.price-row .price-name { flex: 1; font-size: 12px; }
+.price-row .peso { color: var(--text-content-secondary); font-size: 13px; }
+.price-row input {
+  width: 74px; height: 38px; text-align: center;
+  background: var(--bg-surface-tertiary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-element);
+  color: var(--text-content-primary);
+  /* 16px or iOS Safari zooms the whole page on focus. */
+  font-size: 16px; font-weight: 600;
+  font-family: 'Poppins', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  -moz-appearance: textfield;
+}
+.price-row input::-webkit-outer-spin-button,
+.price-row input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.price-row input.dirty { border-color: var(--status-caution); }
+.price-history {
+  font-size: 10px; line-height: 1.6;
+  color: var(--text-content-secondary); margin-top: 8px;
+}
+#settings-close, #today-close {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 32px; height: 32px; padding: 0;
+  background: none; cursor: pointer;
+  border: 1px solid var(--border-default);
+  border-radius: 50%;
+  color: var(--text-content-secondary);
+  transition: all .15s;
+}
+#settings-close svg, #today-close svg { width: 14px; height: 14px; display: block; }
+.sheet-body { padding: 4px 16px 16px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+.sheet-group { padding: 14px 0; border-bottom: 1px solid var(--border-default); }
+.sheet-group:last-child { border-bottom: none; }
+.sheet-label {
+  font-size: 10px; font-weight: 700; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--text-content-secondary);
+  margin-bottom: 8px;
+}
+.sheet-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; min-height: 40px; font-size: 12px;
+}
+.sheet-val {
+  color: var(--text-content-secondary); font-size: 12px;
+  text-align: right; word-break: break-all;
+}
+.sheet-val.good { color: var(--status-positive); }
+.sheet-val.bad  { color: var(--status-negative); }
+.sheet-row .btn-sm, .sheet-row a.btn-sm {
+  /* One width for every button in the sheet, so their borders line up as a
+     column instead of each shrink-wrapping its own label -- "Switch to Light",
+     "Show QR" and "On" are wildly different lengths and the ragged left edge
+     read as a mistake. 124px clears the longest label at this size; the text
+     is centred so a short one is not stranded against the left border. */
+  flex: 0 0 auto; text-decoration: none; display: inline-flex;
+  align-items: center; justify-content: center;
+  min-height: 34px; min-width: 124px;
+}
+/* A toggle that is on should look on, not merely be labelled it. */
+.sheet-row .btn-sm.is-on {
+  border-color: var(--accent-action);
+  color: var(--accent-action);
+  background: color-mix(in srgb, var(--accent-action) 12%, transparent);
+}

@@ -1,0 +1,37 @@
+/* ===================================================================
+   RESPONSIVE
+   =================================================================== */
+@media (max-width: 768px) {
+  body { padding: 8px; }
+  #status-bar { flex-wrap: wrap; gap: 10px; font-size: 11px; padding: 10px 14px; }
+  #status-bar .status-left, #status-bar .status-right { gap: 10px; }
+  main { grid-template-columns: 1fr; gap: 12px; }
+  .grid { grid-template-columns: repeat(2, 1fr); grid-template-rows: repeat(3, 1fr); gap: 8px; }
+  .product-card { flex-direction: column; align-items: stretch; gap: 10px; padding: 12px; min-height: auto; }
+  .product-icon { width: 100%; max-width: none; aspect-ratio: auto; height: 80px; border-radius: 8px; }
+  .product-icon svg { width: 32px; height: 32px; }
+  .product-card .text-panel { padding: 0; text-align: center; }
+  .product-card .product-name { font-size: 13px; }
+  .product-card .armed-qty { font-size: 28px; }
+  .product-card .slot-num { font-size: 9px; }
+  #right-panel { gap: 10px; }
+  #right-panel section { padding: 12px 14px; }
+  .btn { min-height: 44px; }
+  .btn-lg { padding: 14px 20px; font-size: 14px; }
+
+  /* Narrower screens keep the same 3x3 idea but in two columns, so six
+     products need three rows. All three are reserved for the same reason as
+     the wide layout: a portrait tablet is still a till, and the grid must not
+     move under a finger. The controls stay on their own bottom row, matched
+     to the two columns above them. */
+  #sale-strip { gap: 6px; }
+  #sale-strip #staged-items {
+    grid-template-columns: repeat(2, 1fr); gap: 6px;
+    grid-template-rows: repeat(3, 78px); min-height: 246px;
+  }
+  #sale-strip .staged-card { min-width: 0; max-width: none; width: 100%; }
+  .sale-controls { grid-template-columns: repeat(2, 1fr); gap: 6px; }
+  /* Three controls across two columns: the total takes the full width below
+     the two buttons rather than being squeezed into half a cell. */
+  .sale-total { grid-column: 1 / -1; }
+}

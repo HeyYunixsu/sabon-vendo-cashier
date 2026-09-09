@@ -15,7 +15,7 @@ pick it up without re-reading everything.
 
 | Component | Path | What it is |
 |-----------|------|------------|
-| Dashboard | `cashier_dashboard/` | Node.js Express server (`server.js`) + single-file HTML UI (`public/index.html`), SSE for live status. Runs on the same machine as the firmware. |
+| Dashboard | `cashier_dashboard/` | Node.js Express server (`server.js`) + web UI (`public/index.html`, `public/css/`, `public/js/app.js`), SSE for live status. Runs on the same machine as the firmware. |
 | Firmware  | `controller/` | C++17 firmware using **wiringPi** (Raspberry Pi GPIO). Runs on the Pi. |
 
 Data flow:
@@ -200,7 +200,7 @@ And the result of the bare-pin test (section 6).
 
 - **Click-outside-to-unselect** in the dashboard: when a product card is selected and the
   user clicks somewhere outside the card, unselect it (or add an explicit unselect function).
-  This is in `cashier_dashboard/public/index.html` (single-file UI). Not started yet.
+  This is in `cashier_dashboard/public/js/app.js`. Not started yet.
 
 ---
 
@@ -213,4 +213,4 @@ And the result of the bare-pin test (section 6).
 - Deployed via PM2 (`sudo pm2 restart 01_Dispenser_Controller`); the old systemd unit was removed.
 - `CONFIG/config.env.sample` — template (no `config.env` exists yet).
 - `cashier_dashboard/server.js` — TCP proxy to firmware, SSE broadcaster.
-- `cashier_dashboard/public/index.html` — dashboard UI (single file).
+- `cashier_dashboard/public/` — dashboard UI: `index.html` (markup), `css/` (four ordered stylesheets), `js/app.js` (behaviour).

@@ -27,7 +27,14 @@ cashier_dashboard/
 ├── .resolved_credits.json       # Which unclaimed credits are settled (auto-created)
 ├── pm2-dashboard.log            # PM2 log (auto-created)
 └── public/
-    ├── index.html               # THE ENTIRE UI — HTML + CSS + JS in one file (~1068 lines)
+    ├── index.html               # Markup only (~199 lines)
+    ├── css/                     # Load order IS cascade order — see below
+    │   ├── 01-base.css          # Tokens, @font-face, reset, header, layout, grid
+    │   ├── 02-tablet.css        # @media (max-width: 768px)
+    │   ├── 03-phone.css         # The fenced phone region: 640px and 480px
+    │   └── 04-components.css    # Hover, press feedback, ask dialog, settings sheet
+    ├── js/
+    │   └── app.js               # All client behaviour, one closure (~1400 lines)
     └── fonts/
         ├── inter-v20-latin-regular.woff2
         ├── inter-v20-latin-500.woff2
@@ -39,7 +46,29 @@ cashier_dashboard/
         └── poppins-v24-latin-700.woff2
 ```
 
-**Key design choice:** Everything is self-contained in `index.html`. No separate CSS/JS files. No CDN dependencies. The fonts are loaded from `fonts/` directory as `@font-face` with `font-display: swap` — fully offline.
+**Key design choice:** No CDN dependencies, no build step. The fonts load from
+`fonts/` as `@font-face` with `font-display: swap` — fully offline.
+
+**The four stylesheets are ordered, and the order is load-bearing.** CSS
+resolves ties by document order, so a rule in `04-components.css` beats an
+equally specific rule in `01-base.css`. The numeric prefixes exist to make that
+visible; renaming them, reordering the `<link>` tags, or merging the files
+changes how the page renders. They are contiguous slices of what used to be one
+`<style>` block, cut so the concatenation is byte-identical to the original —
+which is why `04-components.css` holds ordinary component rules rather than
+"responsive" ones: those rules simply came after the phone fence in the source.
+
+Two things follow from the split and are easy to get wrong:
+
+- **`url()` in CSS resolves against the stylesheet, not the page.** The
+  `@font-face` rules in `01-base.css` say `url('../fonts/…')` because the file
+  lives in `css/`. Move a stylesheet and the fonts 404 silently — the page
+  still renders, just in the wrong typeface. (`fetch()` in `app.js` is
+  unaffected: it resolves against the document.)
+- **The browser can now cache a mismatched set** — new markup with last week's
+  CSS. `server.js` sends `Cache-Control: no-cache` for html/css/js/json so the
+  browser must revalidate before reusing them; fonts and icons stay cacheable
+  because their contents never change.
 
 ---
 
@@ -131,7 +160,7 @@ The `/qr` endpoint redirects to a QR code image so the cashier can scan it with 
 
 ---
 
-## 4. index.html — Client-Side UI
+## 4. The Client-Side UI (`index.html`, `css/`, `js/app.js`)
 
 ### 4.1 Font Stack
 
@@ -476,7 +505,12 @@ const MAX_QTY = 10;  // max presses per staged item — placeholder, adjust to f
 ## 13. Modification Guide
 
 ### Adding a new product name
-Edit the `PRODUCT` and `PRODUCT_INITIAL` objects in `index.html` (lines 680-683). The initial is shown in the product icon circle (1-2 chars max). Also add the product's calibrated per-press ml value to `PRODUCT_ML`.
+Names come from `/api/info` at runtime, because what is loaded in each slot
+differs per machine; the objects at the top of `public/js/app.js` are the
+fallbacks used before that responds. `PRODUCT` (line 7) holds the names,
+`PRODUCT_ML` (line 9) the calibrated per-press millilitres, and `PRODUCT_ICON`
+(line 10) an inline SVG per slot — the icon is a drawn glyph, not the initial
+letter it used to be.
 
 ### Changing the theme colors
 Edit the `:root` block for dark theme, `[data-theme="light"]` block for light theme. All colors use CSS custom properties — change the variable values, not individual element styles.

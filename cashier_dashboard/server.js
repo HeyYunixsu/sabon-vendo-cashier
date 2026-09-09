@@ -287,7 +287,23 @@ function broadcastSSE(data) {
 
 const app = express();
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
+// The markup, styles and behaviour are now three separate downloads, so the
+// browser can hold a MISMATCHED set -- new index.html with last week's CSS.
+// On a tablet locked in fullscreen that shows up as a broken layout the
+// cashier cannot fix, because reaching a hard refresh means leaving the kiosk.
+//
+// no-cache does not mean "do not cache": it means revalidate before reusing.
+// The tablet still keeps the files and still gets a 304 on a LAN in about a
+// millisecond -- it just can never serve a stale one. Fonts and icons are
+// deliberately left out: they are content-addressed by name and never change,
+// so they stay cacheable outright.
+app.use(express.static(path.join(__dirname, 'public'), {
+  setHeaders(res, filePath) {
+    if (/\.(?:html|css|js|json)$/i.test(filePath)) {
+      res.setHeader('Cache-Control', 'no-cache');
+    }
+  },
+}));
 
 // SSE endpoint
 app.get('/api/status/stream', (req, res) => {

@@ -1,0 +1,807 @@
+/* ===================================================================
+   Sabon Vendo — Cashier Dashboard
+   Token naming: bg-surface-primary, text-content-secondary, etc.
+   Breakpoints: 1440px desktop / 768px tablet / 375px mobile
+   =================================================================== */
+
+/* Poppins loaded locally — fully offline */
+@font-face { font-family: 'Inter'; src: url('../fonts/inter-v20-latin-regular.woff2') format('woff2'); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Inter'; src: url('../fonts/inter-v20-latin-500.woff2') format('woff2'); font-weight: 500; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Inter'; src: url('../fonts/inter-v20-latin-600.woff2') format('woff2'); font-weight: 600; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Inter'; src: url('../fonts/inter-v20-latin-700.woff2') format('woff2'); font-weight: 700; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Poppins'; src: url('../fonts/poppins-v24-latin-regular.woff2') format('woff2'); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Poppins'; src: url('../fonts/poppins-v24-latin-500.woff2') format('woff2'); font-weight: 500; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Poppins'; src: url('../fonts/poppins-v24-latin-600.woff2') format('woff2'); font-weight: 600; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Poppins'; src: url('../fonts/poppins-v24-latin-700.woff2') format('woff2'); font-weight: 700; font-style: normal; font-display: swap; }
+
+:root {
+  --bg-surface-primary:   #0B0E14;
+  --bg-surface-secondary: #141925;
+  --bg-surface-tertiary:  #1C2333;
+  --border-default:       #232A3B;
+  --border-strong:        #3B6DF0;
+  --text-content-primary: #F5F7FA;
+  --text-content-secondary: #8A93A6;
+  --text-content-inverse: #0B0E14;
+  --accent-action:        #3B6DF0;
+  --accent-action-hover:  #507DF4;
+  --status-positive:      #34D399;
+  --status-caution:       #FBBF24;
+  --status-negative:      #F87171;
+  --status-neutral:       #4B5263;
+  --radius-container:     14px;
+  --radius-element:       8px;
+  --radius-pill:          999px;
+  --space-unit: 8px;
+  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-size: 14px;
+  color: var(--text-content-primary);
+  background: var(--bg-surface-primary);
+}
+[data-theme="light"] {
+  --bg-surface-primary:   #F3F4F6;
+  --bg-surface-secondary: #FFFFFF;
+  --bg-surface-tertiary:  #F0F1F3;
+  --border-default:       #D1D5DB;
+  --border-strong:        #3B6DF0;
+  --text-content-primary: #1A1A1A;
+  --text-content-secondary: #6B7280;
+  --text-content-inverse: #FFFFFF;
+  --status-positive:      #16A34A;
+  --status-caution:       #D97706;
+  --status-negative:      #DC2626;
+  --status-neutral:       #9CA3AF;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  max-width: 1280px; margin: 0 auto;
+  /* Commit to the viewport rather than growing past it. min-height let the
+     body get taller than the screen, which is what forced the page to scroll
+     and pushed the product grid out of sight on load. The cashier should see
+     every product and every button without scrolling. */
+  height: 100dvh;
+  padding: 10px 14px; display: flex; flex-direction: column;
+  user-select: none; -webkit-user-select: none;
+  cursor: default;
+  font-size: 15px;
+}
+
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-default); border-radius: 3px; }
+
+/* ===================================================================
+   HEADER
+   =================================================================== */
+#status-bar {
+  display: flex; justify-content: space-between; align-items: center;
+  background: var(--bg-surface-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: 10px;
+  /* Trimmed from 10px: the chips are 30px pills now and carry their own
+     padding, so the bar keeps roughly its old height rather than growing. */
+  padding: 6px 14px; margin-bottom: 10px; flex-shrink: 0;
+  font-family: 'Poppins', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; font-size: 12px;
+  /* The theme's own foreground -- near-black on light, near-white on dark --
+     rather than the muted grey, which read as disabled against the pills. */
+  color: var(--text-content-primary);
+}
+.status-left, .status-center, .status-right {
+  display: flex; align-items: center; gap: 20px;
+}
+
+/* Status dot (8px) */
+.dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 7px; flex-shrink: 0; }
+.dot-positive { background: var(--status-positive); box-shadow: 0 0 6px rgba(52,211,153,.35); }
+/* A problem breathes fast and hard. Speed is the signal here, not just
+   colour: slow means healthy, quick means fix me, and the two are told apart
+   from across the counter without reading either label. Used by Empty, by
+   the machine-offline row and by every issue in the right panel. */
+.dot-negative {
+  background: var(--status-negative); box-shadow: 0 0 6px rgba(248,113,113,.35);
+  animation: glow-alert 1.1s ease-in-out infinite;
+}
+@keyframes glow-alert {
+  0%, 100% { box-shadow: 0 0 4px rgba(248,113,113,.35); opacity: .65; }
+  50%      { box-shadow: 0 0 12px rgba(248,113,113,.95); opacity: 1; }
+}
+/* Ready is alive, not idle. A grey dot on all six cards made a healthy
+   machine look switched off. Slow and soft on purpose -- this is the resting
+   state, so it should read as breathing, not as asking for attention.
+
+   Green here and green for Unlocked would normally collide. They are kept
+   apart by weight rather than hue: Ready is a dim dot that swells gently,
+   Unlocked is solid and static, and the unlocked card also carries a green
+   border, a glow ring and a large count. The idle state must never be the
+   loudest thing on the screen. */
+.dot-ready {
+  background: var(--status-positive);
+  animation: glow-ready 2.4s ease-in-out infinite;
+}
+@keyframes glow-ready {
+  0%, 100% { box-shadow: 0 0 4px rgba(52,211,153,.28); opacity: .7; }
+  50%      { box-shadow: 0 0 10px rgba(52,211,153,.72); opacity: 1; }
+}
+/* Staggered, so six healthy dots breathe rather than strobe in unison. */
+.grid .product-card:nth-child(2) .dot-ready { animation-delay: .40s; }
+.grid .product-card:nth-child(3) .dot-ready { animation-delay: .80s; }
+.grid .product-card:nth-child(4) .dot-ready { animation-delay: 1.20s; }
+.grid .product-card:nth-child(5) .dot-ready { animation-delay: 1.60s; }
+.grid .product-card:nth-child(6) .dot-ready { animation-delay: 2.00s; }
+.dot-accent  { background: var(--accent-action);  box-shadow: 0 0 8px rgba(59,109,240,.4); }
+.dot-caution { background: var(--status-caution); box-shadow: 0 0 8px rgba(251,191,36,.4); animation: pulse-dot 1.2s infinite; }
+.dot-neutral { background: var(--status-neutral); }
+@keyframes pulse-dot { 0%,100%{opacity:1} 50%{opacity:.35} }
+
+.hidden { display: none !important; }
+
+#theme-toggle {
+  background: none; border: 1px solid var(--border-default);
+  border-radius: var(--radius-element); color: var(--text-content-secondary);
+  cursor: pointer; font-family: 'Poppins', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-size: 10px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.06em; padding: 6px 12px; transition: all .18s;
+}
+
+/* ===================================================================
+   KPI ROW (3-4 summary blocks)
+   =================================================================== */
+/* The KPI row folded into the header. Three of its four cards repeated what
+   the product grid already shows -- armed counts, stock, machine state -- for
+   about 100px of vertical space, roughly a third of the grid's budget. Only
+   Today was unique, since it comes from the sales archive rather than STATUS. */
+#chips { display: flex; align-items: center; gap: 8px; }
+.chip {
+  display: flex; align-items: baseline; gap: 7px; white-space: nowrap;
+  background: var(--bg-surface-tertiary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-pill);
+  padding: 5px 12px;
+}
+.chip-k {
+  font-size: 10px; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--text-content-primary); opacity: .72;
+}
+.chip-v {
+  font-weight: 700; font-size: 15px; color: var(--text-content-primary);
+  /* Reserved width and tabular figures. A chip that resized as its number
+     changed would put the layout shift back in the header, right beside the
+     gear icon that started all this. */
+  font-variant-numeric: tabular-nums; min-width: 26px; text-align: right;
+}
+/* The state is a phrase, so it reads left and reserves the width of the
+   longest one ("Buttons Unlocked") rather than jumping between them. */
+.chip-state .chip-v { min-width: 118px; text-align: left; }
+
+/* Waiting only earns attention while a customer still owes presses. At zero
+   it stays quiet like the others, so a lit chip means something. */
+.chip-waiting.is-live { border-color: var(--accent-action); }
+.chip-waiting.is-live .chip-v { color: var(--accent-action); }
+
+/* Today is the one figure not visible anywhere else on the screen -- it comes
+   from the sales archive, not from STATUS -- and the only chip you can tap.
+   Filling it is what earns it that difference; the rest stay quiet so this
+   one reads first. */
+.chip-today {
+  background: var(--accent-action); border-color: transparent;
+  cursor: pointer; padding: 5px 14px;
+}
+.chip-today .chip-k { color: rgba(255, 255, 255, .78); }
+.chip-today .chip-v { color: #fff; font-size: 16px; min-width: 72px; }
+/* A drawn icon rather than a text glyph. U+25BE is the SMALL triangle: its
+   ink is a fraction of its em box, so it rendered thin and undersized at any
+   font-size, and its exact shape was at the mercy of whichever font resolved.
+   An SVG chevron is sized in pixels, carries its own stroke weight, and looks
+   the same everywhere. */
+.chip-today .chev {
+  color: rgba(255, 255, 255, .9);
+  display: inline-flex; align-items: center; justify-content: center;
+  align-self: center; margin-left: 4px; flex-shrink: 0;
+}
+.chip-today .chev svg { width: 13px; height: 13px; display: block; }
+/* The chevron is the only thing on the chip that says it opens anything, and
+   as a 10px glyph it was easy to miss entirely. Wherever a finger is the
+   pointer -- phone and tablet, 1024 and below, which covers the iPad in
+   landscape -- it gets a disc to sit in as well, so it reads as a control
+   rather than as punctuation beside the figure. Above 1024 it stays the
+   plain icon, since the desktop was to be left alone. */
+@media (max-width: 1024px) {
+  /* id + two classes, deliberately. #kpi-today-card .chev further down sets
+     display: inline-block, and at equal specificity the later rule wins -- so
+     a plain .chip-today .chev never got its flex centring and the icon sat on
+     the top edge of the disc. */
+  #kpi-today-card.chip-today .chev {
+    width: 26px; height: 26px; border-radius: 50%;
+    background: rgba(255, 255, 255, .30);
+    color: #fff;
+    display: inline-flex; align-items: center; justify-content: center;
+    /* The chip aligns on the baseline, which a disc has no business sitting
+       on -- it would hang below the figure beside it. */
+    align-self: center;
+    margin-left: 8px; flex-shrink: 0;
+  }
+  #kpi-today-card.chip-today .chev svg { width: 15px; height: 15px; }
+}
+.chip-today:hover { background: var(--accent-action-hover); }
+.chip-today:focus-visible {
+  outline: 2px solid var(--text-content-primary); outline-offset: 2px;
+}
+
+
+/* ===================================================================
+   MAIN LAYOUT
+   =================================================================== */
+/* Sale Strip */
+/* One 3x3 grid: six product cells on the top two rows, the three controls on
+   the bottom row aligned to the same columns. The controls used to sit beside
+   the cards and stole horizontal space from them; below, every cell gets the
+   full column width. Being one grid also means nothing here can reflow -- the
+   whole strip is a fixed block whatever the sale contains. */
+#sale-strip {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
+  background: var(--bg-surface-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: 10px;
+  padding: 8px 12px; margin-bottom: 8px; flex-shrink: 0;
+}
+#sale-strip #staged-items {
+  grid-column: 1 / -1; min-width: 0; font-size: 12px;
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  /* Both rows reserved, always. Six products fill 3x2, so holding the full
+     grid open means the strip is the same height empty, half full or full --
+     and the product grid below it never moves. Costs ~190px of standing
+     space, chosen deliberately over a grid that jumps out from under a
+     finger mid-tap. Fixed row heights, not auto: an auto row collapses when
+     empty, which is the shift this exists to stop. */
+  grid-template-rows: repeat(2, 78px); gap: 8px;
+  min-height: 164px;
+  align-items: start;
+}
+/* The empty state fills the whole reserved area rather than sitting in the
+   first cell, so the strip reads as one waiting space instead of a grid with
+   a stray label in the corner. Larger too -- with nothing staged this is the
+   only thing in a 164px block, and it is the instruction for what to do next. */
+#sale-strip #staged-items > .muted {
+  grid-column: 1 / -1; grid-row: 1 / -1;
+  /* The container is align-items: start, so without this the placeholder keeps
+     its own small height and sits at the top -- centring inside it then has
+     nothing to centre within. Stretch first, then centre. */
+  align-self: stretch;
+  display: flex; align-items: center; justify-content: center;
+  text-align: center;
+  font-size: 22px; font-weight: 600; padding: 0;
+}
+#sale-strip .staged-card {
+  /* Four columns: what the product is, how many of it, then one control
+     each. The name takes whatever is left over, so the count and the two
+     controls are in the same place on every card however long the product
+     is called.
+
+     The count column is a fixed 44px and NOT auto. An auto track would size
+     itself to its content, so "3x" -> "10x" would widen it, the name column
+     would shrink to compensate, and the card's contents would jump sideways
+     as the cashier tapped plus. That is the same shift this card has been
+     fixed for twice already. */
+  display: grid; grid-template-columns: minmax(0, 1fr) 40px 52px 52px;
+  /* The gap is the point, not just spacing. Minus and plus do opposite things,
+     sit under the same thumb, and a misclick costs a wrong quantity the
+     cashier has to catch before Unlock. 12px is dead ground between them. */
+  column-gap: 12px;
+  align-items: center;
+  background: var(--bg-surface-secondary);
+  border: 1px solid var(--accent-action); border-radius: 8px;
+  padding: 4px 10px; width: 100%; min-width: 0; max-width: none;
+  position: relative;
+  /* Unchanged at 78px. The strip reserves the same block it always did, so
+     nothing below it moves -- the steppers grew into height that was already
+     here as padding, not into new height. */
+  height: 78px; overflow: hidden;
+}
+/* Column 1. Its own box so the remove button can sit against the name rather
+   than against the card, which now ends at the plus button. */
+.staged-card .staged-card-text {
+  grid-column: 1; grid-row: 1; min-width: 0;
+  display: flex; flex-direction: column; justify-content: center; gap: 2px;
+}
+.staged-card .staged-card-name {
+  /* Leads the card. It was 12px under a 15px quantity, so the eye landed on
+     "3x . 1500ml" before the product it belonged to. */
+  font-size: 17px; font-weight: 600; color: var(--text-content-primary);
+  line-height: 1.15;
+  /* Wraps to two lines instead of ellipsing. "Fabric Cond..." makes a cashier
+     work out which product that was; the second line is free, because the card
+     is already 78px tall for the steppers' sake. Clamped at two, so a long
+     name still cannot push the card taller than its neighbours. */
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
+  line-clamp: 2; overflow: hidden; overflow-wrap: anywhere;
+}
+/* How many presses, in its own column between the name and the controls.
+   Large, because it is the number the cashier is actually changing and the
+   one they check before Unlock. */
+.staged-card .staged-card-qty {
+  grid-column: 2; grid-row: 1;
+  font-size: 19px; font-weight: 700; color: var(--accent-action);
+  line-height: 1.1; text-align: center;
+  /* Fixed column plus tabular figures: 3x and 10x occupy exactly the same
+     space, so nothing moves as the quantity climbs. */
+  white-space: nowrap; font-variant-numeric: tabular-nums;
+}
+/* Volume per press -- a property of the product, not of the sale, so it is
+   the one number on this card that never changes as the quantity does. */
+.staged-card .staged-card-ml {
+  font-size: 13px; font-weight: 600; color: var(--text-content-secondary);
+  line-height: 1.2; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums;
+}
+/* Small, in the name's top corner. A shortcut, not the only exit -- minus at
+   one press already removes the item. */
+.staged-card .staged-step {
+  /* The full height of the card, because height is what a thumb is least
+     accurate on. 52x70 against the 64x26 these started as is well over twice
+     the area, and all of the growth is on that axis.
+
+     They were briefly cut to 54px and pushed to the bottom so a remove button
+     could sit in the corner. That button is gone -- holding minus removes the
+     item now -- so the height comes back. */
+  align-self: center;
+  width: 100%; height: 70px;
+  display: flex; align-items: center; justify-content: center;
+  transition: transform .07s ease, background .12s ease;
+  background: var(--bg-surface-tertiary); color: var(--text-content-primary);
+  border: 1px solid var(--border-default); border-radius: 10px;
+  font-size: 30px; font-weight: 700; line-height: 1; cursor: pointer;
+  font-family: 'Poppins', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+/* Colour carries the meaning, so the two are told apart before they are read.
+   Tinted and outlined rather than filled: two solid blocks of red and green at
+   70px would read as Stop and Go for the whole sale, when all they do is nudge
+   one quantity. Both tints are mixed into the surface token, so they hold in
+   either theme. Keyed on data-delta, not position -- reordering the markup
+   must not silently swap what the colours mean. */
+.staged-card .staged-step[data-delta="-1"] {
+  color: var(--status-negative);
+  border-color: color-mix(in srgb, var(--status-negative) 45%, transparent);
+  background: color-mix(in srgb, var(--status-negative) 10%, var(--bg-surface-tertiary));
+}
+.staged-card .staged-step[data-delta="1"] {
+  color: var(--status-positive);
+  border-color: color-mix(in srgb, var(--status-positive) 45%, transparent);
+  background: color-mix(in srgb, var(--status-positive) 10%, var(--bg-surface-tertiary));
+}
+.sale-controls {
+  /* The bottom row of the strip: three cells on the same columns as the
+     product cards above, so each control is a full-column touch target. */
+  grid-column: 1 / -1;
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
+  align-items: stretch;
+}
+#sale-strip .btn, #sale-strip .btn-confirm {
+  height: 44px; padding: 0 12px; font-size: 13px; font-weight: 600;
+  border-radius: 8px; line-height: 1;
+  /* Fill the grid cell rather than shrink-wrapping the label, so the button
+     is the same size whether it reads "Unlock Buttons" or "Unlock 3 Buttons". */
+  width: 100%;
+}
+#sale-strip .btn-primary { background: var(--accent-action); color: #fff; border: 1px solid transparent; }
+#sale-strip .btn-outline { background: transparent; border: 1px solid var(--border-default); color: var(--text-content-primary); }
+/* Clear List throws the sale away. Red, but outlined rather than filled:
+   Cancel All is filled red and voids credits a customer has already paid for.
+   Losing typing and losing money should not look equally grave. */
+#sale-strip #btn-clear-sale {
+  border-color: var(--status-negative);
+  color: var(--status-negative);
+}
+
+/* Fixed box, right-aligned. 50px held the widest total this ever showed when
+   prices were 5 pesos; a real shop reaches four figures, and the moment the
+   total outgrew its box it squeezed the flex row, wrapped the strip onto a
+   second line and dragged the whole product grid down mid-tap. 96px covers
+   six glyphs (P99999) at this size, so the box never changes width. */
+/* Its own cell on the bottom row. Centred and filling the column, with
+   tabular figures so the number cannot change width as the total climbs. */
+#sale-strip .sale-total {
+  font-size: 22px; margin: 0; white-space: nowrap;
+  display: flex; align-items: center; justify-content: center;
+  height: 44px; font-weight: 700; font-variant-numeric: tabular-nums;
+  overflow: hidden; text-overflow: ellipsis;
+  border: 1px solid var(--border-default); border-radius: 8px;
+  background: var(--bg-surface-tertiary);
+}
+
+/* Status-only right panel */
+.status-section {
+  background: var(--bg-surface-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-container);
+  padding: 10px 14px; margin-bottom: 8px;
+}
+.status-section .section-label { margin-bottom: 4px; padding-bottom: 4px; font-size: 10px; }
+.status-section .list-row { padding: 4px 0; font-size: 11px; }
+.status-section .list-val { font-size: 13px; }
+
+/* Only the two pages scroll. The header and sale strip stay put above them,
+   which is what lets a page be exactly one screenful -- with the chrome inside
+   the scroller, main had to shrink to make room for the Today panel instead of
+   the panel becoming a page of its own. */
+#viewport { flex: 1; display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+#pages {
+  flex: 1; min-height: 0; overflow-y: auto;
+  display: flex; flex-direction: column;
+  scroll-behavior: smooth;
+}
+/* Each page is exactly the scroller's height, so Today is a second screenful
+   you travel down to rather than a strip wedged under the products.
+   main takes height, not min-height, deliberately: with a minimum it still
+   grew to fit its content, the section stretched to match, and the grid was
+   never told how small it had to be -- so a short screen overflowed however
+   much the cards were trimmed. A fixed height breaks that loop and the grid
+   shrinks into what is actually left. */
+#pages > main { flex: 0 0 auto; height: 100%; }
+#pages > #today-panel { flex: 0 0 auto; min-height: 100%; }
+
+/* Flex, not grid: flex-basis animates reliably everywhere, and the right
+   panel has to be able to collapse to nothing. */
+main { display: flex; gap: 12px; min-height: 0; }
+/* The products take whatever the right panel is not using. */
+main > section { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+/* Fill the section rather than sitting at content height and leaving dead
+   space beneath -- the six cards spread over the whole area. */
+main > section > .grid { flex: 1; min-height: 0; }
+
+/* ===================================================================
+   PRODUCT GRID
+   =================================================================== */
+.grid {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  /* No min-height. The rows are 1fr, so the cards simply take whatever is
+     left once the header, the sale strip and the Select All button have had
+     their share -- a floor here would push the page past the screen again. */
+  /* minmax(0, ...) and not plain 1fr: a bare 1fr means minmax(auto, 1fr),
+     so a row can never shrink below its content and the grid overflowed the
+     page by 36px however small the cards got. */
+  grid-template-rows: repeat(2, minmax(0, 1fr)); gap: 8px;
+  min-height: 0;
+}
+.product-card {
+  background: var(--bg-surface-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: 10px; cursor: pointer; overflow: hidden;
+  user-select: none; -webkit-tap-highlight-color: transparent;
+  transition: border-color .2s, box-shadow .2s, transform .07s ease;
+  display: flex; align-items: center; gap: 14px;
+  /* Same reason as the grid: no floor, so the cards fit the space rather
+     than dictating it. */
+  padding: 10px 14px; min-height: 0; position: relative;
+}
+.product-card.armed {
+  border-color: var(--status-positive);
+  box-shadow: 0 0 0 3px rgba(52,211,153,0.28);
+}
+.product-card.selected {
+  border-color: var(--border-strong);
+  box-shadow: 0 0 0 3px rgba(59,109,240,0.28);
+}
+.product-card.busy {
+  border-color: var(--status-caution);
+  box-shadow: 0 0 0 3px rgba(251,191,36,0.25);
+}
+.product-card.busy .product-icon {
+  animation: pulse-busy .8s ease-in-out infinite;
+}
+.product-card.empty {
+  border-color: var(--status-negative);
+  box-shadow: 0 0 0 3px rgba(248,113,113,0.25);
+  pointer-events: none;
+}
+.product-card.empty .product-icon { filter: saturate(0.4); }
+.product-card.inactive { opacity: .3; pointer-events: none; }
+
+/* Icon tile */
+.product-icon {
+  width: 22%; max-width: 64px;
+  aspect-ratio: 1 / 1;
+  border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  background: var(--tile-bg, #1C2333);
+  color: var(--tile-icon, #8A93A6);
+  transition: background .2s, color .2s;
+}
+.product-icon svg {
+  width: 55%; height: 55%;
+}
+
+/* Per-product tile colors -- dark theme (default) */
+[data-product="1"] { --tile-bg: #2A2450; --tile-icon: #8B82E0; }
+[data-product="2"] { --tile-bg: #1A3050; --tile-icon: #5B9BD5; }
+[data-product="3"] { --tile-bg: #1A3A30; --tile-icon: #4DB89E; }
+[data-product="4"] { --tile-bg: #3A2018; --tile-icon: #D4856A; }
+[data-product="5"] { --tile-bg: #3A2A15; --tile-icon: #C89240; }
+[data-product="6"] { --tile-bg: #253A18; --tile-icon: #6BA830; }
+
+/* Per-product tile colors -- light theme override */
+[data-theme="light"] [data-product="1"] { --tile-bg: #EEEDFE; --tile-icon: #534AB7; }
+[data-theme="light"] [data-product="2"] { --tile-bg: #E6F1FB; --tile-icon: #185FA5; }
+[data-theme="light"] [data-product="3"] { --tile-bg: #E1F5EE; --tile-icon: #0F6E56; }
+[data-theme="light"] [data-product="4"] { --tile-bg: #FAECE7; --tile-icon: #993C1D; }
+[data-theme="light"] [data-product="5"] { --tile-bg: #FAEEDA; --tile-icon: #854F0B; }
+[data-theme="light"] [data-product="6"] { --tile-bg: #EAF3DE; --tile-icon: #3B6D11; }
+
+/* Pulse animations */
+@keyframes pulse-arm {
+  0%   { transform: scale(1); }
+  50%  { transform: scale(1.18); }
+  100% { transform: scale(1); }
+}
+@keyframes pulse-busy {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: .55; }
+}
+.armed-qty.pulse-arm {
+  animation: pulse-arm .4s ease;
+}
+
+/* Text panel */
+.product-card .text-panel {
+  flex: 1; min-width: 0; padding: 0;
+  display: flex; flex-direction: column; justify-content: center;
+  gap: 1px; min-width: 0;
+}
+.product-card .slot-num {
+  font-family: 'Poppins', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-size: 11px; font-weight: 600; letter-spacing: 0.04em;
+  color: var(--text-content-secondary);
+  margin-right: 8px; font-variant-numeric: tabular-nums;
+}
+.product-card .product-name {
+  font-family: 'Inter', sans-serif; font-size: 15px;
+  font-weight: 600; color: var(--text-content-primary);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.product-card .armed-qty {
+  font-family: 'Poppins', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-size: 32px; font-weight: 700; line-height: 1;
+  color: var(--text-content-primary); margin: 0;
+  font-variant-numeric: tabular-nums;
+  /* Pinned to the right edge. The cards are equal width, so all six counts
+     land in the same three columns and can be read down the grid at a glance
+     -- worth more than closing the gap, which the larger name now fills. */
+  margin-left: auto; padding-left: 12px; flex-shrink: 0;
+  min-width: 32px; text-align: right;
+}
+.product-card .armed-qty.is-zero   { color: #3A4050; }
+.product-card .armed-qty.is-armed  { color: var(--status-positive); }
+.product-card .armed-qty.is-selected { color: var(--accent-action); }
+.product-card .armed-qty.is-busy   { color: var(--status-caution); }
+
+.product-card .staged-badge {
+  position: absolute; top: 5px; left: 5px;
+  min-width: 22px; height: 22px; padding: 0 6px;
+  border-radius: 12px;
+  background: var(--accent-action); color: #fff;
+  font-size: 13px; font-weight: 700; line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+  pointer-events: none;   /* the tap belongs to the card underneath */
+}
+
+.product-card .status-row {
+  display: flex; align-items: center;
+  gap: 6px; margin-top: 4px; font-size: 12px; font-weight: 500;
+}
+
+/* ===================================================================
+   RIGHT PANEL
+   =================================================================== */
+/* Slides in only when it has something to say. Empty, it was 260px of nothing
+   holding the product cards narrower than they needed to be; a sale is also
+   exactly when the cashier wants the armed list, so the panel arriving is the
+   same event as the products making room for it.
+   Scrolls internally too, so a run of alerts cannot push the page taller and
+   undo the one-screen fit. */
+#right-panel {
+  display: flex; flex-direction: column; gap: 10px;
+  flex: 0 0 260px; min-height: 0; overflow: hidden auto;
+  transition: flex-basis .28s ease, opacity .22s ease;
+}
+main.panel-hidden { gap: 0; }
+main.panel-hidden #right-panel {
+  flex-basis: 0; opacity: 0; overflow: hidden;
+  /* Not just transparent: a zero-width column must not keep taking taps. */
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  #right-panel { transition: none; }
+}
+#right-panel section {
+  background: var(--bg-surface-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-container);
+  padding: 12px 16px;
+  border-left: 3px solid transparent;
+}
+#right-panel section:nth-child(1) { border-left-color: var(--accent-action); }
+#right-panel section:nth-child(2) { border-left-color: var(--status-positive); }
+#right-panel section:nth-child(3) { border-left-color: var(--status-caution); }
+#right-panel section:nth-child(4) { border-left-color: #8B5CF6; }
+#right-panel section:nth-child(5) { border-left-color: var(--status-negative); }
+.section-label {
+  font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 600;
+  color: var(--text-content-secondary); text-transform: uppercase;
+  letter-spacing: 0.05em; margin-bottom: 12px; padding-bottom: 8px;
+  border-bottom: 1px solid var(--border-default);
+  display: flex; justify-content: space-between; align-items: center;
+}
+
+/* Staged items */
+.staged-row {
+  display: grid; grid-template-columns: 1fr auto 30px; align-items: center;
+  gap: 8px; padding: 10px 6px; border-bottom: 1px solid var(--border-default);
+  font-size: 13px; animation: slide-in .18s ease;
+}
+.staged-row:last-child { border-bottom: none; }
+.staged-row .staged-info { text-align: left; }
+.staged-row .staged-name { font-weight: 600; }
+.staged-row .staged-qty {
+  font-family: 'Poppins', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; font-weight: 700; font-size: 15px;
+  color: var(--accent-action); text-align: center;
+  background: color-mix(in srgb, var(--accent-action) 10%, transparent);
+  padding: 4px 12px; border-radius: var(--radius-pill);
+  white-space: nowrap;
+}
+.staged-row .staged-meta { font-size: 11px; color: var(--text-content-secondary); }
+.btn-remove {
+  background: none; border: 1px solid var(--border-default);
+  border-radius: 50%; color: var(--text-content-secondary);
+  cursor: pointer; font-size: 14px; width: 28px; height: 28px;
+  display: flex; align-items: center; justify-content: center;
+  transition: all .15s; flex-shrink: 0;
+}
+@keyframes slide-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+
+.sale-total {
+  text-align: right; margin-top: 4px;
+  font-family: 'Poppins', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-size: 22px; font-weight: 700; color: var(--text-content-primary);
+  white-space: nowrap;
+}
+
+/* Buttons */
+.btn {
+  padding: 12px 20px; border: none; border-radius: var(--radius-pill);
+  cursor: pointer; font-family: 'Inter', sans-serif; font-size: 13px;
+  font-weight: 600; transition: all .15s;
+  display: inline-flex; align-items: center; justify-content: center;
+  touch-action: manipulation;
+}
+.btn-primary { background: var(--accent-action); color: #fff; }
+.btn-primary:disabled { opacity: .25; pointer-events: none; }
+/* No flex here. This is a colour variant, and a layout property on it was
+   invisible while every outline button sat in a flex row -- but the product
+   section is a flex column now, so "Add One Of Each" grew to 169px and ate
+   the space the product grid was meant to fill. Buttons that do need to
+   stretch say so where they are used. */
+.btn-outline { background: transparent; border: 1px solid var(--border-default); color: var(--text-content-secondary); }
+
+/* Add One Of Each is a real action, so it should look like one -- but tinted
+   rather than filled. Unlock Buttons is the filled blue in this column, and a
+   second solid button beside it would blunt the one that matters. */
+#btn-select-all {
+  border-color: var(--accent-action);
+  color: var(--accent-action);
+  background: color-mix(in srgb, var(--accent-action) 12%, transparent);
+  font-weight: 600;
+}
+/* Older WebKit has no color-mix; the tint is decoration, the border and text
+   carry the meaning, so the fallback above it stands. */
+@supports not (background: color-mix(in srgb, red 10%, transparent)) {
+  #btn-select-all { background: transparent; }
+}
+.btn-lg { padding: 16px 24px; font-size: 15px; }
+.btn-block { display: block; width: 100%; }
+.btn-sm {
+  padding: 5px 12px; font-size: 11px; background: transparent;
+  border: 1px solid var(--border-default); color: var(--text-content-secondary);
+  cursor: pointer; border-radius: var(--radius-pill);
+  font-family: 'Inter', sans-serif; font-weight: 500; transition: all .15s;
+}
+.btn-sm.retry { border-color: var(--accent-action); color: var(--accent-action); }
+.btn-negative {
+  background: transparent; border: 1px solid var(--status-negative);
+  color: var(--status-negative); padding: 6px 14px; font-size: 11px;
+  border-radius: var(--radius-pill); cursor: pointer;
+  font-family: 'Inter', sans-serif; font-weight: 600; transition: all .15s;
+  white-space: nowrap; flex-shrink: 0;
+}
+
+/* List rows */
+.list-row {
+  display: grid; grid-template-columns: 20px 1fr auto auto;
+  align-items: center; gap: 8px;
+  padding: 8px 0; border-bottom: 1px solid var(--border-default);
+  font-size: 13px; min-height: 44px;
+}
+.list-row:last-child { border-bottom: none; }
+.list-row .list-name {
+  font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.list-row .list-val {
+  font-family: 'Poppins', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; font-weight: 600;
+  font-size: 15px; color: var(--text-content-primary);
+  text-align: right; font-variant-numeric: tabular-nums;
+  white-space: nowrap; min-width: 28px;
+}
+.list-row .btn-negative, .list-row .btn-sm {
+  /* min-width, not width: these keep their side padding, so a fixed 60px left
+     "Cancel" a ~30px content box to sit in and it overflowed to one side
+     instead of centring. Flex centring keeps the label true even when a
+     longer word ("Dismiss") makes the button grow. */
+  min-width: 72px;
+  display: inline-flex; align-items: center; justify-content: center;
+  text-align: center;
+}
+.muted {
+  color: var(--text-content-secondary); font-family: 'Poppins', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-size: 11px; text-align: center; padding: 8px 0;
+}
+
+/* Alert card */
+.alert-card {
+  background: color-mix(in srgb, var(--status-negative) 8%, var(--bg-surface-secondary));
+  border: 1px solid var(--status-negative);
+  border-radius: var(--radius-container); padding: 14px 16px;
+  color: var(--status-negative); font-size: 13px; font-weight: 500;
+  margin-bottom: 10px;
+}
+.alert-card .alert-heading { font-weight: 700; margin-bottom: 4px; }
+
+/* Empty state with CTA */
+.empty-state {
+  text-align: center; padding: 16px 8px; color: var(--text-content-secondary);
+  font-size: 12px;
+}
+.empty-state .empty-action {
+  display: inline-block; margin-top: 8px; font-family: 'Poppins', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-size: 11px; font-weight: 600; color: var(--accent-action);
+  cursor: pointer; text-transform: uppercase; letter-spacing: 0.04em;
+}
+
+/* Skeleton shimmer */
+.skeleton {
+  background: linear-gradient(90deg, var(--bg-surface-tertiary) 25%, var(--bg-surface-secondary) 50%, var(--bg-surface-tertiary) 75%);
+  background-size: 200% 100%; animation: shimmer 1.4s infinite; border-radius: 4px;
+}
+@keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+.skeleton-text { height: 14px; margin-bottom: 8px; width: 60%; }
+.skeleton-text.short { width: 40%; }
+.skeleton-kpi { height: 36px; margin-bottom: 6px; width: 55%; }
+.skeleton-card { height: 160px; border-radius: var(--radius-container); }
+
+/* Offline banner */
+#offline-banner {
+  display: none; background: color-mix(in srgb, var(--status-negative) 10%, transparent);
+  border: 1px solid var(--status-negative);
+  border-radius: var(--radius-container); padding: 12px 16px; margin-bottom: 14px;
+  color: var(--status-negative); font-size: 13px; font-weight: 500;
+  text-align: center;
+}
+#offline-banner .offline-action {
+  display: inline-block; margin-left: 8px; font-family: 'Poppins', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-size: 11px; font-weight: 600; color: var(--status-negative);
+  cursor: pointer; text-decoration: underline; text-underline-offset: 3px;
+}
+
+/* Toast */
+#toast {
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px);
+  background: var(--bg-surface-tertiary); border: 1px solid var(--border-default);
+  border-radius: var(--radius-element); padding: 12px 24px;
+  font-size: 13px; color: var(--text-content-primary);
+  opacity: 0; transition: all .25s ease; pointer-events: none; z-index: 100;
+}
+#toast.visible { opacity: 1; transform: translateX(-50%) translateY(0); }
+#toast.success { border-color: var(--status-positive); color: var(--status-positive); }
+#toast.error   { border-color: var(--status-negative); color: var(--status-negative); }
+#toast.caution { border-color: var(--status-caution); color: var(--status-caution); }
