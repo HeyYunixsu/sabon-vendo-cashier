@@ -105,15 +105,23 @@
 
       <div id="v2-grid" class="v2-grid"><!-- rendered by v2.js --></div>
 
-      <!-- One control for emptying the cart, not two. The trash that used to
-           sit here did exactly what Cancel All does, beside a button that adds
-           -- two ways to undo, in the place you go to build. Emptying belongs
-           with the thing being emptied, so it now lives in the cart header. -->
+      <!-- Fill and empty sit together, in the place the cashier is already
+           looking to build the sale. The cart header no longer carries a
+           second way to do this -- that slot now belongs to Credits, which is
+           about money already taken rather than a screen being cleared. -->
       <div class="v2-products-footer">
         <button id="btn-one-each" class="v2-btn v2-btn-soft" type="button">
           <svg class="v2-btn-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
           Add One Of Each
+        </button>
+        <!-- Titled and aria-labelled, because an unlabelled icon that voids a
+             cart should still announce what it does to a screen reader and on
+             a long hover. -->
+        <button id="btn-clear-cart" class="v2-btn v2-btn-danger-ghost v2-btn-icon" type="button"
+                aria-label="Clear the cart" title="Clear the cart">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/><path d="M10 11v6M14 11v6"/></svg>
         </button>
       </div>
     </section>
@@ -126,13 +134,16 @@
                stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="20" r="1.6"/><circle cx="18" cy="20" r="1.6"/><path d="M2 3h2.2l2.4 12.1a1.6 1.6 0 0 0 1.6 1.3h8.9a1.6 1.6 0 0 0 1.6-1.3L21 7H5.2"/></svg>
           Your Cart
         </span>
-        <!-- Titled and aria-labelled, because an unlabelled icon that voids a
-             cart should still announce what it does to a screen reader and on
-             a long hover. -->
-        <button id="btn-cancel-all" class="v2-btn v2-btn-danger-ghost v2-btn-icon-sm" type="button"
-                aria-label="Cancel all - empty the cart" title="Cancel all - empty the cart">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-               stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/><path d="M10 11v6M14 11v6"/></svg>
+        <!-- Present only while the machine owes somebody a press. A button
+             that sits there empty all day teaches the cashier to ignore it;
+             one that appears means something is owed. -->
+        <button id="btn-credits" class="v2-btn v2-btn-credits" type="button" hidden
+                aria-label="Waiting credits - presses already paid for"
+                title="Waiting credits - presses already paid for"
+                aria-haspopup="dialog" aria-expanded="false">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+               stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="6.4" rx="7.2" ry="3.1"/><path d="M4.8 6.4v4.6c0 1.71 3.22 3.1 7.2 3.1s7.2-1.39 7.2-3.1V6.4"/><path d="M4.8 11v4.6c0 1.71 3.22 3.1 7.2 3.1s7.2-1.39 7.2-3.1V11"/></svg>
+          <span id="credits-count">0</span>
         </button>
       </div>
 
@@ -183,14 +194,33 @@
     </div>
   </div>
 
-  <!-- ================== SETTINGS ==================
-       Built to "settings v2" and "settings v2 scrolldown". Two things are here
-       that those two screens do not draw:
+  <!-- ================== CREDITS ==================
+       Presses a customer has already paid for. Lifted out of Settings and put
+       behind the cart-header button: voiding one writes off money that has
+       been taken, and that does not belong three scroll-lengths down a sheet
+       the cashier opened to change a price. -->
+  <div id="credits-panel" hidden>
+    <div class="v2-credits-card" role="dialog" aria-modal="true" aria-labelledby="credits-title">
+      <div class="v2-today-head">
+        <h2 id="credits-title">Waiting Credits</h2>
+        <p class="v2-credits-sub"><span id="waiting-total">0</span> owed</p>
+      </div>
+      <div class="v2-credits-body">
+        <p class="v2-note">
+          Presses a customer has <em>already paid for</em>. Cancelling one
+          writes it off &mdash; it is not a way to clear the screen.
+        </p>
+        <div id="waiting-list"></div>
+      </div>
+    </div>
+  </div>
 
-         - Waiting credits. Presses a customer has already paid for, and the
-           only place in this layout they can be voided. Without it v2 cannot
-           replace v1, whatever the mockup shows.
-         - Show QR, carried over for the same reason.
+  <!-- ================== SETTINGS ==================
+       Built to "settings v2" and "settings v2 scrolldown". One thing is here
+       that those two screens do not draw: Show QR, carried over because
+       without it v2 cannot replace v1, whatever the mockup shows. Waiting
+       credits used to live here too; it now has its own screen, opened from
+       the Credits button in the cart header.
 
        And one thing is deliberately absent: the design's header has no close
        button, so neither does this. Tapping outside or pressing Escape closes
@@ -229,15 +259,6 @@
             <button id="btn-save-prices" class="v2-btn v2-btn-primary v2-btn-set" type="button" disabled>Save</button>
           </div>
           <div id="price-history" class="v2-history"></div>
-        </section>
-
-        <section class="v2-group">
-          <h3 class="v2-group-label">Waiting credits &mdash; <span id="waiting-total">0</span> owed</h3>
-          <p class="v2-note">
-            Presses a customer has <em>already paid for</em>. Cancelling one
-            writes it off &mdash; it is not a way to clear the screen.
-          </p>
-          <div id="waiting-list"></div>
         </section>
 
         <section class="v2-group">

@@ -106,6 +106,7 @@
 @supports (backdrop-filter: blur(1px)) {
   :root[data-theme="dark"] #settings-panel,
   :root[data-theme="dark"] #today-panel,
+  :root[data-theme="dark"] #credits-panel,
   :root[data-theme="dark"] #ask-backdrop { background: rgba(10, 14, 20, .55); }
 }
 
@@ -581,7 +582,7 @@ button { font: inherit; color: inherit; }
 
 /* ---- products footer ---- */
 .v2-products-footer {
-  display: grid; grid-template-columns: minmax(0, 1fr);
+  display: grid; grid-template-columns: minmax(0, 1fr) auto;
   gap: 12px; margin-top: 16px; flex: 0 0 auto;
 }
 /* The design gives this row real weight -- it is the fastest way to build a
@@ -716,6 +717,17 @@ button { font: inherit; color: inherit; }
 .v2-btn-icon-sm { padding: 0; width: 52px; min-height: 52px; }
 .v2-btn-icon-sm svg { width: 22px; height: 22px; }
 
+/* Credits is only on screen when money is owed, so it is allowed to be the
+   loud thing in this header -- it is the one control here that is about a
+   customer still waiting rather than a sale being built. */
+.v2-btn-credits {
+  padding: 0 18px; min-height: 52px; gap: 9px;
+  border-color: var(--brand); color: var(--brand); background: var(--brand-tint);
+  font-size: 17px; font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.v2-btn-credits svg { width: 22px; height: 22px; flex: 0 0 auto; }
+
 /* Unlock takes a moment. "Please wait" on a button faded to 45% reads as
    broken; a shimmer reads as working. */
 .v2-btn.is-busy { position: relative; overflow: hidden; opacity: 1; }
@@ -746,24 +758,24 @@ button { font: inherit; color: inherit; }
 /* Centred, not hung under the chip. The mockup anchors it, but the figures
    are read across the shop rather than glanced at, so it takes the middle of
    the screen at a size that carries. */
-#today-panel {
+#today-panel, #credits-panel {
   position: fixed; inset: 0; z-index: 50;
   background: rgba(16, 24, 40, .22);
   display: flex; align-items: center; justify-content: center;
   padding: 24px;
 }
 @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
-  #today-panel {
+  #today-panel, #credits-panel {
     background: rgba(238, 241, 245, .5);
     -webkit-backdrop-filter: blur(7px) saturate(.9);
     backdrop-filter: blur(7px) saturate(.9);
   }
 }
-#today-panel[hidden] { display: none; }
+#today-panel[hidden], #credits-panel[hidden] { display: none; }
 
 /* No JS positioning any more -- the flex parent centres it, which also means
    it cannot be pushed off a short screen by a rect calculation. */
-.v2-today-card {
+.v2-today-card, .v2-credits-card {
   width: min(620px, 100%);
   max-height: 88dvh; overflow-y: auto;
   background: var(--surface);
@@ -779,6 +791,17 @@ button { font: inherit; color: inherit; }
   font-variant-numeric: tabular-nums; line-height: 1.05;
 }
 .v2-today-presses { font-size: 18px; color: var(--ink-2); margin: 4px 0 26px; }
+.v2-credits-sub {
+  margin: 6px 0 0; font-size: 18px; color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+.v2-credits-body { padding: 22px 34px 30px; }
+.v2-credits-body .v2-note { margin: 0 0 6px; }
+/* Bigger than the same row is in the sheet: this list is read while somebody
+   is standing at the counter waiting to be told what happened to their money. */
+.v2-credits-body .v2-wait-row { padding: 13px 0; }
+.v2-credits-body .v2-wait-name { font-size: 20px; }
+.v2-credits-body .v2-wait-qty { font-size: 17px; }
 .v2-today-rows { display: grid; gap: 18px; }
 .v2-today-row {
   display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto;

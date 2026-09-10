@@ -309,6 +309,13 @@
     $('kpi-waiting').textContent = waiting;
     $('chip-waiting').classList.toggle('is-live', waiting > 0);
 
+    // Credits earns its place in the cart header only while the machine owes
+    // somebody a press. If the last one is voided with the panel open the
+    // panel stays -- it says so in words -- rather than vanishing under the
+    // finger that just voided it.
+    $('btn-credits').hidden = waiting === 0;
+    $('credits-count').textContent = waiting;
+
     const stock = $('kpi-stock');
     stock.textContent = inStock + '/' + ACTIVE;
     stock.className = 'v2-chip-v ' + (inStock === ACTIVE ? 'is-full'
@@ -464,12 +471,13 @@
       : 'Unlock Buttons';
 
     const noClear = !cart.length || locked;
-    $('btn-cancel-all').disabled = noClear;
+    $('btn-clear-cart').disabled = noClear;
   }
 
   function renderAll() {
     renderHeader(); renderGrid(); renderCart();
-    if (!$('settings-panel').hidden) { renderPrime(); renderWaiting(); }
+    if (!$('settings-panel').hidden) renderPrime();
+    if (creditsOpen()) renderWaiting();
   }
 
   // =========================================================================
@@ -481,6 +489,7 @@
   // in its right-hand panel and this layout otherwise had nowhere for.
   // =========================================================================
   const settingsOpen = () => !$('settings-panel').hidden;
+  const creditsOpen  = () => !$('credits-panel').hidden;
 
   // ---- prices -------------------------------------------------------------
   let priceDirty = false;
@@ -581,12 +590,13 @@
   // ---- waiting credits ----------------------------------------------------
   // The one thing the mockup has no room for. These are presses a customer has
   // paid for; cancelling one writes it off, so each is its own button behind a
-  // confirmation rather than a bulk sweep.
+  // confirmation rather than a bulk sweep. It has its own screen, off the
+  // Credits button, because voiding taken money is not a settings change.
   let waitSig = null;
 
   function renderWaiting() {
     const el = $('waiting-list');
-    if (!el || !settingsOpen()) return;
+    if (!el || !creditsOpen()) return;
 
     let sig = '', total = 0;
     for (let s = 1; s <= ACTIVE; s++) {
@@ -855,13 +865,26 @@
 
   function openSettings() {
     $('settings-panel').hidden = false;
-    primeSig = null; waitSig = null;
-    renderPrices(); renderPrime(); renderWaiting();
+    primeSig = null;
+    renderPrices(); renderPrime();
     loadPrimeInfo(); loadPriceHistory(); loadMachineInfo();
   }
   function closeSettings() {
     $('settings-panel').hidden = true;
     disarmPrime();
+  }
+
+  // The signature is cleared on open so the list is rebuilt from live status
+  // rather than from whatever it held the last time the panel was closed.
+  function openCredits() {
+    $('credits-panel').hidden = false;
+    $('btn-credits').setAttribute('aria-expanded', 'true');
+    waitSig = null;
+    renderWaiting();
+  }
+  function closeCredits() {
+    $('credits-panel').hidden = true;
+    $('btn-credits').setAttribute('aria-expanded', 'false');
   }
 
   // -------------------------------------------------------------------------
@@ -897,14 +920,12 @@
     toast(name + ' removed', 'caution');
   }
 
-  // Cancel All and the trash icon are ONE action, per the handoff. Both call
-  // this. It clears this screen's cart; nothing has been charged yet, so it
-  // asks rather than warns.
+  // Clears this screen's cart. Nothing has been charged yet, so it asks
+  // rather than warns.
   //
   // NOTE: it does not touch credits already unlocked on the machine. Those are
-  // paid for, live on the controller, and this layout has no waiting-list panel
-  // to void them from yet -- the header's Waiting count is the only sign of
-  // them. Voiding those still needs the old dashboard.
+  // paid for and live on the controller -- they are voided one at a time from
+  // the Credits panel, which is a different action against different money.
   async function clearCart(label) {
     if (!cart.length || isLocked()) return;
     const presses = cart.reduce((a, it) => a + it.qty, 0);
@@ -1054,7 +1075,7 @@
     // One handler for both, as the handoff requires.
     // One handler, one control -- addEventListener on a null would have thrown
     // here and killed every listener wired after it.
-    $('btn-cancel-all').addEventListener('click', () => clearCart('Cancel All'));
+    $('btn-clear-cart').addEventListener('click', () => clearCart('Clear Cart'));
     $('btn-arm').addEventListener('click', executeArm);
 
     $('offline-retry').addEventListener('click', () => location.reload());
@@ -1081,7 +1102,14 @@
       // Innermost first, so Escape does not shut the sheet behind a dialog.
       if (!$('ask').hidden) return;                        // the dialog owns it
       if (!$('today-panel').hidden) { closeToday(); return; }
+      if (!$('credits-panel').hidden) { closeCredits(); return; }
       if (!$('settings-panel').hidden) closeSettings();
+    });
+
+    // Credits
+    $('btn-credits').addEventListener('click', openCredits);
+    $('credits-panel').addEventListener('click', (ev) => {
+      if (ev.target === $('credits-panel')) closeCredits();   // the backdrop only
     });
 
     // Settings
