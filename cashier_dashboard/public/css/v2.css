@@ -387,10 +387,11 @@ button { font: inherit; color: inherit; }
      At 2:3 the bottle fills the tile edge to edge, which is how the design
      draws it. max-height keeps it inside a short card, where it letterboxes
      slightly rather than overflowing. */
-  /* 0.62, not 2/3. That is the design's own tile proportion -- very slightly
-     taller than the 2:3 artwork, which leaves the few pixels of breathing room
-     above and below the bottle that the mockup shows. */
-  width: 100%; aspect-ratio: 0.62; max-height: 100%;
+  /* 0.54 -- the supplied transparent artwork's own proportion, measured off
+     its alpha bounds (801x1482 once the empty margin is trimmed). The tile has
+     to match the picture in it: at 0.62 the bottles became height-limited and
+     lost a fifth of their width, drawing 65px instead of 94 at 1280. */
+  width: 100%; aspect-ratio: 0.54; max-height: 100%;
   align-self: center;
   display: flex; align-items: center; justify-content: center;
   min-width: 0; min-height: 0;
