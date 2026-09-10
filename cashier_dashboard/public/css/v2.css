@@ -201,6 +201,51 @@ button { font: inherit; color: inherit; }
   cursor: text;
 }
 
+/* ---------------------------------------------------------------------------
+   ONE FLUID SCALE
+
+   Small tablets get the LARGE layout, shrunk -- not a different, more cramped
+   layout. Below 1600 the shell is laid out as though it were 1600 wide and
+   then zoomed down to fit, so a 1280px tablet renders the same three-column
+   card with the stepper beside the name and the photo at full height, at 80%
+   of the size, instead of the compromise arrangement it used to fall back to.
+
+   zoom, not transform: scale(). transform paints smaller but lays out at full
+   size, which would leave the page overflowing its own viewport. zoom changes
+   the used values, so layout, hit-testing and scrolling all agree.
+
+   The width and height are divided by the same factor, or the shell would
+   occupy only s x the viewport and leave a band of empty page.
+
+   Xiaomi Pad 6 and iPad both report ~1180-1280 CSS wide, which puts them at
+   about 0.74-0.80 here. The floor is 0.72 so the type cannot shrink without
+   limit on something smaller.
+   --------------------------------------------------------------------------- */
+:root { --s: 1; }
+/* --s is set from JS, not here. CSS cannot produce a UNITLESS ratio from the
+   viewport: calc(100vw / 1600) is a length (0.8px), so clamp(0.72, 0.8px, 1)
+   is invalid and silently falls back to 1 -- which is exactly what it did on
+   the first attempt. setScale() in v2.js computes it and keeps it in step with
+   resize and rotation. */
+/* The zoom and its size compensation apply ONLY while actually scaling. At
+   scale 1 an explicit width is not just redundant, it is wrong: 100vw counts
+   the scrollbar gutter, so on a phone the shell came out 15px wider than the
+   space it had and the page scrolled sideways. JS adds .scaled when s < 1. */
+html.scaled #v2 {
+  zoom: var(--s);
+  width: calc(100vw / var(--s));
+  height: calc(100dvh / var(--s));
+}
+#v2 {
+  /* The breakpoints below ask THIS ELEMENT how wide it is, not the viewport.
+     That is the whole trick: zoom does not change media-query evaluation, so
+     on a 1280px tablet the shell was 1600 wide while the queries still saw
+     1280 and applied the cramped branch -- the layout got smaller AND stayed
+     compromised. A container query sees the 1600. */
+  container-type: inline-size;
+  container-name: app;
+}
+
 #v2 {
   /* HEIGHT, not min-height. min-height only sets a floor, so the shell grew
      as the cart filled and the document scrolled -- which also meant the
@@ -452,10 +497,14 @@ button { font: inherit; color: inherit; }
 .v2-prod-name {
   font-family: var(--font-display);
   font-size: 21px; font-weight: 600; line-height: 1.2;
-  /* Two lines then ellipsis. A long name must not push the stepper row down
-     and make one card taller than its neighbours. */
+  /* Two lines RESERVED, not merely allowed. Clamping at 2 caps the tall case
+     but leaves "Fabcon 1" one line and "Bleach Original" two, so the volume
+     and the steppers under them sat at different heights across a row -- the
+     misalignment reported from the tablet. min-height holds the second line
+     open whether or not it is used, so every card in a row agrees. */
   display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
   line-clamp: 2; overflow: hidden;
+  min-height: 2.4em;   /* 2 lines at line-height 1.2 */
 }
 .v2-prod-ml { font-size: 16px; color: var(--ink-2); margin-top: 2px; }
 
@@ -889,7 +938,7 @@ button { font: inherit; color: inherit; }
    =========================================================================== */
 
 /* ---- laptops: narrow the cart before touching the product grid ----------- */
-@media (max-width: 1400px) {
+@container app (max-width: 1400px) {
   #v2-main { grid-template-columns: minmax(0, 1fr) 350px; }
   /* The panel loses 50px here and the row has five columns to fit. The worded
      Cancel is the widest thing that is not the product name, and the name is
@@ -922,7 +971,7 @@ button { font: inherit; color: inherit; }
    the + button was cut off the side of every card -- with the grid quietly
    scrolling sideways to hide it. The steppers take the card's full width
    here instead, which is 247px. */
-@media (min-width: 1181px) and (max-width: 1400px) {
+@container app (min-width: 1181px) and (max-width: 1400px) {
   .v2-prod-img { grid-row: 1 / span 2; }
   .v2-step-row { grid-column: 1 / -1; grid-row: 3; }
   /* 100px, not 120: at 1181 a 120px photo left the name 82px, which is not
@@ -934,7 +983,7 @@ button { font: inherit; color: inherit; }
   .v2-prod { grid-template-columns: minmax(90px, 0.75fr) minmax(100px, 1fr); }
 }
 
-@media (max-width: 1180px) {
+@container app (max-width: 1180px) {
   #v2-main { grid-template-columns: minmax(0, 1fr) 320px; }
   /* Below 1180 a third column leaves ~192px per card, too narrow for a photo
      beside a name. Back to two columns and three rows -- still all six on one
@@ -975,11 +1024,15 @@ button { font: inherit; color: inherit; }
 /* ---- tablet portrait: the cart moves under the products ------------------
    Below this the split stops being a split: 320px of cart against 400px of
    products makes both unusable. Stacked, each gets the full width. */
+/* A container cannot query itself, so the rules that size #v2 stay on the
+   viewport. Below 900 the scale is 1 anyway, so the two agree. */
 @media (max-width: 900px) {
+  #v2 { height: auto; min-height: 100dvh; overflow: visible; }
+}
+@container app (max-width: 900px) {
   /* Stacked, one screen is not a goal any more -- products above a cart in a
      single column cannot fit a portrait tablet, let alone a phone. Hand the
      scrolling back to the document and let both panels size to content. */
-  #v2 { height: auto; min-height: 100dvh; overflow: visible; }
   .v2-grid { overflow-y: visible; grid-template-rows: auto; }
   #v2-main { grid-template-columns: minmax(0, 1fr); }
   #v2-cart { min-height: 0; }
@@ -998,6 +1051,8 @@ button { font: inherit; color: inherit; }
    =========================================================================== */
 @media (max-width: 640px) {
   #v2 { padding: 10px; gap: 10px; }
+}
+@container app (max-width: 640px) {
 
   /* Header: four chips as a 2x2 block, identity on its own row.
      align-items must be RESTATED. #v2-stats is a flex row with

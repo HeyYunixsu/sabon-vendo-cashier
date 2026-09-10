@@ -88,6 +88,42 @@
 
   const $ = (id) => document.getElementById(id);
 
+  // -------------------------------------------------------------------------
+  // ONE FLUID SCALE
+  //
+  // A small tablet gets the LARGE layout shrunk, not a different, more cramped
+  // one. The shell is laid out as though it were DESIGN_W wide and zoomed down
+  // to fit, so a 1280px tablet renders the same three-column card -- stepper
+  // beside the name, photo at full height -- at 80% size, instead of falling
+  // back to the compromise arrangement.
+  //
+  // Below 901 the layout stacks and scrolls on purpose, so it is left alone.
+  // -------------------------------------------------------------------------
+  const DESIGN_W = 1600;
+  // Kept so anything positioning against a rect can convert between the two
+  // coordinate spaces zoom creates. See placeToday().
+  let curScale = 1;
+  // 0.6, not 0.72. The floor decides how small the shell may be told it is:
+  // at 0.72 a 1024px screen laid out as 1422 wide, whose CONTENT box (padding
+  // removed, which is what a container query measures) fell just under the
+  // 1400 breakpoint -- so it dropped back into the cramped branch and the
+  // bottle collapsed to 41px. A lower floor keeps the effective width pinned
+  // at DESIGN_W for every real tablet, which is the entire point.
+  const MIN_SCALE = 0.6;
+  function setScale() {
+    const w = window.innerWidth;
+    const s = w < 901 ? 1 : Math.min(1, Math.max(MIN_SCALE, w / DESIGN_W));
+    const root = document.documentElement;
+    curScale = s;
+    root.style.setProperty('--s', s.toFixed(4));
+    root.classList.toggle('scaled', s < 0.999);
+  }
+  setScale();
+  window.addEventListener('resize', setScale);
+  // Rotating a tablet fires resize on every engine, but orientationchange can
+  // land first with the old innerWidth, so both are wired.
+  window.addEventListener('orientationchange', () => setTimeout(setScale, 60));
+
   // Belt and braces for the CSS above. CSS user-drag is not standard on every
   // engine, and dragstart is the event that actually carries the image out to
   // another window -- cancelling it here works everywhere, including on the
@@ -998,13 +1034,19 @@
     // Today dropdown. Hung under the chip that opens it, so the figure and the
     // detail behind it are visibly the same control.
     function placeToday() {
+      // getBoundingClientRect reports VISUAL pixels -- already multiplied by
+      // the zoom -- while style.top/left are read back in the element's own
+      // zoomed space. Mixing them puts the card at scale x scale, which is why
+      // it drifted off the chip on a scaled tablet. Divide the rect by the
+      // scale to get back into layout pixels, and convert innerWidth the same
+      // way so the right-edge clamp is measured in one space.
+      const s = curScale || 1;
       const chip = $('chip-today').getBoundingClientRect();
       const card = $('today-card');
-      card.style.top = Math.round(chip.bottom + 10) + 'px';
-      // Left-aligned to the chip, then pulled back if that would run the card
-      // off the right edge -- which it does on a narrow screen.
+      card.style.top = Math.round(chip.bottom / s + 10) + 'px';
       const w = card.offsetWidth || 340;
-      const left = Math.min(chip.left, window.innerWidth - w - 12);
+      const vw = window.innerWidth / s;
+      const left = Math.min(chip.left / s, vw - w - 12);
       card.style.left = Math.round(Math.max(12, left)) + 'px';
     }
     const openToday = () => {
