@@ -955,7 +955,14 @@
     // would show every product unpriced until the next one.
     try {
       const d = await (await fetch('/api/prices')).json();
-      if (d && typeof d === 'object') { prices = d; renderCart(); }
+      // d is { prices: {...}, connected: bool } -- the ENVELOPE, not the map.
+      // Assigning it whole left prices[1] undefined, so every product read as
+      // unpriced: the settings fields came up blank and the cart showed a dash
+      // however many times the price had been saved. The controller had them
+      // the entire time.
+      prices = (d && d.prices) || {};
+      renderPrices();
+      renderCart();
     } catch (e) { /* unpriced is a legible state; leave it */ }
   }
 

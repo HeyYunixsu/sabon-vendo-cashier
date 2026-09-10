@@ -231,10 +231,17 @@ button { font: inherit; color: inherit; }
    scale 1 an explicit width is not just redundant, it is wrong: 100vw counts
    the scrollbar gutter, so on a phone the shell came out 15px wider than the
    space it had and the page scrolled sideways. JS adds .scaled when s < 1. */
-html.scaled #v2 {
-  zoom: var(--s);
-  width: calc(100vw / var(--s));
-  height: calc(100dvh / var(--s));
+/* Guarded on zoom itself. The width and height compensate FOR the zoom, so if
+   a browser applies them without supporting zoom the shell becomes 125% of the
+   viewport at scale 0.8 -- the right-hand third of the screen, cart and Unlock
+   included, goes off the edge and cannot be tapped at all. Half of this
+   feature is worse than none of it. */
+@supports (zoom: 1) {
+  html.scaled #v2 {
+    zoom: var(--s);
+    width: calc(100vw / var(--s));
+    height: calc(100dvh / var(--s));
+  }
 }
 #v2 {
   /* The breakpoints below ask THIS ELEMENT how wide it is, not the viewport.
