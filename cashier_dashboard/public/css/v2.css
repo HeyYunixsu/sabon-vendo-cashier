@@ -964,10 +964,10 @@ button { font: inherit; color: inherit; }
 }
 #ask-backdrop[hidden], #ask[hidden] { display: none; }
 #ask-text { font-size: 21px; font-weight: 600; line-height: 1.35; margin-bottom: 26px; }
-/* Right-aligned and equal width, as the design draws it -- not stretched to
-   the dialog. Cancel stays on the left of the pair, so the safe button is in
-   the same place it is in the staged-card popup. */
-#ask-actions { display: flex; gap: 12px; justify-content: flex-end; }
+/* Centred and equal width -- not stretched to the dialog. Cancel stays on the
+   left of the pair, so the safe button is in the same place it is in every
+   other popup. */
+#ask-actions { display: flex; gap: 12px; justify-content: center; }
 #ask-actions .v2-btn { flex: 0 0 auto; min-width: 148px; min-height: 52px; }
 
 #toast {

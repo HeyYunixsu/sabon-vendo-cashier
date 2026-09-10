@@ -16,9 +16,11 @@
      - The stepper and the cart line are two views of ONE state. `cart` below
        is that state; the cart panel keeps no copy of its own.
      - Cart lines stay in INSERTION order, not slot order.
-     - A card is non-interactive in any state but Ready.
-     - Once unlocked or dispensing the whole cart locks -- no stepper, no
-       cancel, no clear -- until the transaction finishes.
+     - A card takes a press if the slot exists, the link is up and the tank
+       is not dry. Armed, queued and dispensing are shown, not enforced.
+     - The cart is never frozen. Nothing in it is paid for until Unlock is
+       pressed, so a second sale can be built while the first is still
+       waiting to be pressed.
    =========================================================================== */
 (function () {
   'use strict';
@@ -154,14 +156,16 @@
   // So lock on the WORK, not on the flag: a transaction is in flight only if
   // the machine is actually holding presses, has some queued, or is pumping.
   // v1 never locked on phase at all, which is why it never showed this.
-  function outstanding() {
-    let n = 0;
-    for (let s = 1; s <= ACTIVE; s++) {
-      n += (S.armedQty[s] || 0) + (S.queueDepth[s] || 0) + (S.busy[s] ? 1 : 0);
-    }
-    return n;
-  }
-  const isLocked = () => (S.phase === 1 || S.phase === 2) && outstanding() > 0;
+  // Whether a slot will take another press. This is v1's rule and the only one
+  // the machine actually enforces -- /api/arm imposes no lock of its own, and
+  // v1's guard is `s <= ACTIVE && !S.wlvl[s]`, nothing more.
+  //
+  // v2 used to freeze the entire cart while the controller held any credit.
+  // That is wrong on a shop counter: the customer who paid may not press for
+  // minutes, and the till was refusing the next customer that whole time.
+  // Armed, queued and dispensing are things to SHOW on the card, not reasons
+  // to refuse a sale.
+  const canAddTo = (s) => s <= ACTIVE && S.connected && !S.wlvl[s];
 
   // One function decides what a slot is, so the badge, the stepper and the
   // "can this be added" test can never disagree about it.
@@ -356,8 +360,7 @@
   let gridSig = null;
 
   function renderGrid() {
-    const locked = isLocked();
-    let sig = locked ? 'L' : 'U';
+    let sig = S.connected ? 'C' : 'D';
     for (let s = 1; s <= TOTAL; s++) {
       sig += '|' + slotState(s) + qtyOf(s) + PRODUCT[s] + PRODUCT_ML[s];
     }
@@ -369,10 +372,10 @@
       const st = slotState(s);
       const qty = qtyOf(s);
       const badge = BADGE[st];
-      // The handoff: a card is non-interactive in any state but Ready, and the
-      // whole cart is frozen while the machine has the sale.
-      const canAdd = st === 'ready' && !locked && qty < MAX_QTY;
-      const canSub = qty > 0 && !locked;
+      // The badge still says Unlocked or Dispensing -- the cashier needs to
+      // see that. It just no longer refuses the tap.
+      const canAdd = canAddTo(s) && qty < MAX_QTY;
+      const canSub = qty > 0;
 
       let cls = 'v2-prod';
       if (st === 'off') cls += ' is-inactive';
@@ -419,7 +422,6 @@
   function renderCart() {
     const list = $('v2-cart-list');
     const empty = $('v2-cart-empty');
-    const locked = isLocked();
 
     if (!cart.length) {
       list.innerHTML = '';
@@ -443,7 +445,7 @@
            // as free, and would be taken as the price by whoever is counting.
            + '<span class="v2-cart-price">' + (line == null ? '&mdash;' : '&#8369;' + line) + '</span>'
            + '<button class="v2-btn v2-btn-danger-ghost v2-btn-sm" type="button"'
-           +   ' data-remove="' + it.id + '"' + (locked ? ' disabled' : '')
+           +   ' data-remove="' + it.id + '"'
            +   ' aria-label="Remove ' + esc(it.name) + ' from the cart">'
            +   '<span class="v2-cancel-word">Cancel</span>' + ICO_X
            + '</button>'
@@ -465,13 +467,12 @@
 
     // The mockup draws Unlock teal on an empty cart; the handoff says that is a
     // mockup artifact and it must be disabled. It is.
-    $('btn-arm').disabled = !items || locked;
+    $('btn-arm').disabled = !items;
     $('btn-arm-label').textContent = items
       ? 'Unlock ' + cart.length + ' Button' + (cart.length > 1 ? 's' : '')
       : 'Unlock Buttons';
 
-    const noClear = !cart.length || locked;
-    $('btn-clear-cart').disabled = noClear;
+    $('btn-clear-cart').disabled = !cart.length;
   }
 
   function renderAll() {
@@ -916,11 +917,10 @@
   // -------------------------------------------------------------------------
   function step(id, delta) {
     if (id < 1 || id > ACTIVE) return;
-    if (isLocked()) return;
 
     const i = cart.findIndex((x) => x.id === id);
     if (delta > 0) {
-      if (slotState(id) !== 'ready') return;
+      if (!canAddTo(id)) return;
       if (i < 0) cart.push({ id: id, name: PRODUCT[id], qty: 1 });
       else if (cart[i].qty >= MAX_QTY) { toast('Maximum ' + MAX_QTY + ' per product', 'caution'); return; }
       else cart[i].qty += 1;
@@ -935,7 +935,6 @@
   }
 
   function removeLine(id) {
-    if (isLocked()) return;
     const i = cart.findIndex((x) => x.id === id);
     if (i < 0) return;
     const name = cart[i].name;
@@ -951,7 +950,7 @@
   // paid for and live on the controller -- they are voided one at a time from
   // the Credits panel, which is a different action against different money.
   async function clearCart(label) {
-    if (!cart.length || isLocked()) return;
+    if (!cart.length) return;
     const presses = cart.reduce((a, it) => a + it.qty, 0);
     const what = cart.length === 1 ? cart[0].name : cart.length + ' products';
     const ok = await askConfirm(
@@ -966,7 +965,7 @@
   // API
   // -------------------------------------------------------------------------
   async function executeArm() {
-    if (!cart.length || isLocked()) return;
+    if (!cart.length) return;
     const btn = $('btn-arm');
     btn.disabled = true;
     btn.classList.add('is-busy');
@@ -1084,10 +1083,9 @@
     });
 
     $('btn-one-each').addEventListener('click', () => {
-      if (isLocked()) return;
       let added = 0;
       for (let s = 1; s <= ACTIVE; s++) {
-        if (slotState(s) !== 'ready' || qtyOf(s) > 0) continue;
+        if (!canAddTo(s) || qtyOf(s) > 0) continue;
         cart.push({ id: s, name: PRODUCT[s], qty: 1 });   // insertion order
         added++;
       }

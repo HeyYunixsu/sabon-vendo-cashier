@@ -411,7 +411,7 @@ All status dots are 8px circles with colored glow (`box-shadow`):
 ```js
 const PRODUCT = {
   1: 'Detergent 1', 2: 'Detergent 2', 3: 'Fabcon 1',
-  4: 'Fabcon 2', 5: 'Zonrox 1', 6: 'Zonrox 2',
+  4: 'Fabcon 2', 5: 'Bleach Original', 6: 'Bleach Colored',
 };
 const PRODUCT_INITIAL = { 1:'D1', 2:'D2', 3:'F1', 4:'F2', 5:'Z1', 6:'Z2' };
 const PRODUCT_ML = { 1: 75, 2: 75, 3: 60, 4: 60, 5: 100, 6: 100 };  // ml dispensed per single press — display/label only, see note below
@@ -419,7 +419,7 @@ const ACTIVE = 5, TOTAL = 6;
 const MAX_QTY = 10;  // max presses per staged item — placeholder, adjust to fit container sizes
 ```
 
-**Product 6 stays the inactive placeholder slot** (per §4.5, `.inactive`, 30% opacity, no pointer events) — the physical unit for Zonrox 2 isn't wired up yet.
+**Product 6 stays the inactive placeholder slot** (per §4.5, `.inactive`, 30% opacity, no pointer events) — the physical unit for Bleach Colored isn't wired up yet.
 
 **No unit conversion:** `qty` is now a direct press count typed/stepped by the cashier — there is no amount-to-unit math anymore. `PRODUCT_ML` is used only to compute the read-only "total ml" hint shown on staged items (`qty × PRODUCT_ML[productId]`); it is never sent to coin_slot. The wire-level `qty` sent in `ARM`/`ARM_BATCH` is exactly the press count the cashier chose.
 

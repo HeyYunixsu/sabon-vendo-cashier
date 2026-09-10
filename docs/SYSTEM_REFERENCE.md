@@ -559,7 +559,7 @@ Fixed to bottom-center. Three variants: default (dark bg), `.success` (green bor
 ```js
 const PRODUCT = {
   1: 'Detergent 1', 2: 'Detergent 2', 3: 'Fabcon 1',
-  4: 'Fabcon 2', 5: 'Zonrox 1', 6: 'Zonrox 2',
+  4: 'Fabcon 2', 5: 'Bleach Original', 6: 'Bleach Colored',
 };
 
 const PRODUCT_INITIAL = { 1:'D1', 2:'D2', 3:'F1', 4:'F2', 5:'Z1', 6:'Z2' };
