@@ -138,9 +138,27 @@
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
-  // Armed or dispensing: the sale is with the machine now and the cart must
-  // not move under it. Phase 0 idle, 1 armed, 2 dispensing, 3 complete.
-  const isLocked = () => S.phase === 1 || S.phase === 2;
+  // Armed or dispensing: the sale is with the machine and the cart must not
+  // move under it. Phase 0 idle, 1 armed, 2 dispensing, 3 complete.
+  //
+  // BUT the phase alone is not enough, and trusting it bricked the till. A
+  // live machine was found sitting in phase 1 (ARMED) with armedQty and
+  // queueDepth all zero -- nothing outstanding, nothing dispensing, yet every
+  // stepper disabled, Add One Of Each and Cancel All returning early and
+  // Unlock greyed out. The cashier saw the button press and nothing happen,
+  // because the press was real and the handler was refusing.
+  //
+  // So lock on the WORK, not on the flag: a transaction is in flight only if
+  // the machine is actually holding presses, has some queued, or is pumping.
+  // v1 never locked on phase at all, which is why it never showed this.
+  function outstanding() {
+    let n = 0;
+    for (let s = 1; s <= ACTIVE; s++) {
+      n += (S.armedQty[s] || 0) + (S.queueDepth[s] || 0) + (S.busy[s] ? 1 : 0);
+    }
+    return n;
+  }
+  const isLocked = () => (S.phase === 1 || S.phase === 2) && outstanding() > 0;
 
   // One function decides what a slot is, so the badge, the stepper and the
   // "can this be added" test can never disagree about it.
