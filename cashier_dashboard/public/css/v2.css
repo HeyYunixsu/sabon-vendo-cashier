@@ -428,7 +428,7 @@ button { font: inherit; color: inherit; }
 
 /* ---- products footer ---- */
 .v2-products-footer {
-  display: grid; grid-template-columns: minmax(0, 1fr) auto;
+  display: grid; grid-template-columns: minmax(0, 1fr);
   gap: 12px; margin-top: 16px; flex: 0 0 auto;
 }
 /* The design gives this row real weight -- it is the fastest way to build a
@@ -556,6 +556,10 @@ button { font: inherit; color: inherit; }
 }
 .v2-btn-icon { padding: 0; width: 74px; }
 .v2-btn-icon svg { width: 24px; height: 24px; }
+/* The cart's own empty-it control. Square, so it reads as an icon button
+   rather than a truncated worded one, and still clear of the 48px floor. */
+.v2-btn-icon-sm { padding: 0; width: 52px; min-height: 52px; }
+.v2-btn-icon-sm svg { width: 22px; height: 22px; }
 
 /* Unlock takes a moment. "Please wait" on a button faded to 45% reads as
    broken; a shimmer reads as working. */

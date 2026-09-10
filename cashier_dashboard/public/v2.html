@@ -105,16 +105,15 @@
 
       <div id="v2-grid" class="v2-grid"><!-- rendered by v2.js --></div>
 
+      <!-- One control for emptying the cart, not two. The trash that used to
+           sit here did exactly what Cancel All does, beside a button that adds
+           -- two ways to undo, in the place you go to build. Emptying belongs
+           with the thing being emptied, so it now lives in the cart header. -->
       <div class="v2-products-footer">
         <button id="btn-one-each" class="v2-btn v2-btn-soft" type="button">
           <svg class="v2-btn-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
           Add One Of Each
-        </button>
-        <button id="btn-clear-cart" class="v2-btn v2-btn-danger-ghost v2-btn-icon" type="button"
-                aria-label="Clear the cart" title="Clear the cart">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-               stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/><path d="M10 11v6M14 11v6"/></svg>
         </button>
       </div>
     </section>
@@ -127,7 +126,14 @@
                stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="20" r="1.6"/><circle cx="18" cy="20" r="1.6"/><path d="M2 3h2.2l2.4 12.1a1.6 1.6 0 0 0 1.6 1.3h8.9a1.6 1.6 0 0 0 1.6-1.3L21 7H5.2"/></svg>
           Your Cart
         </span>
-        <button id="btn-cancel-all" class="v2-btn v2-btn-danger-ghost v2-btn-sm" type="button">Cancel All</button>
+        <!-- Titled and aria-labelled, because an unlabelled icon that voids a
+             cart should still announce what it does to a screen reader and on
+             a long hover. -->
+        <button id="btn-cancel-all" class="v2-btn v2-btn-danger-ghost v2-btn-icon-sm" type="button"
+                aria-label="Cancel all - empty the cart" title="Cancel all - empty the cart">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/><path d="M10 11v6M14 11v6"/></svg>
+        </button>
       </div>
 
       <div id="v2-cart-body">

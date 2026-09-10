@@ -395,7 +395,6 @@
       : 'Unlock Buttons';
 
     const noClear = !cart.length || locked;
-    $('btn-clear-cart').disabled = noClear;
     $('btn-cancel-all').disabled = noClear;
   }
 
@@ -947,7 +946,8 @@
     });
 
     // One handler for both, as the handoff requires.
-    $('btn-clear-cart').addEventListener('click', () => clearCart('Clear Cart'));
+    // One handler, one control -- addEventListener on a null would have thrown
+    // here and killed every listener wired after it.
     $('btn-cancel-all').addEventListener('click', () => clearCart('Cancel All'));
     $('btn-arm').addEventListener('click', executeArm);
 
