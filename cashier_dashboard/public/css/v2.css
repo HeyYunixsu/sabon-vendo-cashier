@@ -493,22 +493,38 @@ button { font: inherit; color: inherit; }
 /* The glow is a separate layer so the breathing animates OPACITY only. A
    box-shadow animated directly repaints the card on every frame; six of those
    on a tablet is exactly the kind of thing that makes a till feel slow. */
+/* --slot-glow is written INLINE by renderGrid, and an inline custom property
+   beats any stylesheet rule -- so the armed colour cannot be applied by
+   overriding it. --glow is the indirection: nothing sets it inline, so the
+   cascade alone decides which of the two colours a card glows. */
 .v2-prod::after {
   content: ''; position: absolute; inset: -2px;
   border-radius: inherit; pointer-events: none;
-  box-shadow: 0 0 18px 3px var(--slot-glow, transparent);
+  box-shadow: 0 0 18px 3px var(--glow, transparent);
   opacity: 0; transition: opacity .25s ease;
 }
-.v2-prod.in-cart::after {
+.v2-prod.in-cart { --glow: var(--slot-glow); }
+.v2-prod.in-cart::after,
+.v2-prod.is-armed::after {
   opacity: 1;
   animation: v2-breathe 2.6s ease-in-out infinite;
 }
+/* Armed gets the same glow in ONE colour rather than six -- the teal its
+   border already uses. The two states have to stay tellable apart at a glance:
+   the product's own colour means it is in this cart and nothing has been
+   charged; teal means the machine is holding presses somebody has already paid
+   for. Same motion, different meaning.
+
+   renderGrid makes the classes mutually exclusive -- in-cart wins when a card
+   is both -- so these can never fight over one card. */
+.v2-prod.is-armed { --glow: rgba(18, 165, 160, .55); }
+
 /* A soft bloom is legible against a dark ground and all but invisible against
    white. The light theme gets a tight halo band at the card's edge as well,
    which is what actually carries the colour on paper-coloured panels. */
 :root[data-theme="light"] .v2-prod::after {
-  box-shadow: 0 0 0 4px var(--slot-glow, transparent),
-              0 0 16px 5px var(--slot-glow, transparent);
+  box-shadow: 0 0 0 4px var(--glow, transparent),
+              0 0 16px 5px var(--glow, transparent);
 }
 @keyframes v2-breathe { 0%, 100% { opacity: 1; } 50% { opacity: .45; } }
 .v2-prod.is-armed { border-color: #12A5A0; }
@@ -656,23 +672,18 @@ button { font: inherit; color: inherit; }
   position: fixed; inset: 0; z-index: 45;
   pointer-events: none; overflow: hidden;
 }
-/* Unclipped: the ring is meant to travel out past the button and over the
-   card, so the host only positions it. */
-.v2-ripple-host { position: fixed; pointer-events: none; }
+/* Clipped to the button's own rounded rect, so the wave reads as the button
+   responding rather than as something drawn over the card. The host carries
+   the footprint and the corners; ripple() sets both. */
+.v2-ripple-host { position: fixed; overflow: hidden; pointer-events: none; }
 .v2-ripple {
   position: absolute; border-radius: 50%;
-  border: 3px solid currentColor;
-  opacity: .9;
+  background: currentColor; opacity: .45;
   transform: scale(0); pointer-events: none;
-  animation: v2-wave .55s cubic-bezier(.2, .7, .3, 1) forwards;
+  animation: v2-wave .5s ease-out forwards;
 }
-/* The ring thins as it grows, the way a real one does -- a constant 3px band
-   at four times the size reads as a drawn circle rather than a spreading
-   wave. */
 @keyframes v2-wave {
-  0%   { transform: scale(0);   opacity: .9; border-width: 3px; }
-  55%  { opacity: .55; }
-  100% { transform: scale(1);   opacity: 0;  border-width: 1px; }
+  to { transform: scale(1); opacity: 0; }
 }
 /* Coloured to their symbol: taking away is red, adding is green. Working fast,
    the colour is read before the glyph. */
@@ -1309,7 +1320,8 @@ button { font: inherit; color: inherit; }
      the glow keeps its colour without breathing, the badge keeps its state
      without rippling, and the wave simply does not draw. Nothing that carries
      information is lost by switching motion off. */
-  .v2-prod.in-cart::after { animation: none; opacity: 1; }
+  .v2-prod.in-cart::after,
+  .v2-prod.is-armed::after { animation: none; opacity: 1; }
   .v2-badge::after { animation: none; opacity: 0; }
   .v2-badge .v2-dot { animation: none; transform: none; }
   #v2-fx { display: none; }
