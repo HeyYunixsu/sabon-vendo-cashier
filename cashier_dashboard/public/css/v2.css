@@ -151,24 +151,26 @@ button { font: inherit; color: inherit; }
 }
 
 #v2-stats {
-  display: flex; align-items: center; gap: 12px;
-  padding: 14px 16px;
+  display: flex; align-items: center; gap: 14px;
+  /* The design's header card measures 102px tall at 1600; at 82 it read as a
+     toolbar rather than the status band it is. */
+  padding: 18px 20px;
   min-width: 0;
 }
 
 .v2-chip {
   display: inline-flex; align-items: center; gap: 12px;
-  height: 48px; padding: 0 22px;
+  height: 58px; padding: 0 26px;
   background: var(--surface-sub);
   border: 1px solid var(--line);
   border-radius: var(--r-pill);
   white-space: nowrap;
 }
-.v2-chip-k { font-size: 15px; font-weight: 500; color: var(--ink-2); }
+.v2-chip-k { font-size: 16px; font-weight: 500; color: var(--ink-2); }
 .v2-chip-sep { width: 1px; height: 20px; background: var(--line-strong); flex: 0 0 auto; }
 .v2-chip-v {
   font-family: var(--font-display);
-  font-size: 17px; font-weight: 700; color: var(--ink);
+  font-size: 19px; font-weight: 700; color: var(--ink);
   /* Reserved width and tabular figures, so a chip cannot resize as its number
      changes and shove the row around mid-sale. */
   font-variant-numeric: tabular-nums;
@@ -196,16 +198,16 @@ button { font: inherit; color: inherit; }
 .v2-chev svg { width: 14px; height: 14px; display: block; }
 
 #v2-identity {
-  display: flex; align-items: center; gap: 16px;
-  padding: 14px 22px;
+  display: flex; align-items: center; gap: 18px;
+  padding: 18px 24px;
 }
 .v2-logo {
-  width: 34px; height: 34px; flex: 0 0 auto;
+  width: 38px; height: 38px; flex: 0 0 auto;
   display: inline-flex; align-items: center; justify-content: center;
   color: var(--brand);
 }
 .v2-logo svg { width: 100%; height: 100%; display: block; }
-.v2-who { font-size: 17px; font-weight: 500; white-space: nowrap; }
+.v2-who { font-size: 18px; font-weight: 500; white-space: nowrap; }
 .v2-vsep { width: 1px; height: 26px; background: var(--line-strong); flex: 0 0 auto; }
 .v2-clock {
   font-family: var(--font-display);
@@ -246,7 +248,7 @@ button { font: inherit; color: inherit; }
 
 .v2-panel-title {
   font-family: var(--font-display);
-  font-size: 22px; font-weight: 600; margin: 0 0 20px;
+  font-size: 27px; font-weight: 600; margin: 0 0 20px;
 }
 
 #v2-products {
@@ -287,7 +289,13 @@ button { font: inherit; color: inherit; }
   /* Proportional, not a fixed px column. The design gives the photo about
      45% of the card and the text the rest, so the tile grows with the card
      instead of stranding white space on a big screen. */
-  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1fr);
+  /* Measured off the design at its native 2420px: a 513px card carries a
+     252px tile, so the photo takes slightly more than the text, not less. */
+  /* The text column carries a hard 152px floor: three 48px steppers plus
+     their gaps, which is the smallest the row can legally be. Everything left
+     over goes to the photo, so the artwork is as large as the touch targets
+     allow rather than as large as a guess. */
+  grid-template-columns: minmax(0, 1.1fr) minmax(152px, 1fr);
   /* Three rows: badge, text, steppers. The badge used to be absolutely
      positioned over the card's top-right, which put it ON TOP of the product
      name -- invisible with "Ready" and a short name, obvious the moment the
@@ -324,10 +332,21 @@ button { font: inherit; color: inherit; }
 
 .v2-prod-img {
   grid-column: 1; grid-row: 1 / span 3;
-  align-self: stretch;
+  /* The tile takes the ARTWORK's shape rather than stretching to the card.
+     Every bottle render is 2:3, so a tile of any other proportion letterboxes
+     it -- stretched to full card height the tile was 137x272 holding a
+     121x182 bottle, which is 37px of dead grey above and below on every card.
+     At 2:3 the bottle fills the tile edge to edge, which is how the design
+     draws it. max-height keeps it inside a short card, where it letterboxes
+     slightly rather than overflowing. */
+  /* 0.62, not 2/3. That is the design's own tile proportion -- very slightly
+     taller than the 2:3 artwork, which leaves the few pixels of breathing room
+     above and below the bottle that the mockup shows. */
+  width: 100%; aspect-ratio: 0.62; max-height: 100%;
+  align-self: center;
   display: flex; align-items: center; justify-content: center;
   min-width: 0; min-height: 0;
-  padding: 8px;
+  padding: 5px;
   color: var(--brand);
   /* The tile. The design seats every bottle on the same soft panel, which is
      what stops six photos shot at different crops from looking ragged --
@@ -344,13 +363,13 @@ button { font: inherit; color: inherit; }
 .v2-prod-text { grid-column: 2; grid-row: 2; min-width: 0; align-self: center; }
 .v2-prod-name {
   font-family: var(--font-display);
-  font-size: 19px; font-weight: 600; line-height: 1.2;
+  font-size: 21px; font-weight: 600; line-height: 1.2;
   /* Two lines then ellipsis. A long name must not push the stepper row down
      and make one card taller than its neighbours. */
   display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
   line-clamp: 2; overflow: hidden;
 }
-.v2-prod-ml { font-size: 15px; color: var(--ink-2); margin-top: 2px; }
+.v2-prod-ml { font-size: 16px; color: var(--ink-2); margin-top: 2px; }
 
 .v2-badge {
   grid-column: 2; grid-row: 1; justify-self: end;
@@ -412,6 +431,10 @@ button { font: inherit; color: inherit; }
   display: grid; grid-template-columns: minmax(0, 1fr) auto;
   gap: 12px; margin-top: 16px; flex: 0 0 auto;
 }
+/* The design gives this row real weight -- it is the fastest way to build a
+   six-product sale, and at 52px it read as a footnote under the grid. */
+.v2-products-footer .v2-btn { min-height: 64px; font-size: 17px; }
+.v2-products-footer .v2-btn-ico { width: 24px; height: 24px; }
 
 /* ---------------------------------------------------------------------------
    CART
@@ -430,9 +453,9 @@ button { font: inherit; color: inherit; }
 .v2-cart-title {
   display: inline-flex; align-items: center; gap: 12px;
   font-family: var(--font-display);
-  font-size: 22px; font-weight: 600;
+  font-size: 25px; font-weight: 600;
 }
-.v2-cart-ico { width: 26px; height: 26px; color: var(--brand); flex: 0 0 auto; }
+.v2-cart-ico { width: 29px; height: 29px; color: var(--brand); flex: 0 0 auto; }
 
 /* The list scrolls inside itself. Growing the panel instead would push the
    totals and Unlock off the bottom of a tablet exactly when the sale is
@@ -470,8 +493,8 @@ button { font: inherit; color: inherit; }
   text-align: center; padding: 24px 16px; gap: 4px;
 }
 .v2-empty-ico { width: 84px; height: 84px; color: var(--brand-tint-2); margin-bottom: 12px; }
-.v2-empty-title { font-size: 19px; font-weight: 500; margin: 0; }
-.v2-empty-sub { font-size: 15px; color: var(--ink-2); margin: 0; max-width: 26ch; }
+.v2-empty-title { font-size: 22px; font-weight: 500; margin: 0; }
+.v2-empty-sub { font-size: 16px; color: var(--ink-2); margin: 0; max-width: 26ch; }
 
 .v2-totals {
   background: var(--brand-tint);
@@ -482,8 +505,8 @@ button { font: inherit; color: inherit; }
 }
 .v2-total-row {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
-  font-size: 17px; font-weight: 500;
-  padding: 6px 0;
+  font-size: 18px; font-weight: 500;
+  padding: 7px 0;
 }
 /* Derived, not typed: a literal rgba() here is exactly the kind of stray
    hex the handoff asks to avoid, and it would have stayed teal. */
@@ -503,7 +526,7 @@ button { font: inherit; color: inherit; }
    --------------------------------------------------------------------------- */
 .v2-btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 10px;
-  min-height: 48px; padding: 0 20px;
+  min-height: 52px; padding: 0 20px;
   border-radius: var(--r-pill);
   border: 1px solid transparent;
   background: transparent;
@@ -528,11 +551,11 @@ button { font: inherit; color: inherit; }
    for everything tappable, including the per-line Cancel. */
 .v2-btn-sm { min-height: 48px; padding: 0 16px; font-size: 14px; }
 .v2-btn-lg {
-  min-height: 62px; font-size: 18px; margin-top: 14px; width: 100%;
+  min-height: 66px; font-size: 19px; margin-top: 14px; width: 100%;
   flex: 0 0 auto;
 }
-.v2-btn-icon { padding: 0; width: 62px; }
-.v2-btn-icon svg { width: 22px; height: 22px; }
+.v2-btn-icon { padding: 0; width: 74px; }
+.v2-btn-icon svg { width: 24px; height: 24px; }
 
 /* Unlock takes a moment. "Please wait" on a button faded to 45% reads as
    broken; a shimmer reads as working. */
