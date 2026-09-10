@@ -100,8 +100,11 @@
   // Below 901 the layout stacks and scrolls on purpose, so it is left alone.
   // -------------------------------------------------------------------------
   const DESIGN_W = 1600;
-  // Kept so anything positioning against a rect can convert between the two
-  // coordinate spaces zoom creates. See placeToday().
+  // The live scale. Nothing reads it today -- the Today card is centred by CSS
+  // rather than positioned from a rect -- but anything that DOES position
+  // against getBoundingClientRect() must divide by it: rects come back in
+  // visual pixels while style.top/left are set in the zoomed space, and mixing
+  // the two puts an element at scale x scale.
   let curScale = 1;
   // 0.6, not 0.72. The floor decides how small the shell may be told it is:
   // at 0.72 a 1024px screen laid out as 1422 wide, whose CONTENT box (padding
@@ -1056,28 +1059,13 @@
 
     $('offline-retry').addEventListener('click', () => location.reload());
 
-    // Today dropdown. Hung under the chip that opens it, so the figure and the
-    // detail behind it are visibly the same control.
-    function placeToday() {
-      // getBoundingClientRect reports VISUAL pixels -- already multiplied by
-      // the zoom -- while style.top/left are read back in the element's own
-      // zoomed space. Mixing them puts the card at scale x scale, which is why
-      // it drifted off the chip on a scaled tablet. Divide the rect by the
-      // scale to get back into layout pixels, and convert innerWidth the same
-      // way so the right-edge clamp is measured in one space.
-      const s = curScale || 1;
-      const chip = $('chip-today').getBoundingClientRect();
-      const card = $('today-card');
-      card.style.top = Math.round(chip.bottom / s + 10) + 'px';
-      const w = card.offsetWidth || 340;
-      const vw = window.innerWidth / s;
-      const left = Math.min(chip.left / s, vw - w - 12);
-      card.style.left = Math.round(Math.max(12, left)) + 'px';
-    }
+    // Today's sales, centred on the screen. It used to hang off the chip, which
+    // needed a rect calculation that had to be converted out of the zoomed
+    // coordinate space by hand; centring is done by the flex parent and cannot
+    // drift or land off a short screen.
     const openToday = () => {
       loadToday();
       $('today-panel').hidden = false;
-      placeToday();
       $('chip-today').setAttribute('aria-expanded', 'true');
     };
     const closeToday = () => {
@@ -1088,8 +1076,6 @@
     $('today-panel').addEventListener('click', (ev) => {
       if (ev.target === $('today-panel')) closeToday();   // the backdrop only
     });
-    // A dropdown pinned to a rect has to follow that rect.
-    window.addEventListener('resize', () => { if (!$('today-panel').hidden) placeToday(); });
     document.addEventListener('keydown', (ev) => {
       if (ev.key !== 'Escape') return;
       // Innermost first, so Escape does not shut the sheet behind a dialog.
