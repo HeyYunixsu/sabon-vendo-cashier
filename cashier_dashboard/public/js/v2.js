@@ -314,7 +314,7 @@
     // One chip, always true. Offline outranks everything -- a stale "Ready"
     // beside a dead link is worse than saying nothing -- then paused, then the
     // phase. Plain words, not the C++ enum names: a cashier reads this.
-    const phases = ['Ready', 'Buttons Unlocked', 'Dispensing', 'Done'];
+    const phases = ['Ready', 'Unlocked', 'Dispensing', 'Done'];
     let state, colour;
     if (!S.connected)   { state = 'Offline'; colour = 'var(--red)'; }
     else if (S.paused)  { state = 'Paused';  colour = '#B26A00'; }
