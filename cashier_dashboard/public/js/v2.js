@@ -238,12 +238,19 @@
   // the page, and Android Chrome leaves fullscreen to show it -- the kiosk
   // visibly falls back to a normal window mid-sale.
   // -------------------------------------------------------------------------
-  function askConfirm(message, yesLabel) {
+  // `kind` styles the confirm button: 'danger' (the default) for anything that
+  // throws work or money away, 'primary' for a step forward that merely cannot
+  // be undone. Unlock is the second kind -- it is the most-pressed control in
+  // the shop, and a red button pressed fifty times a shift stops meaning
+  // "careful" and starts meaning "continue", which is exactly what has to be
+  // preserved for Clear Cart and Cancel Credits.
+  function askConfirm(message, yesLabel, kind) {
     return new Promise((resolve) => {
       const back = $('ask-backdrop'), box = $('ask');
       const yes = $('ask-yes'), no = $('ask-no');
       $('ask-text').textContent = message;
       yes.textContent = yesLabel || 'Confirm';
+      yes.className = 'v2-btn ' + (kind === 'primary' ? 'v2-btn-primary' : 'v2-btn-danger');
       back.hidden = false; box.hidden = false;
 
       function done(answer) {
@@ -529,6 +536,9 @@
 
   // ---- prices -------------------------------------------------------------
   let priceDirty = false;
+  // A price is a whole number of pesos. 1000 is the ceiling the cashier is
+  // given, and four characters is exactly what it takes to type it.
+  const MAX_PRICE = 1000;
 
   function renderPrices() {
     const el = $('price-list');
@@ -539,9 +549,14 @@
       h += '<div class="v2-price-row">'
          + '<span>' + esc(PRODUCT[s]) + '</span>'
          + '<span class="v2-peso">₱</span>'
-         + '<input type="number" inputmode="numeric" min="0" max="10000" step="1"'
+         // type=text, not number. A number field draws Chrome's spinner --
+         // two 8px arrows beside a figure meant for a thumb -- and still lets
+         // "e", "+" and "-" through, which are not prices. Digits are filtered
+         // on input instead, so nothing else can ever reach the field.
+         + '<input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="4"'
+         + ' autocomplete="off"'
          + ' data-price="' + s + '" value="' + v + '"'
-         + ' aria-label="' + esc(PRODUCT[s]) + ' price">'
+         + ' aria-label="' + esc(PRODUCT[s]) + ' price, pesos, maximum ' + MAX_PRICE + '">'
          + '</div>';
     }
     el.innerHTML = h;
@@ -549,7 +564,24 @@
     $('btn-save-prices').disabled = true;
   }
 
+  // Strips anything that is not a digit and holds the ceiling, in place, as
+  // the cashier types. Doing it here rather than at Save means a bad character
+  // never appears at all -- there is nothing to notice and correct.
+  function sanitisePrice(input) {
+    const before = input.value;
+    let v = before.replace(/[^0-9]/g, '').replace(/^0+(?=\d)/, '');
+    if (v !== '' && parseInt(v, 10) > MAX_PRICE) v = String(MAX_PRICE);
+    if (v === before) return;
+    // Keep the caret where the cashier left it, minus whatever was removed to
+    // its left, or every rejected keystroke jumps them to the end of the field.
+    const pos = input.selectionStart;
+    const removedBefore = before.slice(0, pos).replace(/[0-9]/g, '').length;
+    input.value = v;
+    try { input.setSelectionRange(pos - removedBefore, pos - removedBefore); } catch (e) {}
+  }
+
   function markPriceDirty(input) {
+    sanitisePrice(input);
     const slot = parseInt(input.dataset.price, 10);
     const changed = String(prices[slot] != null ? prices[slot] : '') !== input.value.trim();
     input.classList.toggle('dirty', changed);
@@ -566,10 +598,13 @@
     $('price-list').querySelectorAll('[data-price]').forEach((i) => {
       const slot = parseInt(i.dataset.price, 10);
       const val = parseInt(i.value, 10);
-      if (!Number.isFinite(val) || val < 0 || val > 10000) { bad = PRODUCT[slot]; return; }
+      if (!Number.isFinite(val) || val < 0 || val > MAX_PRICE) { bad = PRODUCT[slot]; return; }
       body[slot] = val;
     });
-    if (bad) { toast('Price for ' + bad + ' is not a whole number of pesos', 'error'); return; }
+    if (bad) {
+      toast('Price for ' + bad + ' must be a whole number of pesos, 0 to ' + MAX_PRICE, 'error');
+      return;
+    }
 
     $('btn-save-prices').disabled = true;
     try {
@@ -611,17 +646,60 @@
     toast(why[result] || (name + ': ' + result), 'error');
   }
 
+  // Held so View All can render without a second round trip, and so the panel
+  // shows the same set the summary line was drawn from.
+  let priceChanges = [];
+
   async function loadPriceHistory() {
     try {
       const d = await (await fetch('/api/prices/history')).json();
+      priceChanges = (d && d.changes) || [];
       const el = $('price-history');
-      if (!d.changes || !d.changes.length) { el.textContent = ''; return; }
-      const c = d.changes[0];
+      $('btn-price-history').disabled = !priceChanges.length;
+      if (!priceChanges.length) { el.textContent = 'No price has been changed yet.'; return; }
+      const c = priceChanges[0];
       const name = PRODUCT[parseInt(c.slot, 10)] || ('Slot ' + c.slot);
       el.textContent = 'Last change: ' + name + '  ₱' + c.from + ' → ₱' + c.to
                      + '   ' + (c.date_created || '');
+      if (historyOpen()) renderHistory();
     } catch (e) { /* history is context, not essential */ }
   }
+
+  const historyOpen = () => !$('history-panel').hidden;
+
+  function renderHistory() {
+    $('history-count').textContent = priceChanges.length;
+    if (!priceChanges.length) {
+      $('history-list').innerHTML =
+        '<div class="v2-empty-note">No price has been changed yet.</div>';
+      return;
+    }
+    let h = '';
+    for (const c of priceChanges) {
+      const slot = parseInt(c.slot, 10);
+      const name = PRODUCT[slot] || ('Slot ' + c.slot);
+      // Up or down is the thing being looked for, so it is shown rather than
+      // left to be worked out by comparing two figures.
+      const up = Number(c.to) > Number(c.from);
+      h += '<div class="v2-hist-row">'
+         + '<span class="v2-hist-dot" style="background:' + (SLOT_DOT[slot] || '#98A2B3') + '"></span>'
+         + '<span class="v2-hist-name">' + esc(name)
+         +   '<span class="v2-hist-when">' + esc(c.date_created || '') + '</span>'
+         + '</span>'
+         + '<span class="v2-hist-move' + (up ? ' is-up' : ' is-down') + '">'
+         +   '₱' + c.from + ' → ₱' + c.to
+         + '</span>'
+         + '</div>';
+    }
+    $('history-list').innerHTML = h;
+  }
+
+  function openHistory() {
+    $('history-panel').hidden = false;
+    renderHistory();
+    loadPriceHistory();
+  }
+  const closeHistory = () => { $('history-panel').hidden = true; };
 
   // ---- waiting credits ----------------------------------------------------
   // The one thing the mockup has no room for. These are presses a customer has
@@ -933,6 +1011,7 @@
   }
   function closeSettings() {
     $('settings-panel').hidden = true;
+    closeHistory();
     disarmPrime();
   }
 
@@ -1003,6 +1082,24 @@
   // -------------------------------------------------------------------------
   async function executeArm() {
     if (!cart.length) return;
+
+    // Unlock is the moment money is committed: the presses become the
+    // customer's whether or not they press them, and only a write-off from the
+    // Credits panel undoes it. Every other irreversible control on this screen
+    // asks first; this one is the most irreversible of them and did not.
+    let presses = 0, pesos = 0, priced = true;
+    for (const it of cart) {
+      presses += it.qty;
+      if (prices[it.id] == null) priced = false;
+      else pesos += prices[it.id] * it.qty;
+    }
+    const ok = await askConfirm(
+      'Unlock ' + presses + ' press' + (presses !== 1 ? 'es' : '')
+      + ' across ' + cart.length + ' product' + (cart.length !== 1 ? 's' : '')
+      + (priced ? ' for ₱' + pesos : '') + '?',
+      'Unlock Buttons', 'primary');
+    if (!ok) return;
+
     const btn = $('btn-arm');
     btn.disabled = true;
     btn.classList.add('is-busy');
@@ -1222,6 +1319,8 @@
       if (!$('ask').hidden) return;                        // the dialog owns it
       if (!$('today-panel').hidden) { closeToday(); return; }
       if (!$('credits-panel').hidden) { closeCredits(); return; }
+      // History sits ON TOP of settings, so it has to be offered Escape first.
+      if (!$('history-panel').hidden) { closeHistory(); return; }
       if (!$('settings-panel').hidden) closeSettings();
     });
 
@@ -1244,6 +1343,10 @@
       if (ev.target.dataset.price) markPriceDirty(ev.target);
     });
     $('btn-save-prices').addEventListener('click', savePrices);
+    $('btn-price-history').addEventListener('click', openHistory);
+    $('history-panel').addEventListener('click', (ev) => {
+      if (ev.target === $('history-panel')) closeHistory();   // the backdrop only
+    });
     $('prime-list').addEventListener('click', (ev) => {
       const b = ev.target.closest('[data-prime]');
       if (b && !b.disabled) onPrimeTap(parseInt(b.dataset.prime, 10));

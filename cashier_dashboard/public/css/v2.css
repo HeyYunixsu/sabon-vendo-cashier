@@ -102,11 +102,23 @@
    before the backgrounds were cut out this had to stay light, or every bottle
    sat in a white box on a dark card. */
 :root[data-theme="dark"] .v2-prod-img { background: var(--surface-sub); }
-:root[data-theme="dark"] .v2-badge { filter: brightness(.85) saturate(1.1); }
+/* The badges were built from light-theme tints and then DIMMED for dark, which
+   made the readable ones unreadable and left the rest untouched: Ready sat at
+   3.1:1, and Empty and Dispensing kept their light fills, so two of the six
+   cards carried a near-white pill on a dark ground. Each state gets its own
+   dark pair instead -- a low-alpha wash of its own hue, and text bright enough
+   to clear 4.5:1 on it. */
+:root[data-theme="dark"] .v2-badge            { background: rgba(53, 201, 122, .16); color: #4FE39A; }
+:root[data-theme="dark"] .v2-badge.is-busy    { background: rgba(245, 185, 59, .16); color: #F5C24B; }
+:root[data-theme="dark"] .v2-badge.is-empty   { background: rgba(154, 167, 180, .18); color: #C2CEDA; }
+:root[data-theme="dark"] .v2-badge.is-offline { background: rgba(240, 101, 106, .18); color: #FF9095; }
+:root[data-theme="dark"] .v2-badge.is-armed   { background: rgba(59, 142, 240, .20); color: #8FC4FB; }
+:root[data-theme="dark"] .v2-badge.is-off     { background: rgba(108, 122, 136, .16); color: #94A1AF; }
 @supports (backdrop-filter: blur(1px)) {
   :root[data-theme="dark"] #settings-panel,
   :root[data-theme="dark"] #today-panel,
   :root[data-theme="dark"] #credits-panel,
+  :root[data-theme="dark"] #history-panel,
   :root[data-theme="dark"] #ask-backdrop { background: rgba(10, 14, 20, .55); }
 }
 
@@ -395,9 +407,13 @@ button { font: inherit; color: inherit; }
   min-height: 0;
 }
 
+.v2-panel-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; margin-bottom: 20px; flex: 0 0 auto;
+}
 .v2-panel-title {
   font-family: var(--font-display);
-  font-size: 27px; font-weight: 600; margin: 0 0 20px;
+  font-size: 27px; font-weight: 600; margin: 0;
 }
 
 #v2-products {
@@ -580,15 +596,15 @@ button { font: inherit; color: inherit; }
 .v2-badge {
   grid-column: 2; grid-row: 1; justify-self: end;
   display: inline-flex; align-items: center; gap: 6px;
-  height: 26px; padding: 0 11px;
+  height: 28px; padding: 0 12px;
   border-radius: var(--r-pill);
-  font-size: 13px; font-weight: 600;
+  font-size: 14px; font-weight: 700;
   background: var(--green-tint); color: #14804A;
   pointer-events: none;
   position: relative;
 }
 .v2-badge .v2-dot {
-  width: 7px; height: 7px; border-radius: 50%; background: currentColor;
+  width: 8px; height: 8px; border-radius: 50%; background: currentColor;
   animation: v2-beat 3.4s ease-in-out infinite;
 }
 
@@ -703,7 +719,7 @@ button { font: inherit; color: inherit; }
 
 /* ---- products footer ---- */
 .v2-products-footer {
-  display: grid; grid-template-columns: minmax(0, 1fr) auto;
+  display: grid; grid-template-columns: minmax(0, 1fr);
   gap: 12px; margin-top: 16px; flex: 0 0 auto;
 }
 /* The design gives this row real weight -- it is the fastest way to build a
@@ -879,25 +895,27 @@ button { font: inherit; color: inherit; }
 /* Centred, not hung under the chip. The mockup anchors it, but the figures
    are read across the shop rather than glanced at, so it takes the middle of
    the screen at a size that carries. */
-#today-panel, #credits-panel {
+#today-panel, #credits-panel, #history-panel {
   position: fixed; inset: 0; z-index: 50;
   background: rgba(16, 24, 40, .22);
   display: flex; align-items: center; justify-content: center;
   padding: 24px;
 }
+/* Opened from inside Settings, so it has to sit above Settings' own 55. */
+#history-panel { z-index: 56; }
 @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
-  #today-panel, #credits-panel {
+  #today-panel, #credits-panel, #history-panel {
     background: rgba(238, 241, 245, .5);
     -webkit-backdrop-filter: blur(7px) saturate(.9);
     backdrop-filter: blur(7px) saturate(.9);
   }
 }
-#today-panel[hidden], #credits-panel[hidden] { display: none; }
+#today-panel[hidden], #credits-panel[hidden], #history-panel[hidden] { display: none; }
 
 /* No JS positioning any more -- the flex parent centres it, which also means
    it cannot be pushed off a short screen by a rect calculation. */
 .v2-today-card, .v2-credits-card {
-  width: min(620px, 100%);
+  width: min(680px, 100%);
   max-height: 88dvh; overflow-y: auto;
   background: var(--surface);
   border-radius: 24px;
@@ -978,8 +996,8 @@ button { font: inherit; color: inherit; }
 #settings-panel[hidden] { display: none; }
 
 .v2-sheet {
-  width: min(680px, 100%);
-  max-height: 86dvh;
+  width: min(780px, 100%);
+  max-height: 88dvh;
   display: flex; flex-direction: column;
   background: var(--surface);
   border-radius: 22px;
@@ -1015,7 +1033,36 @@ button { font: inherit; color: inherit; }
 .v2-note em { font-style: normal; color: #C4841D; font-weight: 600; }
 .v2-note-row { display: flex; align-items: center; gap: 18px; margin-top: 14px; }
 .v2-note-row .v2-note { margin: 0; flex: 1 1 auto; }
-.v2-history { font-size: 12px; color: var(--ink-3); margin-top: 10px; }
+.v2-history { font-size: 13px; color: var(--ink-3); }
+.v2-history-row {
+  display: flex; align-items: center; gap: 14px; margin-top: 12px;
+}
+.v2-history-row .v2-history { flex: 1 1 auto; min-width: 0; }
+
+/* ---- price history ---- */
+.v2-hist-list { display: grid; gap: 4px; }
+.v2-hist-row {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center; gap: 14px;
+  padding: 12px 0; border-bottom: 1px solid var(--line);
+}
+.v2-hist-row:last-child { border-bottom: none; }
+.v2-hist-dot { width: 12px; height: 12px; border-radius: 50%; }
+.v2-hist-name {
+  font-size: 18px; color: var(--ink);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.v2-hist-when { display: block; font-size: 12px; color: var(--ink-3); font-weight: 400; }
+.v2-hist-move {
+  font-size: 17px; font-weight: 700;
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+/* Green for a rise, amber for a cut -- the direction is what is being looked
+   for, and red is spent on destructive actions elsewhere on this screen. */
+.v2-hist-move.is-up   { color: #14804A; }
+.v2-hist-move.is-down { color: #B26A00; }
+:root[data-theme="dark"] .v2-hist-move.is-up   { color: #4FE39A; }
+:root[data-theme="dark"] .v2-hist-move.is-down { color: #F5C24B; }
 
 /* One row shape for every setting: label left, control right. */
 .v2-set-row, .v2-price-row, .v2-prime-row, .v2-wait-row {
@@ -1040,8 +1087,13 @@ button { font: inherit; color: inherit; }
 #btn-fullscreen.is-on { background: var(--brand); border-color: var(--brand); color: #fff; }
 
 .v2-peso { color: var(--ink-2); font-size: 17px; }
+/* Four digits and no spinner. type=text means Chrome draws none, but Firefox
+   and older WebKit still need telling for any number field that survives. */
+.v2-price-row input::-webkit-outer-spin-button,
+.v2-price-row input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 .v2-price-row input {
-  width: 96px; height: 50px; padding: 0 14px;
+  -moz-appearance: textfield; appearance: textfield;
+  width: 112px; height: 52px; padding: 0 14px;
   border: 1px solid var(--line-strong); border-radius: var(--r-pill);
   background: var(--surface);
   font-family: var(--font-display); font-size: 18px; font-weight: 700;
@@ -1075,21 +1127,24 @@ button { font: inherit; color: inherit; }
     backdrop-filter: blur(7px) saturate(.9);
   }
 }
+/* Centred by the transform, and sized to be read rather than merely seen: at
+   0.84 scale the old 440px box rendered 371 physical pixels wide with 17px
+   text, which is a dialog you lean in for. */
 #ask {
   position: fixed; z-index: 61; left: 50%; top: 50%;
   transform: translate(-50%, -50%);
-  width: min(440px, calc(100vw - 32px));
+  width: min(580px, calc(100vw - 32px));
   background: var(--surface); border-radius: var(--r-panel);
   box-shadow: 0 18px 48px rgba(16, 24, 40, .28);
-  padding: 22px;
+  padding: 34px 34px 30px;
 }
 #ask-backdrop[hidden], #ask[hidden] { display: none; }
-#ask-text { font-size: 21px; font-weight: 600; line-height: 1.35; margin-bottom: 26px; }
+#ask-text { font-size: 26px; font-weight: 600; line-height: 1.35; margin-bottom: 30px; }
 /* Centred and equal width -- not stretched to the dialog. Cancel stays on the
    left of the pair, so the safe button is in the same place it is in every
    other popup. */
 #ask-actions { display: flex; gap: 12px; justify-content: center; }
-#ask-actions .v2-btn { flex: 0 0 auto; min-width: 148px; min-height: 52px; }
+#ask-actions .v2-btn { flex: 0 0 auto; min-width: 176px; min-height: 60px; font-size: 17px; }
 
 #toast {
   position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%) translateY(8px);
@@ -1266,7 +1321,8 @@ button { font: inherit; color: inherit; }
   /* Products one per row. Two columns of bottle photo at 360px leaves nothing
      for the name. */
   #v2-products, #v2-cart { padding: 14px; border-radius: 18px; }
-  .v2-panel-title { font-size: 19px; margin-bottom: 14px; }
+  .v2-panel-title { font-size: 19px; }
+  .v2-panel-head { margin-bottom: 14px; }
   .v2-grid { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto; gap: 10px; }
   .v2-prod {
     grid-template-columns: minmax(0, 112px) minmax(0, 1fr);
@@ -1281,8 +1337,7 @@ button { font: inherit; color: inherit; }
   .v2-step svg { width: 22px; height: 22px; }
   .v2-step-qty { height: 48px; font-size: 17px; }
 
-  .v2-products-footer { grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
-  .v2-btn-icon { width: 52px; }
+  .v2-products-footer { grid-template-columns: minmax(0, 1fr); gap: 8px; }
 
   /* The cart is a window on the list, not a growing block -- growing pushes
      the totals and Unlock off the page exactly when the sale is biggest. */

@@ -103,27 +103,30 @@
 
     <!-- ---------- products ---------- -->
     <section class="v2-card" id="v2-products">
-      <h1 class="v2-panel-title">Product List</h1>
+      <!-- Emptying sits in the panel header, away from the button that fills
+           it. Beside Add One Of Each the two were a thumb's width apart, which
+           is the wrong place for the one control that throws the sale away. -->
+      <div class="v2-panel-head">
+        <h1 class="v2-panel-title">Product List</h1>
+        <!-- Titled and aria-labelled, because an unlabelled icon that voids a
+             cart should still announce what it does to a screen reader and on
+             a long hover. -->
+        <button id="btn-clear-cart" class="v2-btn v2-btn-danger-ghost v2-btn-icon-sm" type="button"
+                aria-label="Clear the cart" title="Clear the cart">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/><path d="M10 11v6M14 11v6"/></svg>
+        </button>
+      </div>
 
       <div id="v2-grid" class="v2-grid"><!-- rendered by v2.js --></div>
 
-      <!-- Fill and empty sit together, in the place the cashier is already
-           looking to build the sale. The cart header no longer carries a
-           second way to do this -- that slot now belongs to Credits, which is
-           about money already taken rather than a screen being cleared. -->
+      <!-- One control, full width. The trash that used to share this row now
+           lives in the panel header. -->
       <div class="v2-products-footer">
         <button id="btn-one-each" class="v2-btn v2-btn-soft" type="button">
           <svg class="v2-btn-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
           Add One Of Each
-        </button>
-        <!-- Titled and aria-labelled, because an unlabelled icon that voids a
-             cart should still announce what it does to a screen reader and on
-             a long hover. -->
-        <button id="btn-clear-cart" class="v2-btn v2-btn-danger-ghost v2-btn-icon" type="button"
-                aria-label="Clear the cart" title="Clear the cart">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-               stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/><path d="M10 11v6M14 11v6"/></svg>
         </button>
       </div>
     </section>
@@ -272,7 +275,10 @@
             </p>
             <button id="btn-save-prices" class="v2-btn v2-btn-primary v2-btn-set" type="button" disabled>Save</button>
           </div>
-          <div id="price-history" class="v2-history"></div>
+          <div class="v2-history-row">
+            <div id="price-history" class="v2-history"></div>
+            <button id="btn-price-history" class="v2-btn v2-btn-ghost v2-btn-set" type="button">View All</button>
+          </div>
         </section>
 
         <section class="v2-group">
@@ -297,6 +303,22 @@
           </div>
         </section>
 
+      </div>
+    </div>
+  </div>
+
+  <!-- ================== PRICE HISTORY ==================
+       Every recorded change, not just the last one. A price change decides
+       what every later sale is worth, so "who changed what, from what, and
+       when" has to be answerable without opening a log file over SSH. -->
+  <div id="history-panel" hidden>
+    <div class="v2-credits-card" role="dialog" aria-modal="true" aria-labelledby="history-title">
+      <div class="v2-today-head">
+        <h2 id="history-title">Price Changes</h2>
+        <p class="v2-credits-sub"><span id="history-count">0</span> recorded</p>
+      </div>
+      <div class="v2-credits-body">
+        <div id="history-list" class="v2-hist-list"></div>
       </div>
     </div>
   </div>
