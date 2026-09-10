@@ -543,7 +543,7 @@
          +   (S.busy[s] ? '<span class="v2-wait-why">dispensing now</span>' : '')
          + '</span>'
          + '<span class="v2-wait-qty">' + bits.join(' + ') + '</span>'
-         + '<button class="v2-btn v2-btn-danger-ghost v2-btn-sm" type="button"'
+         + '<button class="v2-btn v2-btn-danger-ghost v2-btn-set" type="button"'
          +   ' data-void="' + s + '">Cancel</button>'
          + '</div>';
     }
@@ -620,7 +620,7 @@
          + '</span>'
          + '<span class="v2-prime-count' + (n > 0 ? ' busy' : '') + '">'
          +   (n > 0 ? n + ' today' : '—') + '</span>'
-         + '<button class="v2-btn v2-btn-ghost v2-btn-sm' + (armed ? ' confirm' : '') + '"'
+         + '<button class="v2-btn v2-btn-ghost v2-btn-set' + (armed ? ' confirm' : '') + '"'
          +   ' type="button" data-prime="' + s + '"' + (why ? ' disabled' : '') + '>'
          +   (armed ? 'Tap again' : 'Clear Air') + '</button>'
          + '</div>';
@@ -675,6 +675,36 @@
       invalid_slot:     'Unknown product.',
     };
     toast(why[result] || (name + ': ' + result), 'error');
+  }
+
+  // ---- theme --------------------------------------------------------------
+  // Remembered per device. A till should render the same way at the start of
+  // every shift, so this is an explicit choice stored locally rather than
+  // anything that follows the tablet's own night schedule.
+  const THEME_KEY = 'sabon-v2-theme';
+  function setupTheme() {
+    const btn = $('btn-theme');
+    let dark = false;
+    try { dark = localStorage.getItem(THEME_KEY) === 'dark'; } catch (e) {}
+
+    function paint() {
+      document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+      // The button says where it will take you, not where you are -- which is
+      // how the design labels it ("Dark Mode" while the screen is light).
+      btn.textContent = dark ? 'Light Mode' : 'Dark Mode';
+      btn.setAttribute('aria-pressed', dark ? 'true' : 'false');
+      const meta = document.querySelector('meta[name="theme-color"]');
+      if (meta) meta.setAttribute('content', dark ? '#0F141B' : '#034EA2');
+    }
+    btn.addEventListener('click', () => {
+      dark = !dark;
+      try {
+        if (dark) localStorage.setItem(THEME_KEY, 'dark');
+        else localStorage.removeItem(THEME_KEY);
+      } catch (e) {}
+      paint();
+    });
+    paint();
   }
 
   // ---- fullscreen ---------------------------------------------------------
@@ -991,7 +1021,8 @@
 
     // Settings
     $('btn-settings').addEventListener('click', openSettings);
-    $('btn-settings-close').addEventListener('click', closeSettings);
+    // No close button: the design's header has none. Tapping outside and
+    // Escape both close it, which is what the backdrop listener below is.
     $('settings-panel').addEventListener('click', (ev) => {
       if (ev.target === $('settings-panel')) closeSettings();   // the backdrop only
     });
@@ -1010,12 +1041,20 @@
       if (b) voidSlot(parseInt(b.dataset.void, 10));
     });
 
+    setupTheme();
     setupFullscreen();
   }
 
   // -------------------------------------------------------------------------
   // Boot
   // -------------------------------------------------------------------------
+  // Applied before the first render, or the screen flashes light and then
+  // switches once the sheet is built.
+  try {
+    if (localStorage.getItem('sabon-v2-theme') === 'dark')
+      document.documentElement.setAttribute('data-theme', 'dark');
+  } catch (e) {}
+
   wire();
   renderAll();
   tickClock();

@@ -184,70 +184,85 @@
   </div>
 
   <!-- ================== SETTINGS ==================
-       Ported from the v1 sheet so prices stay editable exactly as before, and
-       so the credits a customer has already paid for can still be voided from
-       this layout -- the mockup has nowhere for that, and without it v2 could
-       not replace v1. -->
+       Built to "settings v2" and "settings v2 scrolldown". Two things are here
+       that those two screens do not draw:
+
+         - Waiting credits. Presses a customer has already paid for, and the
+           only place in this layout they can be voided. Without it v2 cannot
+           replace v1, whatever the mockup shows.
+         - Show QR, carried over for the same reason.
+
+       And one thing is deliberately absent: the design's header has no close
+       button, so neither does this. Tapping outside or pressing Escape closes
+       it. -->
   <div id="settings-panel" hidden>
-    <div class="v2-card v2-sheet v2-sheet-wide">
-      <div class="v2-sheet-head">
-        <h2>Settings</h2>
-        <button id="btn-settings-close" class="v2-icon-btn" type="button" aria-label="Close">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
-               stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
-        </button>
-      </div>
+    <div class="v2-sheet" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+      <div class="v2-sheet-head"><h2 id="settings-title">Settings</h2></div>
 
-      <div class="v2-group">
-        <div class="v2-group-label">Prices &mdash; per press</div>
-        <div id="price-list"></div>
-        <div class="v2-note-row">
+      <div class="v2-sheet-body">
+
+        <section class="v2-group">
+          <h3 class="v2-group-label">Appearance</h3>
+          <div class="v2-set-row">
+            <span class="v2-set-k">Theme</span>
+            <button id="btn-theme" class="v2-btn v2-btn-ghost v2-btn-set" type="button"
+                    aria-pressed="false">Dark Mode</button>
+          </div>
+          <!-- Hidden outright where the Fullscreen API does not exist (iOS
+               implements it for video only): a control that does nothing when
+               tapped is worse than no control. -->
+          <div class="v2-set-row" id="row-fullscreen" hidden>
+            <span class="v2-set-k">Fullscreen</span>
+            <button id="btn-fullscreen" class="v2-btn v2-btn-set" type="button"
+                    aria-pressed="false">Off</button>
+          </div>
+        </section>
+
+        <section class="v2-group">
+          <h3 class="v2-group-label">Prices per press</h3>
+          <div id="price-list"></div>
+          <div class="v2-note-row">
+            <p class="v2-note">
+              Changing a price changes what every later sale is worth,
+              <em>so each change is recorded</em> with its old value.
+            </p>
+            <button id="btn-save-prices" class="v2-btn v2-btn-primary v2-btn-set" type="button" disabled>Save</button>
+          </div>
+          <div id="price-history" class="v2-history"></div>
+        </section>
+
+        <section class="v2-group">
+          <h3 class="v2-group-label">Waiting credits &mdash; <span id="waiting-total">0</span> owed</h3>
           <p class="v2-note">
-            Changing a price changes what every later sale is worth, so
-            <strong>each change is recorded</strong> with its old value.
+            Presses a customer has <em>already paid for</em>. Cancelling one
+            writes it off &mdash; it is not a way to clear the screen.
           </p>
-          <button id="btn-save-prices" class="v2-btn v2-btn-primary v2-btn-sm" type="button" disabled>Save</button>
-        </div>
-        <div id="price-history" class="v2-history"></div>
-      </div>
+          <div id="waiting-list"></div>
+        </section>
 
-      <div class="v2-group">
-        <div class="v2-group-label">
-          Waiting credits &mdash; <span id="waiting-total">0</span> owed
-        </div>
-        <p class="v2-note">
-          Presses a customer has <strong>already paid for</strong>. Cancelling one
-          writes it off &mdash; it is not a way to clear the screen.
-        </p>
-        <div id="waiting-list"></div>
-      </div>
+        <section class="v2-group">
+          <h3 class="v2-group-label">Maintenance &mdash; Cleared Today: <span id="prime-today">0</span></h3>
+          <p class="v2-note">
+            Removes air after a gallon change, so the next customer is not charged
+            for a press that dispenses nothing. Runs <span id="prime-secs">3</span>s
+            per tap. Safe to use while a customer is waiting &mdash; their credits
+            are untouched. <em>No sale is recorded</em> &mdash; every run is logged.
+          </p>
+          <div id="prime-list"></div>
+        </section>
 
-      <div class="v2-group">
-        <div class="v2-group-label">Maintenance &mdash; cleared today: <span id="prime-today">0</span></div>
-        <p class="v2-note">
-          Removes air after a gallon change, so the next customer is not charged
-          for a press that dispenses nothing. Runs <span id="prime-secs">3</span>s
-          per tap. Safe to use while a customer is waiting &mdash; their credits
-          are untouched. <strong>No sale is recorded</strong>; every run is logged.
-        </p>
-        <div id="prime-list"></div>
-      </div>
+        <section class="v2-group">
+          <h3 class="v2-group-label">This Machine</h3>
+          <div class="v2-set-row"><span class="v2-set-k">Machine ID</span><span id="info-machine" class="v2-set-v">--</span></div>
+          <div class="v2-set-row"><span class="v2-set-k">Controller</span><span id="info-controller" class="v2-set-v">--</span></div>
+          <div class="v2-set-row"><span class="v2-set-k">Address</span><span id="info-url" class="v2-set-v">--</span></div>
+          <div class="v2-set-row">
+            <span class="v2-set-k">Open on another device</span>
+            <a id="info-qr" class="v2-btn v2-btn-ghost v2-btn-set" href="/qr" target="_blank" rel="noopener">Show QR</a>
+          </div>
+        </section>
 
-      <div class="v2-group">
-        <div class="v2-group-label">This machine</div>
-        <div class="v2-info-row" id="row-fullscreen" hidden>
-          <span>Fullscreen</span>
-          <button id="btn-fullscreen" class="v2-btn v2-btn-ghost v2-btn-sm" type="button" aria-pressed="false">Off</button>
-        </div>
-        <div class="v2-info-row"><span>Machine ID</span><span id="info-machine" class="v2-info-v">--</span></div>
-        <div class="v2-info-row"><span>Controller</span><span id="info-controller" class="v2-info-v">--</span></div>
-        <div class="v2-info-row"><span>Address</span><span id="info-url" class="v2-info-v">--</span></div>
-        <div class="v2-info-row">
-          <span>Open on another device</span>
-          <a id="info-qr" class="v2-btn v2-btn-ghost v2-btn-sm" href="/qr" target="_blank" rel="noopener">Show QR</a>
-        </div>
       </div>
-
     </div>
   </div>
 

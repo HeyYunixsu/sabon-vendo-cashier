@@ -61,6 +61,53 @@
   --font-display:  'Helvetica Neue LT', 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 }
 
+/* ---- dark theme ----------------------------------------------------------
+   The design puts a Theme control in Settings, so there has to be something to
+   switch to. Only the TOKENS are redefined -- every component reads through
+   them, so nothing below this point needs a dark variant of its own.
+
+   Applied by an explicit data-theme on <html>, never by prefers-color-scheme:
+   this is a till, and which way it renders should be the cashier's decision
+   and stay put, not follow the tablet's night schedule mid-shift. */
+:root[data-theme="dark"] {
+  --bg:            #0F141B;
+  --surface:       #172029;
+  --surface-sub:   #1E2833;
+
+  --ink:           #E9EEF4;
+  --ink-2:         #9AA7B4;
+  --ink-3:         #6C7A88;
+
+  --line:          #263341;
+  --line-strong:   #35455604;
+  --line-strong:   #354556;
+
+  /* Lifted off the light-theme blue: #034EA2 on a dark ground is close to
+     unreadable, and a brand colour that cannot be read is not carrying the
+     brand. Same hue, enough luminance to sit on #0F141B. */
+  --brand:         #3B8EF0;
+  --brand-strong:  #6BABF5;
+  --brand-tint:    #1B2A3D;
+  --brand-tint-2:  #24384F;
+
+  --green:         #35C97A;
+  --green-tint:    #14301F;
+  --red:           #F0656A;
+  --red-tint:      #38191B;
+
+  --shadow:        0 1px 2px rgba(0, 0, 0, .4), 0 8px 24px rgba(0, 0, 0, .45);
+  --shadow-soft:   0 1px 2px rgba(0, 0, 0, .35);
+}
+/* The product photos are shot on near-white, so they keep a light tile in dark
+   mode rather than floating on a dark card with a white box around them. */
+:root[data-theme="dark"] .v2-prod-img { background: #E8ECF1; }
+:root[data-theme="dark"] .v2-badge { filter: brightness(.85) saturate(1.1); }
+@supports (backdrop-filter: blur(1px)) {
+  :root[data-theme="dark"] #settings-panel,
+  :root[data-theme="dark"] #today-panel,
+  :root[data-theme="dark"] #ask-backdrop { background: rgba(10, 14, 20, .55); }
+}
+
 /* ---- Helvetica Neue, supplied with the v2 artwork ------------------------
    Converted from the delivered OTFs to subset WOFF2: 615KB of Roman becomes
    21KB once it carries only the ~200 characters this dashboard draws. The set
@@ -640,78 +687,115 @@ button { font: inherit; color: inherit; }
 .v2-sheet-head h2 { font-family: var(--font-display); font-size: 20px; margin: 0; }
 .v2-today-empty { color: var(--ink-2); text-align: center; padding: 18px; }
 
-/* ---- settings ------------------------------------------------------------ */
+/* ---- settings ------------------------------------------------------------
+   Built to "settings v2" and "settings v2 scrolldown": sentence-case grey
+   section headings rather than the tiny uppercase labels, pill inputs whose
+   figures are the brand colour, and a note whose emphasised clause is amber --
+   the one warm colour on the screen, spent on the sentence that says a price
+   change is permanent and recorded.
+   --------------------------------------------------------------------------- */
 #settings-panel {
   position: fixed; inset: 0; z-index: 55;
-  background: rgba(16, 24, 40, .45);
+  background: rgba(16, 24, 40, .28);
   display: flex; align-items: center; justify-content: center;
   padding: 20px;
 }
+@supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+  #settings-panel {
+    background: rgba(238, 241, 245, .5);
+    -webkit-backdrop-filter: blur(7px) saturate(.9);
+    backdrop-filter: blur(7px) saturate(.9);
+  }
+}
 #settings-panel[hidden] { display: none; }
-.v2-sheet-wide { width: min(620px, 100%); }
 
-.v2-group { margin-top: 22px; }
-.v2-group-label {
-  font-size: 12px; font-weight: 700; letter-spacing: .07em;
-  text-transform: uppercase; color: var(--ink-2);
-  padding-bottom: 8px; margin-bottom: 10px;
+.v2-sheet {
+  width: min(680px, 100%);
+  max-height: 86dvh;
+  display: flex; flex-direction: column;
+  background: var(--surface);
+  border-radius: 22px;
+  box-shadow: 0 20px 56px rgba(16, 24, 40, .26);
+  overflow: hidden;
+}
+.v2-sheet-head {
+  padding: 22px 30px 18px;
   border-bottom: 1px solid var(--line);
+  flex: 0 0 auto;
 }
-.v2-note { font-size: 13px; color: var(--ink-2); line-height: 1.5; margin: 0 0 10px; }
-.v2-note-row { display: flex; align-items: center; gap: 14px; margin-top: 10px; }
+.v2-sheet-head h2 {
+  font-family: var(--font-display);
+  font-size: 26px; font-weight: 700; margin: 0;
+}
+/* The body scrolls, the title does not -- the design shows its scrollbar
+   inside the card, below a header that stays put. */
+.v2-sheet-body { padding: 4px 30px 26px; overflow-y: auto; flex: 1 1 auto; min-height: 0; }
+.v2-sheet-body::-webkit-scrollbar { width: 6px; }
+.v2-sheet-body::-webkit-scrollbar-thumb { background: var(--brand); border-radius: 3px; }
+.v2-sheet-body { scrollbar-width: thin; scrollbar-color: var(--brand) transparent; }
+
+.v2-group { padding: 22px 0; border-bottom: 1px solid var(--line); }
+.v2-group:last-child { border-bottom: none; }
+.v2-group-label {
+  font-family: var(--font-display);
+  font-size: 21px; font-weight: 500; color: var(--ink-3);
+  margin: 0 0 14px;
+}
+.v2-note { font-size: 13px; color: var(--ink-2); line-height: 1.55; margin: 0 0 12px; }
+/* Amber, and only here. The clause it marks is the one that says a change
+   cannot be quietly undone. */
+.v2-note em { font-style: normal; color: #C4841D; font-weight: 600; }
+.v2-note-row { display: flex; align-items: center; gap: 18px; margin-top: 14px; }
 .v2-note-row .v2-note { margin: 0; flex: 1 1 auto; }
-.v2-history { font-size: 12px; color: var(--ink-3); margin-top: 8px; }
+.v2-history { font-size: 12px; color: var(--ink-3); margin-top: 10px; }
 
-.v2-info-row {
-  display: flex; align-items: center; justify-content: space-between;
-  gap: 14px; padding: 8px 0; font-size: 15px;
+/* One row shape for every setting: label left, control right. */
+.v2-set-row, .v2-price-row, .v2-prime-row, .v2-wait-row {
+  display: flex; align-items: center; gap: 14px;
+  padding: 9px 0;
 }
-.v2-info-v { color: var(--ink-2); font-size: 14px; text-align: right; word-break: break-all; }
-/* A toggle that is on should look on, not merely be labelled it. */
-.v2-btn-ghost.is-on {
-  border-color: var(--brand); color: var(--brand-strong);
-  background: var(--brand-tint);
-}
-
-.v2-price-row, .v2-prime-row, .v2-wait-row {
-  display: flex; align-items: center; gap: 12px;
-  padding: 8px 0;
-}
-.v2-price-row span:first-child, .v2-prime-name, .v2-wait-name {
-  flex: 1 1 auto; min-width: 0; font-size: 15px;
-  /* The name is the thing that varies in length; it yields, not the control
-     beside it. */
+.v2-set-k, .v2-price-row > span:first-child, .v2-prime-name, .v2-wait-name {
+  flex: 1 1 auto; min-width: 0;
+  font-size: 18px; color: var(--ink);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.v2-peso { color: var(--ink-2); font-size: 15px; }
+.v2-set-v { font-size: 15px; color: var(--ink-2); text-align: right; word-break: break-all; }
+#info-controller { font-weight: 600; }
+
+/* Controls in the sheet share one width, so their edges line up as a column
+   instead of each shrink-wrapping its own label. */
+.v2-btn-set { min-width: 132px; min-height: 50px; font-size: 15px; }
+
+/* A toggle that is on should look on, not merely be labelled it. The design
+   fills it with the brand colour. */
+#btn-fullscreen { background: var(--surface); border-color: var(--line-strong); color: var(--ink); }
+#btn-fullscreen.is-on { background: var(--brand); border-color: var(--brand); color: #fff; }
+
+.v2-peso { color: var(--ink-2); font-size: 17px; }
 .v2-price-row input {
-  width: 88px; height: 48px; padding: 0 12px;
-  border: 1px solid var(--line-strong); border-radius: 12px;
+  width: 96px; height: 50px; padding: 0 14px;
+  border: 1px solid var(--line-strong); border-radius: var(--r-pill);
   background: var(--surface);
-  font-family: var(--font); font-size: 16px; font-weight: 600;
-  font-variant-numeric: tabular-nums; text-align: right;
-  color: var(--ink);
+  font-family: var(--font-display); font-size: 18px; font-weight: 700;
+  font-variant-numeric: tabular-nums; text-align: center;
+  color: var(--brand);
 }
 .v2-price-row input.dirty { border-color: var(--brand); background: var(--brand-tint); }
 
 .v2-prime-why, .v2-wait-why {
   display: block; font-size: 12px; color: var(--ink-3); font-weight: 400;
 }
-.v2-prime-count { font-size: 12px; color: var(--ink-3); min-width: 62px; text-align: right; }
+.v2-prime-count { font-size: 14px; color: var(--ink-3); min-width: 70px; text-align: right; }
 .v2-prime-count.busy { color: #B26A00; }
 /* Armed by the first tap. The colour change IS the confirmation -- a pump that
-   starts on one mis-tap is the thing this panel must never do. */
+   starts on one mis-tap is what that guard exists to prevent. */
 .v2-btn-ghost.confirm { border-color: #E0A800; color: #B26A00; background: #FFF8E6; }
 .v2-wait-qty {
-  font-size: 14px; font-weight: 600; color: var(--brand-strong);
-  font-variant-numeric: tabular-nums; min-width: 78px; text-align: right;
+  font-size: 15px; font-weight: 700; color: var(--brand);
+  font-variant-numeric: tabular-nums; min-width: 90px; text-align: right;
 }
 .v2-empty-note { font-size: 14px; color: var(--ink-3); padding: 10px 0; }
 
-/* Blurred, not dimmed. The design pushes the dashboard out of focus rather
-   than darkening it, which keeps the machine's state readable behind the
-   question -- you can still see what is armed while deciding to void it.
-   The flat colour is the fallback where backdrop-filter is unsupported. */
 #ask-backdrop {
   position: fixed; inset: 0; z-index: 60;
   background: rgba(16, 24, 40, .28);
