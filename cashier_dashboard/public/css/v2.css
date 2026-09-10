@@ -429,7 +429,17 @@ button { font: inherit; color: inherit; }
   gap: 16px;
   flex: 1 1 auto;
   min-height: 0;
-  overflow-y: auto;
+
+  /* NOT a scroll container, and that is deliberate on two counts.
+     - A scrollport clips at its padding box whether or not it scrolls, which
+       sheared the selection glow off the top and bottom rows.
+     - Under fractional zoom the sub-pixel layout convinced Chrome the content
+       overflowed by a hair, so a full scrollbar appeared for 0-1px: 18px wide
+       at 0.8538, 20px at 0.7375, 23px at 0.64. The scales that divide evenly
+       (1.0, 0.8) were clean, which is what gave it away.
+     Fitting is guaranteed by setScale() instead, which now scales on height as
+     well as width so six cards always have room. */
+  overflow: visible;
 }
 
 .v2-prod {
@@ -646,15 +656,23 @@ button { font: inherit; color: inherit; }
   position: fixed; inset: 0; z-index: 45;
   pointer-events: none; overflow: hidden;
 }
-.v2-ripple-host { position: fixed; overflow: hidden; pointer-events: none; }
+/* Unclipped: the ring is meant to travel out past the button and over the
+   card, so the host only positions it. */
+.v2-ripple-host { position: fixed; pointer-events: none; }
 .v2-ripple {
   position: absolute; border-radius: 50%;
-  background: currentColor; opacity: .45;
+  border: 3px solid currentColor;
+  opacity: .9;
   transform: scale(0); pointer-events: none;
-  animation: v2-wave .5s ease-out forwards;
+  animation: v2-wave .55s cubic-bezier(.2, .7, .3, 1) forwards;
 }
+/* The ring thins as it grows, the way a real one does -- a constant 3px band
+   at four times the size reads as a drawn circle rather than a spreading
+   wave. */
 @keyframes v2-wave {
-  to { transform: scale(1); opacity: 0; }
+  0%   { transform: scale(0);   opacity: .9; border-width: 3px; }
+  55%  { opacity: .55; }
+  100% { transform: scale(1);   opacity: 0;  border-width: 1px; }
 }
 /* Coloured to their symbol: taking away is red, adding is green. Working fast,
    the colour is read before the glyph. */

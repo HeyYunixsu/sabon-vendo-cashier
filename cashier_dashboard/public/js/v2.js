@@ -123,6 +123,11 @@
   // Below 901 the layout stacks and scrolls on purpose, so it is left alone.
   // -------------------------------------------------------------------------
   const DESIGN_W = 1600;
+  // The shortest the shell can be laid out and still hold six cards, measured
+  // rather than guessed: at scale 1 and 1600 wide the grid is clean down to
+  // 660px and overflows by 3px at 655. Scaling on height as well as width is
+  // what lets .v2-grid stop being a scroll container -- see the note there.
+  const DESIGN_H = 660;
   // The live scale. Nothing reads it today -- the Today card is centred by CSS
   // rather than positioned from a rect -- but anything that DOES position
   // against getBoundingClientRect() must divide by it: rects come back in
@@ -138,7 +143,14 @@
   const MIN_SCALE = 0.6;
   function setScale() {
     const w = window.innerWidth;
-    const s = w < 901 ? 1 : Math.min(1, Math.max(MIN_SCALE, w / DESIGN_W));
+    const h = window.innerHeight;
+    // Whichever axis runs out first decides. Width alone was not enough: a wide
+    // but short window stayed at scale 1, the grid could not fit six cards, and
+    // it fell back to scrolling -- which is the thing this layout exists to
+    // avoid.
+    const s = w < 901
+      ? 1
+      : Math.min(1, Math.max(MIN_SCALE, Math.min(w / DESIGN_W, h / DESIGN_H)));
     const root = document.documentElement;
     curScale = s;
     root.style.setProperty('--s', s.toFixed(4));
