@@ -162,6 +162,45 @@ body {
 }
 button { font: inherit; color: inherit; }
 
+/* ---------------------------------------------------------------------------
+   KIOSK BEHAVIOUR
+
+   This is a till, not a document. Nothing on it should select, drag, show an
+   I-beam or offer a save-image menu -- a cashier tapping a product name got a
+   text caret and a blue highlight, and the bottles could be dragged straight
+   out of the page into another app.
+
+   Applied to the shell rather than to `*`, so it can be lifted precisely where
+   text really is editable: the price fields.
+   --------------------------------------------------------------------------- */
+#v2, #v2 *, #ask, #ask * {
+  -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none;
+  user-select: none;
+  /* Long press on Android and iOS otherwise raises "Copy / Save image". */
+  -webkit-touch-callout: none;
+}
+/* The default arrow, not an I-beam. Buttons re-assert pointer below. */
+#v2 { cursor: default; }
+
+/* Images: three separate mechanisms, because each blocks a different route.
+   user-drag stops the mouse drag, the draggable attribute set in v2.js stops
+   the keyboard/programmatic one, and pointer-events means the pointer never
+   reaches the image in the first place -- nothing in a product card is
+   clickable except its steppers, so this costs nothing. */
+#v2 img {
+  -webkit-user-drag: none; -khtml-user-drag: none;
+  -moz-user-drag: none; -o-user-drag: none;
+  pointer-events: none;
+}
+
+/* The one place text really is text. Without this the price fields could not
+   be selected, corrected or double-tapped to replace. */
+#v2 input, #v2 textarea {
+  -webkit-user-select: text; user-select: text;
+  -webkit-touch-callout: default;
+  cursor: text;
+}
+
 #v2 {
   /* HEIGHT, not min-height. min-height only sets a floor, so the shell grew
      as the cart filled and the document scrolled -- which also meant the

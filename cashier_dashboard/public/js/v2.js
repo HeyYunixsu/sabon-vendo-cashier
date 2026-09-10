@@ -87,6 +87,18 @@
   let prevBusy = new Array(TOTAL + 1).fill(false);
 
   const $ = (id) => document.getElementById(id);
+
+  // Belt and braces for the CSS above. CSS user-drag is not standard on every
+  // engine, and dragstart is the event that actually carries the image out to
+  // another window -- cancelling it here works everywhere, including on the
+  // photos, which are rebuilt by renderGrid and so cannot be wired one by one.
+  document.addEventListener('dragstart', (ev) => ev.preventDefault());
+  // Long press on a touch screen raises the same save/copy menu that a right
+  // click does. Inputs keep theirs, so a mistyped price can still be pasted
+  // over.
+  document.addEventListener('contextmenu', (ev) => {
+    if (!ev.target.closest('input, textarea')) ev.preventDefault();
+  });
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
@@ -309,7 +321,7 @@
       h += '<div class="' + cls + '" data-slot="' + s + '">'
          + '<div class="v2-badge' + badge.cls + '"><span class="v2-dot"></span>' + badge.label + '</div>'
          + '<div class="v2-prod-img">'
-         +   '<img src="' + PRODUCT_IMG(s) + '" alt="" loading="lazy">'
+         +   '<img src="' + PRODUCT_IMG(s) + '" alt="" loading="lazy" draggable="false">'
          + '</div>'
          + '<div class="v2-prod-text">'
          +   '<div class="v2-prod-name">' + esc(PRODUCT[s]) + '</div>'
