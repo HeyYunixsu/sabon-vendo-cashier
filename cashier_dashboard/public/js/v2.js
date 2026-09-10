@@ -57,6 +57,27 @@
   // 214KB. Every browser this machine targets has supported WebP for years.
   const PRODUCT_IMG = (slot) => 'img/products/' + slot + '.webp';
 
+  // ONE colour per slot, used in two places: the dot beside a row in Today's
+  // Sales, and the glow around that product's card when it is in the cart. The
+  // same product is the same colour wherever it appears, so the cashier learns
+  // six colours instead of two unrelated sets.
+  const SLOT_DOT = { 1: '#1F86FF', 2: '#8B5CF6', 3: '#EC4A73',
+                     4: '#9B5DE5', 5: '#7FC8F8', 6: '#F5B93B' };
+
+  // The glow is the slot colour at low alpha. Built here rather than with
+  // colour-mix() so it works on any browser that reaches this till, and cached
+  // because renderGrid runs on every status frame.
+  const SLOT_GLOW = (() => {
+    const out = {};
+    for (const k in SLOT_DOT) {
+      const h = SLOT_DOT[k];
+      out[k] = 'rgba(' + parseInt(h.slice(1, 3), 16) + ','
+                       + parseInt(h.slice(3, 5), 16) + ','
+                       + parseInt(h.slice(5, 7), 16) + ',.55)';
+    }
+    return out;
+  })();
+
   const GLYPH_BOTTLE =
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"' +
     ' stroke-linecap="round" stroke-linejoin="round">' +
@@ -385,7 +406,9 @@
       if (qty > 0) cls += ' in-cart';
       else if (st === 'unlocked') cls += ' is-armed';
 
-      h += '<div class="' + cls + '" data-slot="' + s + '">'
+      const tint = SLOT_DOT[s] || 'var(--brand)';
+      h += '<div class="' + cls + '" data-slot="' + s + '"'
+         +   ' style="--slot:' + tint + ';--slot-glow:' + (SLOT_GLOW[s] || 'transparent') + '">'
          + '<div class="v2-badge' + badge.cls + '"><span class="v2-dot"></span>' + badge.label + '</div>'
          + '<div class="v2-prod-img">'
          +   '<img src="' + PRODUCT_IMG(s) + '" alt="" loading="lazy" draggable="false">'
@@ -788,8 +811,10 @@
   const THEME_KEY = 'sabon-v2-theme';
   function setupTheme() {
     const btn = $('btn-theme');
-    let dark = false;
-    try { dark = localStorage.getItem(THEME_KEY) === 'dark'; } catch (e) {}
+    // Dark unless this device has explicitly chosen light. A till lives under
+    // shop lighting for a whole shift; the bright screen is the exception.
+    let dark = true;
+    try { dark = localStorage.getItem(THEME_KEY) !== 'light'; } catch (e) {}
 
     function paint() {
       document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
@@ -802,10 +827,10 @@
     }
     btn.addEventListener('click', () => {
       dark = !dark;
-      try {
-        if (dark) localStorage.setItem(THEME_KEY, 'dark');
-        else localStorage.removeItem(THEME_KEY);
-      } catch (e) {}
+      // Both choices are written. Clearing the key for light used to be
+      // enough when light was the default; now an absent key MEANS dark, so
+      // removing it would throw the cashier's choice away on the next reload.
+      try { localStorage.setItem(THEME_KEY, dark ? 'dark' : 'light'); } catch (e) {}
       paint();
     });
     paint();
@@ -1031,11 +1056,6 @@
     } catch (e) { /* unpriced is a legible state; leave it */ }
   }
 
-  // A colour per slot, in grid order, so a row in the Today list is picked out
-  // by its dot rather than by reading down the names.
-  const SLOT_DOT = { 1: '#1F86FF', 2: '#8B5CF6', 3: '#EC4A73',
-                     4: '#9B5DE5', 5: '#7FC8F8', 6: '#F5B93B' };
-
   async function loadToday() {
     try {
       const d = await (await fetch('/api/sales/today')).json();
@@ -1065,6 +1085,48 @@
 
   // -------------------------------------------------------------------------
   // Wiring
+  // A wave out from the point pressed.
+  //
+  // It is drawn into #v2-fx, not into the button. A stepper tap changes a
+  // quantity, which changes renderGrid's signature, which replaces the grid's
+  // innerHTML -- so a span parented to the button is gone one frame after the
+  // press, which is the only moment it exists to cover. Proved it: after a
+  // real pointerdown-then-click the button node itself is a different object.
+  //
+  // #v2-fx also sits outside the zoomed shell, so every number here is a plain
+  // viewport pixel and there is no visual-vs-zoomed conversion to get wrong.
+  // The one thing that does need scaling is the corner radius, because the
+  // button's computed 12px is pre-zoom.
+  function ripple(btn, ev) {
+    const r = btn.getBoundingClientRect();
+    if (!r.width) return;
+    const host = document.createElement('div');
+    host.className = 'v2-ripple-host';
+    host.style.left = r.left + 'px';
+    host.style.top = r.top + 'px';
+    host.style.width = r.width + 'px';
+    host.style.height = r.height + 'px';
+    host.style.borderRadius =
+      (parseFloat(getComputedStyle(btn).borderTopLeftRadius) || 12) * curScale + 'px';
+
+    const d = Math.hypot(r.width, r.height) * 2;
+    const el = document.createElement('span');
+    el.className = 'v2-ripple';
+    el.style.width = el.style.height = d + 'px';
+    el.style.left = (ev.clientX - r.left - d / 2) + 'px';
+    el.style.top = (ev.clientY - r.top - d / 2) + 'px';
+    el.style.color = getComputedStyle(btn).color;
+    // Belt and braces: animationend is the normal path, but a tab backgrounded
+    // mid-press never fires it, and a till left running for a week would then
+    // accumulate one dead node per tap.
+    const done = () => host.remove();
+    el.addEventListener('animationend', done);
+    setTimeout(done, 1200);
+
+    host.appendChild(el);
+    $('v2-fx').appendChild(host);
+  }
+
   // -------------------------------------------------------------------------
   function wire() {
     // Delegated, because the grid and the cart are both rebuilt from scratch.
@@ -1074,6 +1136,14 @@
       const btn = ev.target.closest('.v2-step');
       if (!btn || btn.disabled) return;
       step(parseInt(btn.dataset.slot, 10), parseInt(btn.dataset.delta, 10));
+    });
+
+    // The wave starts under the finger, so it has to be placed from the event.
+    // pointerdown, not click: the feedback belongs to the press, and on a
+    // touchscreen click does not land until the finger lifts.
+    $('v2-grid').addEventListener('pointerdown', (ev) => {
+      const btn = ev.target.closest('.v2-step');
+      if (btn && !btn.disabled) ripple(btn, ev);
     });
 
     $('v2-cart-list').addEventListener('click', (ev) => {
@@ -1166,10 +1236,9 @@
   // -------------------------------------------------------------------------
   // Applied before the first render, or the screen flashes light and then
   // switches once the sheet is built.
-  try {
-    if (localStorage.getItem('sabon-v2-theme') === 'dark')
-      document.documentElement.setAttribute('data-theme', 'dark');
-  } catch (e) {}
+  let bootDark = true;
+  try { bootDark = localStorage.getItem(THEME_KEY) !== 'light'; } catch (e) {}
+  document.documentElement.setAttribute('data-theme', bootDark ? 'dark' : 'light');
 
   wire();
   renderAll();

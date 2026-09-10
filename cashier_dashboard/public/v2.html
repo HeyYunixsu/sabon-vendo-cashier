@@ -30,7 +30,9 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Sabon Vendo">
-<meta name="theme-color" content="#034EA2">
+<!-- Dark is the default now, so the browser chrome starts dark too;
+     setupTheme() rewrites this if the device has chosen light. -->
+<meta name="theme-color" content="#0F141B">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
@@ -315,6 +317,14 @@
   <div id="toast"></div>
 
 </div>
+
+<!-- OUTSIDE #v2 on purpose, and that is the whole trick. A stepper tap changes
+     a quantity, renderGrid rebuilds the grid's innerHTML, and any wave drawn
+     inside the button dies one frame after the press -- the only moment it
+     exists to cover. Drawn here it survives, and because this layer sits
+     outside the zoomed shell its coordinates are plain viewport pixels, so
+     there is no scale conversion to get wrong either. -->
+<div id="v2-fx" aria-hidden="true"></div>
 
 <script src="js/v2.js"></script>
 </body>

@@ -468,13 +468,39 @@ button { font: inherit; color: inherit; }
   border-radius: var(--r-panel);
   transition: border-color .15s ease, box-shadow .15s ease;
   touch-action: manipulation;
+  position: relative;
 }
 /* In the cart, so the card says so without anyone reading the number. */
 /* Two different things, two different colours, as the design has them:
    BLUE means it is in this cart and nothing has been charged; TEAL means the
    machine is holding presses the customer has already paid for. Using one
    colour for both would hide the distinction that matters most. */
-.v2-prod.in-cart { border-color: var(--brand); }
+/* The card takes the SAME colour this product has in Today's Sales -- --slot
+   is written onto the card by renderGrid from the one palette both read. Six
+   colours learned once, not two unrelated sets. */
+.v2-prod.in-cart { border-color: var(--slot, var(--brand)); }
+
+/* The glow is a separate layer so the breathing animates OPACITY only. A
+   box-shadow animated directly repaints the card on every frame; six of those
+   on a tablet is exactly the kind of thing that makes a till feel slow. */
+.v2-prod::after {
+  content: ''; position: absolute; inset: -2px;
+  border-radius: inherit; pointer-events: none;
+  box-shadow: 0 0 18px 3px var(--slot-glow, transparent);
+  opacity: 0; transition: opacity .25s ease;
+}
+.v2-prod.in-cart::after {
+  opacity: 1;
+  animation: v2-breathe 2.6s ease-in-out infinite;
+}
+/* A soft bloom is legible against a dark ground and all but invisible against
+   white. The light theme gets a tight halo band at the card's edge as well,
+   which is what actually carries the colour on paper-coloured panels. */
+:root[data-theme="light"] .v2-prod::after {
+  box-shadow: 0 0 0 4px var(--slot-glow, transparent),
+              0 0 16px 5px var(--slot-glow, transparent);
+}
+@keyframes v2-breathe { 0%, 100% { opacity: 1; } 50% { opacity: .45; } }
 .v2-prod.is-armed { border-color: #12A5A0; }
 .v2-prod.is-empty { opacity: .55; }
 .v2-prod.is-inactive { opacity: .35; pointer-events: none; }
@@ -533,8 +559,56 @@ button { font: inherit; color: inherit; }
   font-size: 13px; font-weight: 600;
   background: var(--green-tint); color: #14804A;
   pointer-events: none;
+  position: relative;
 }
-.v2-badge .v2-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.v2-badge .v2-dot {
+  width: 7px; height: 7px; border-radius: 50%; background: currentColor;
+  animation: v2-beat 3.4s ease-in-out infinite;
+}
+
+/* A ring that grows out of the WHOLE badge -- dot and word together -- not
+   just the dot. It inherits the badge's own colour, so each state ripples in
+   the colour that state already means.
+
+   Transform and opacity only: both are composited, so six of these cost the
+   GPU a layer each and the CPU nothing per frame. */
+.v2-badge::after {
+  content: ''; position: absolute; inset: 0;
+  border-radius: inherit; pointer-events: none;
+  border: 2px solid currentColor;
+  opacity: 0;
+  animation: v2-ripple 3.4s ease-out infinite;
+}
+@keyframes v2-ripple {
+  0%   { transform: scale(1);    opacity: .4; }
+  70%  { transform: scale(1.28); opacity: 0; }
+  100% { transform: scale(1.28); opacity: 0; }
+}
+@keyframes v2-beat {
+  0%, 100% { transform: scale(1);    opacity: 1;   }
+  50%      { transform: scale(1.35); opacity: .65; }
+}
+
+/* Ready breathes slowly; anything that wants attention ripples fast and hard.
+   Ranking the motion is what keeps it meaning something -- if all six pulsed
+   identically all day the eye would stop reading them within a shift. */
+@keyframes v2-ripple-strong {
+  0%   { transform: scale(1);    opacity: .75; }
+  70%  { transform: scale(1.42); opacity: 0; }
+  100% { transform: scale(1.42); opacity: 0; }
+}
+.v2-badge.is-busy::after,
+.v2-badge.is-armed::after,
+.v2-badge.is-empty::after,
+.v2-badge.is-offline::after { animation: v2-ripple-strong 1.3s ease-out infinite; }
+.v2-badge.is-busy .v2-dot,
+.v2-badge.is-armed .v2-dot,
+.v2-badge.is-empty .v2-dot,
+.v2-badge.is-offline .v2-dot { animation-duration: 1.3s; }
+/* N/A is a slot this machine does not have. Nothing is happening in it, so
+   nothing about it should move. */
+.v2-badge.is-off::after { animation: none; }
+.v2-badge.is-off .v2-dot { animation: none; }
 /* Colours are the handoff's, not a guess: Ready green, Dispensing amber,
    Empty grey, Error/Offline red. Empty is grey rather than red on purpose --
    an empty bottle is a refill, not a fault, and colouring it red spends the
@@ -564,6 +638,24 @@ button { font: inherit; color: inherit; }
   transition: transform .07s ease, filter .12s ease;
 }
 .v2-step svg { width: 26px; height: 26px; display: block; }
+
+/* The press wave. It is drawn in #v2-fx rather than inside the button -- see
+   ripple() for why -- so the host is what gives it the button's footprint and
+   its rounded corners to be clipped by. */
+#v2-fx {
+  position: fixed; inset: 0; z-index: 45;
+  pointer-events: none; overflow: hidden;
+}
+.v2-ripple-host { position: fixed; overflow: hidden; pointer-events: none; }
+.v2-ripple {
+  position: absolute; border-radius: 50%;
+  background: currentColor; opacity: .45;
+  transform: scale(0); pointer-events: none;
+  animation: v2-wave .5s ease-out forwards;
+}
+@keyframes v2-wave {
+  to { transform: scale(1); opacity: 0; }
+}
 /* Coloured to their symbol: taking away is red, adding is green. Working fast,
    the colour is read before the glyph. */
 .v2-step-minus { background: var(--red-tint);   color: var(--red); }
@@ -748,7 +840,7 @@ button { font: inherit; color: inherit; }
   .v2-btn-danger-ghost:hover { background: var(--red-tint); }
   .v2-icon-btn:hover { background: var(--surface-sub); }
   .v2-prod:hover { border-color: var(--line-strong); }
-  .v2-prod.in-cart:hover { border-color: var(--brand); }
+  .v2-prod.in-cart:hover { border-color: var(--slot, var(--brand)); }
 }
 :focus-visible { outline: 3px solid var(--brand); outline-offset: 2px; }
 
@@ -1194,4 +1286,13 @@ button { font: inherit; color: inherit; }
   /* The press still has to be visible without motion, or a tablet with reduced
      motion switched on gives no feedback at all. */
   .v2-btn:active, .v2-step:active, .v2-icon-btn:active { filter: brightness(.9); }
+
+  /* Every new animation is a decoration on something already said in colour:
+     the glow keeps its colour without breathing, the badge keeps its state
+     without rippling, and the wave simply does not draw. Nothing that carries
+     information is lost by switching motion off. */
+  .v2-prod.in-cart::after { animation: none; opacity: 1; }
+  .v2-badge::after { animation: none; opacity: 0; }
+  .v2-badge .v2-dot { animation: none; transform: none; }
+  #v2-fx { display: none; }
 }
