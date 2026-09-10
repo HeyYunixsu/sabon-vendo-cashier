@@ -1164,16 +1164,31 @@
       removeLine(parseInt(btn.dataset.remove, 10));
     });
 
+    // Adds one of each EVERY press, not only the first. It used to skip any
+    // slot already in the cart, which made the second tap a no-op that
+    // announced "Nothing available to add" -- so a cashier building two of
+    // everything had to fall back to twelve taps on the steppers.
+    //
+    // The merge is step(id, +1)'s, deliberately: same MAX_QTY ceiling, same
+    // insertion order for new lines. It is inlined rather than looped over
+    // step() so the grid and cart are rebuilt once instead of six times.
     $('btn-one-each').addEventListener('click', () => {
-      let added = 0;
+      let added = 0, maxed = 0;
       for (let s = 1; s <= ACTIVE; s++) {
-        if (!canAddTo(s) || qtyOf(s) > 0) continue;
-        cart.push({ id: s, name: PRODUCT[s], qty: 1 });   // insertion order
+        if (!canAddTo(s)) continue;
+        const i = cart.findIndex((x) => x.id === s);
+        if (i < 0) cart.push({ id: s, name: PRODUCT[s], qty: 1 });   // insertion order
+        else if (cart[i].qty >= MAX_QTY) { maxed++; continue; }
+        else cart[i].qty += 1;
         added++;
       }
       renderGrid(); renderCart();
-      toast(added ? added + ' product' + (added !== 1 ? 's' : '') + ' added'
-                  : 'Nothing available to add', added ? 'success' : 'caution');
+      // Three different outcomes, three different things to say. "Nothing
+      // available" when the real reason is a full cart sends the cashier
+      // hunting for a fault that is not there.
+      if (added) toast(added + ' product' + (added !== 1 ? 's' : '') + ' added', 'success');
+      else if (maxed) toast('Every product is already at ' + MAX_QTY, 'caution');
+      else toast('Nothing available to add', 'caution');
     });
 
     // One handler for both, as the handoff requires.
