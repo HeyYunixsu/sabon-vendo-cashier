@@ -605,6 +605,7 @@
       sig += '|' + owed + S.busy[s];
     }
     $('waiting-total').textContent = total;
+    $('btn-cancel-all').disabled = total === 0;
     if (sig === waitSig) return;
     waitSig = sig;
 
@@ -627,6 +628,29 @@
          + '</div>';
     }
     el.innerHTML = h || '<div class="v2-empty-note">Nobody is waiting on a press.</div>';
+  }
+
+  async function voidAll() {
+    let armed = 0, queued = 0;
+    for (let s = 1; s <= ACTIVE; s++) {
+      armed  += (S.armedQty[s] || 0);
+      queued += (S.queueDepth[s] || 0);
+    }
+    if (!armed && !queued) return;
+    const bits = [];
+    if (armed)  bits.push(armed + ' armed press' + (armed !== 1 ? 'es' : ''));
+    if (queued) bits.push(queued + ' queued credit' + (queued !== 1 ? 's' : ''));
+    const ok = await askConfirm(
+      'Cancel every waiting credit — ' + bits.join(' and ')
+      + ', already paid for?', 'Cancel All Credits');
+    if (!ok) return;
+    try {
+      await fetch('/api/cancel-all', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+      });
+      waitSig = null;
+      toast('All waiting credits cancelled', 'caution');
+    } catch (e) { toast('Could not cancel: ' + e.message, 'error'); }
   }
 
   async function voidSlot(slot) {
@@ -1129,6 +1153,7 @@
       const b = ev.target.closest('[data-prime]');
       if (b && !b.disabled) onPrimeTap(parseInt(b.dataset.prime, 10));
     });
+    $('btn-cancel-all').addEventListener('click', voidAll);
     $('waiting-list').addEventListener('click', (ev) => {
       const b = ev.target.closest('[data-void]');
       if (b) voidSlot(parseInt(b.dataset.void, 10));

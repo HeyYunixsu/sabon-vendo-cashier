@@ -211,6 +211,18 @@
           writes it off &mdash; it is not a way to clear the screen.
         </p>
         <div id="waiting-list"></div>
+
+        <!-- Below a rule and away from the per-row Cancels, because a mis-tap
+             up there writes off one credit and a mis-tap here writes off every
+             one of them. Disabled the moment nothing is owed -- the panel is
+             allowed to stay open after the last void. -->
+        <div class="v2-credits-foot">
+          <button id="btn-cancel-all" class="v2-btn v2-btn-danger-ghost v2-btn-wide" type="button">
+            <svg class="v2-btn-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                 stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/><path d="M10 11v6M14 11v6"/></svg>
+            Cancel All Credits
+          </button>
+        </div>
       </div>
     </div>
   </div>

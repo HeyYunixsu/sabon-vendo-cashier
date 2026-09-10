@@ -802,6 +802,15 @@ button { font: inherit; color: inherit; }
 .v2-credits-body .v2-wait-row { padding: 13px 0; }
 .v2-credits-body .v2-wait-name { font-size: 20px; }
 .v2-credits-body .v2-wait-qty { font-size: 17px; }
+
+/* The rule is the separation: everything above it is one credit, the button
+   below it is all of them. */
+.v2-credits-foot {
+  margin-top: 16px; padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+.v2-btn-wide { width: 100%; min-height: 56px; font-size: 17px; }
+.v2-btn-wide .v2-btn-ico { width: 21px; height: 21px; }
 .v2-today-rows { display: grid; gap: 18px; }
 .v2-today-row {
   display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto;
