@@ -1167,6 +1167,17 @@ button { font: inherit; color: inherit; }
    of red above it answers it before the cashier has read the words. */
 .v2-ask-icon.is-danger  { background: var(--red-tint);   color: var(--red); }
 .v2-ask-icon.is-primary { background: var(--brand-tint); color: var(--brand); }
+/* Amber, the same one the sheet spends on the sentence about a price change
+   being permanent. This is the screen saying "that did nothing, and here is
+   why" -- red would read as a threat for what is only a full cart. */
+.v2-ask-icon.is-caution { background: #FFF1D6; color: #B26A00; }
+:root[data-theme="dark"] .v2-ask-icon.is-caution {
+  background: rgba(245, 185, 59, .16); color: #F5C24B;
+}
+/* A caution has one button and it is the only thing to press, so it stops
+   shrink-wrapping its label and takes the width the pair would have had. */
+#ask-no[hidden] { display: none; }
+#ask-no[hidden] + .v2-btn { min-width: 220px; }
 
 #ask-text {
   font-family: var(--font-display);
@@ -1199,6 +1210,8 @@ button { font: inherit; color: inherit; }
    sale is worth when unlocking, what is being written off when cancelling. */
 #ask-icon.is-primary ~ #ask-stats .v2-ask-stat:first-child .v2-ask-v { color: var(--brand); }
 #ask-icon.is-danger  ~ #ask-stats .v2-ask-stat:last-child  .v2-ask-v { color: var(--red); }
+#ask-icon.is-caution ~ #ask-stats .v2-ask-stat:first-child .v2-ask-v { color: #B26A00; }
+:root[data-theme="dark"] #ask-icon.is-caution ~ #ask-stats .v2-ask-stat:first-child .v2-ask-v { color: #F5C24B; }
 /* Centred and equal width -- not stretched to the dialog. Cancel stays on the
    left of the pair, so the safe button is in the same place it is in every
    other popup. */

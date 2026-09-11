@@ -267,6 +267,7 @@
   const ASK_ICON = {
     lock:  '<path d="M4 10.5h16v10H4z"/><path d="M8 10.5V7.6a4 4 0 0 1 8 0v2.9"/>',
     trash: '<path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/><path d="M10 11v6M14 11v6"/>',
+    warn:  '<path d="M12 3.6 1.8 20.4h20.4z"/><path d="M12 9.6v4.8"/><path d="M12 17.6v.1"/>',
     coins: '<ellipse cx="12" cy="6.4" rx="7.2" ry="3.1"/>'
          + '<path d="M4.8 6.4v4.6c0 1.71 3.22 3.1 7.2 3.1s7.2-1.39 7.2-3.1V6.4"/>'
          + '<path d="M4.8 11v4.6c0 1.71 3.22 3.1 7.2 3.1s7.2-1.39 7.2-3.1V11"/>',
@@ -296,7 +297,11 @@
     return new Promise((resolve) => {
       const back = $('ask-backdrop'), box = $('ask');
       const yes = $('ask-yes'), no = $('ask-no');
-      const danger = o.kind !== 'primary';
+      // Three kinds now. 'caution' is not a choice at all -- it reports that a
+      // control could do nothing and why -- so it takes a single button and an
+      // amber icon rather than a red one, which would read as a threat.
+      const caution = o.kind === 'caution';
+      const danger = !caution && o.kind !== 'primary';
 
       $('ask-text').textContent = o.title || '';
       const sub = $('ask-sub');
@@ -306,7 +311,8 @@
       const icon = $('ask-icon');
       const glyph = ASK_ICON[o.icon];
       icon.hidden = !glyph;
-      icon.className = 'v2-ask-icon' + (danger ? ' is-danger' : ' is-primary');
+      icon.className = 'v2-ask-icon'
+        + (caution ? ' is-caution' : danger ? ' is-danger' : ' is-primary');
       icon.innerHTML = glyph
         ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"'
           + ' stroke-linecap="round" stroke-linejoin="round">' + glyph + '</svg>'
@@ -323,6 +329,8 @@
 
       yes.textContent = (o.yes || yesLabel) || 'Confirm';
       yes.className = 'v2-btn ' + (danger ? 'v2-btn-danger' : 'v2-btn-primary');
+      // Nothing to decline when there was no choice offered.
+      no.hidden = !!(caution || o.single);
       back.hidden = false; box.hidden = false;
 
       function done(answer) {
@@ -1407,9 +1415,28 @@
         notice('Added ' + added + ' product' + (added !== 1 ? 's' : '') + ' to your cart',
                'One press of each was added.', { cart: true });
       } else if (maxed) {
-        toast('Every product is already at ' + MAX_QTY, 'caution');
+        // A toast for this was wrong: the cashier pressed a button, nothing
+        // moved, and a line that fades in two seconds is the easiest thing on
+        // the screen to miss. It gets the same treatment every other answer
+        // does.
+        askConfirm({
+          icon: 'warn', kind: 'caution',
+          title: 'Nothing left to add',
+          body: 'Every product in this cart is already at the maximum per sale.',
+          stats: [
+            { v: maxed, k: 'Product' + (maxed !== 1 ? 's' : '') + ' At Maximum' },
+            { v: MAX_QTY, k: 'Presses Each' },
+          ],
+          yes: 'Got It',
+        });
       } else {
-        toast('Nothing available to add', 'caution');
+        askConfirm({
+          icon: 'warn', kind: 'caution',
+          title: 'Nothing available to add',
+          body: 'No product can take a press right now — check the tanks '
+              + 'and the link to the machine.',
+          yes: 'Got It',
+        });
       }
     });
 
