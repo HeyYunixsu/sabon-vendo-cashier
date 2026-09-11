@@ -1130,7 +1130,21 @@ button { font: inherit; color: inherit; }
 .v2-prime-count.busy { color: #B26A00; }
 /* Armed by the first tap. The colour change IS the confirmation -- a pump that
    starts on one mis-tap is what that guard exists to prevent. */
-.v2-btn-ghost.confirm { border-color: #E0A800; color: #B26A00; background: #FFF8E6; }
+.v2-btn-ghost.confirm {
+  border-color: #E0A800; color: #B26A00; background: #FFF8E6;
+  /* Bigger than its resting state on purpose. This is the one moment the
+     button means something different from what it said a second ago, and at
+     the same size as "Clear Air" the change was easy to tap straight past. */
+  font-size: 17px; font-weight: 700;
+  min-width: 150px; min-height: 54px;
+  border-width: 2px;
+  box-shadow: 0 0 0 4px rgba(224, 168, 0, .18);
+}
+/* The light amber fill is unreadable on a dark card -- black text on a nearly
+   white pill, or the reverse, depending on which half you look at. */
+:root[data-theme="dark"] .v2-btn-ghost.confirm {
+  border-color: #E0A800; color: #F5C24B; background: rgba(224, 168, 0, .16);
+}
 .v2-wait-qty {
   font-size: 15px; font-weight: 700; color: var(--brand);
   font-variant-numeric: tabular-nums; min-width: 90px; text-align: right;

@@ -1195,17 +1195,29 @@
     const slot = parseInt(p[1], 10);
     const result = (p[2] || '').trim();
     const name = PRODUCT[slot] || ('Slot ' + slot);
-    if (result === 'ok') {
-      notice('Air cleared from ' + name,
-        'Ran for ' + primeSeconds + 's. No sale was recorded and no credit was touched.');
-      loadPrimeInfo();
+    // 'started', not 'ok'. The controller's tokens are in pump_control.cpp and
+    // v1 has always matched them; v2 was checking for a word the machine never
+    // sends, so every successful prime reported a failure -- and because the
+    // success branch is what re-reads the log, the count never moved either.
+    if (result === 'started') {
+      notice('Clearing air from ' + name,
+        'Running for ' + primeSeconds + 's. No sale is recorded and no credit is '
+        + 'touched.');
+      // Present tense, because the pump is still going: the ACK says the burst
+      // STARTED. And the controller writes its log when the burst finishes, so
+      // reading the count now would return the figure from before it ran.
+      setTimeout(loadPrimeInfo, (primeSeconds * 1000) + 500);
       return;
     }
+    // These are the controller's own tokens too. v2 had invented tank_empty and
+    // machine_paused, so a refusal for either fell through and showed the raw
+    // word, and max_active was missing altogether.
     const why = {
-      slot_busy:      name + ' is dispensing right now — try again in a moment.',
-      tank_empty:     name + ' tank is empty. Refill it before clearing air.',
-      machine_paused: 'The machine is paused, so nothing was run.',
-      invalid_slot:   'The machine does not recognise that product.',
+      slot_busy:    name + ' is dispensing right now. Try again in a moment.',
+      slot_empty:   name + ' reads empty. Replace the gallon first.',
+      paused:       'The machine is paused, so nothing was run.',
+      max_active:   'Two pumps are already running. Try again in a moment.',
+      invalid_slot: 'The machine does not recognise that product.',
     };
     notice('Could not clear air', why[result] || (name + ': ' + result), { kind: 'error' });
   }
