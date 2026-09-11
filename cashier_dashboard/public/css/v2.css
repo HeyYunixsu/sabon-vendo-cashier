@@ -1151,11 +1151,58 @@ button { font: inherit; color: inherit; }
   padding: 34px 34px 30px;
 }
 #ask-backdrop[hidden], #ask[hidden] { display: none; }
-#ask-text { font-size: 26px; font-weight: 600; line-height: 1.35; margin-bottom: 30px; }
+#ask { text-align: center; }
+
+/* The same anatomy as the sale-done panel -- icon, heading, one plain
+   sentence, the figures, then the choice. A question that is going to write
+   off money should look as considered as the panel that reports a sale. */
+.v2-ask-icon {
+  width: 66px; height: 66px; margin: 0 auto 18px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.v2-ask-icon[hidden] { display: none; }
+.v2-ask-icon svg { width: 32px; height: 32px; }
+/* Tinted, not solid: the sale-done tick is filled green because it reports
+   something that already happened. This is still a question, and a solid slab
+   of red above it answers it before the cashier has read the words. */
+.v2-ask-icon.is-danger  { background: var(--red-tint);   color: var(--red); }
+.v2-ask-icon.is-primary { background: var(--brand-tint); color: var(--brand); }
+
+#ask-text {
+  font-family: var(--font-display);
+  font-size: 28px; font-weight: 700; line-height: 1.25; margin: 0;
+}
+.v2-ask-sub {
+  margin: 10px 0 0; font-size: 17px; line-height: 1.45; color: var(--ink-2);
+}
+.v2-ask-sub[hidden] { display: none; }
+
+.v2-ask-stats {
+  display: flex; align-items: center; justify-content: center; gap: 18px;
+  margin-top: 24px; padding: 20px 0;
+  border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);
+}
+.v2-ask-stats[hidden] { display: none; }
+.v2-ask-stat {
+  display: flex; flex-direction: column; gap: 5px; min-width: 0;
+  flex: 1 1 0;
+}
+.v2-ask-v {
+  font-family: var(--font-display);
+  font-size: 24px; font-weight: 700; color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.v2-ask-k { font-size: 13px; color: var(--ink-2); }
+.v2-ask-rule { flex: 0 0 auto; width: 1px; height: 38px; background: var(--line); }
+/* The figure that is the point of the question carries the accent: what the
+   sale is worth when unlocking, what is being written off when cancelling. */
+#ask-icon.is-primary ~ #ask-stats .v2-ask-stat:first-child .v2-ask-v { color: var(--brand); }
+#ask-icon.is-danger  ~ #ask-stats .v2-ask-stat:last-child  .v2-ask-v { color: var(--red); }
 /* Centred and equal width -- not stretched to the dialog. Cancel stays on the
    left of the pair, so the safe button is in the same place it is in every
    other popup. */
-#ask-actions { display: flex; gap: 12px; justify-content: center; }
+#ask-actions { display: flex; gap: 12px; justify-content: center; margin-top: 26px; }
 #ask-actions .v2-btn { flex: 0 0 auto; min-width: 176px; min-height: 60px; font-size: 17px; }
 
 /* ---- notice ----
@@ -1446,6 +1493,14 @@ button { font: inherit; color: inherit; }
   .v2-done-stats { grid-template-columns: 1fr; gap: 16px; }
   .v2-done-rule { display: none; }
   #notice { top: 12px; right: 12px; left: 12px; width: auto; }
+  #ask { padding: 26px 22px 22px; }
+  #ask-text { font-size: 23px; }
+  .v2-ask-icon { width: 56px; height: 56px; margin-bottom: 14px; }
+  .v2-ask-icon svg { width: 27px; height: 27px; }
+  .v2-ask-stats { flex-direction: column; gap: 14px; }
+  .v2-ask-rule { display: none; }
+  #ask-actions { flex-direction: column-reverse; }
+  #ask-actions .v2-btn { width: 100%; }
 
   /* The cart is a window on the list, not a growing block -- growing pushes
      the totals and Unlock off the page exactly when the sale is biggest. */

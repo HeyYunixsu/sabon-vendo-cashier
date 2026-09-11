@@ -388,7 +388,12 @@
        drops out mid-sale. Same reason as the old layout. -->
   <div id="ask-backdrop" hidden></div>
   <div id="ask" hidden role="alertdialog" aria-modal="true" aria-labelledby="ask-text">
-    <div id="ask-text"></div>
+    <div id="ask-icon" class="v2-ask-icon" aria-hidden="true"></div>
+    <h2 id="ask-text"></h2>
+    <p id="ask-sub" class="v2-ask-sub"></p>
+    <!-- The figures the decision turns on, in the same shape the sale-done
+         panel uses. A question about money should show the money. -->
+    <div id="ask-stats" class="v2-ask-stats"></div>
     <div id="ask-actions">
       <button id="ask-no" class="v2-btn v2-btn-ghost" type="button">Cancel</button>
       <button id="ask-yes" class="v2-btn v2-btn-danger" type="button">Confirm</button>

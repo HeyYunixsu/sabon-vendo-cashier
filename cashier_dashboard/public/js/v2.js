@@ -264,19 +264,65 @@
   // the page, and Android Chrome leaves fullscreen to show it -- the kiosk
   // visibly falls back to a normal window mid-sale.
   // -------------------------------------------------------------------------
-  // `kind` styles the confirm button: 'danger' (the default) for anything that
-  // throws work or money away, 'primary' for a step forward that merely cannot
-  // be undone. Unlock is the second kind -- it is the most-pressed control in
-  // the shop, and a red button pressed fifty times a shift stops meaning
-  // "careful" and starts meaning "continue", which is exactly what has to be
-  // preserved for Clear Cart and Cancel Credits.
-  function askConfirm(message, yesLabel, kind) {
+  const ASK_ICON = {
+    lock:  '<path d="M4 10.5h16v10H4z"/><path d="M8 10.5V7.6a4 4 0 0 1 8 0v2.9"/>',
+    trash: '<path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/><path d="M10 11v6M14 11v6"/>',
+    coins: '<ellipse cx="12" cy="6.4" rx="7.2" ry="3.1"/>'
+         + '<path d="M4.8 6.4v4.6c0 1.71 3.22 3.1 7.2 3.1s7.2-1.39 7.2-3.1V6.4"/>'
+         + '<path d="M4.8 11v4.6c0 1.71 3.22 3.1 7.2 3.1s7.2-1.39 7.2-3.1V11"/>',
+  };
+
+  // Takes an object, and the shape is the point: a question about money should
+  // show the money. Built like the sale-done panel -- icon, heading, one plain
+  // sentence, then the figures the decision turns on -- because "Cancel 3
+  // armed presses?" in a bare line of text does not convey that somebody has
+  // already paid for them.
+  //
+  //   { icon, kind, title, body, stats: [{ v, k }], yes }
+  //
+  // `kind` styles the icon and the confirm button: 'danger' (the default) for
+  // anything that throws work or money away, 'primary' for a step forward that
+  // merely cannot be undone. Unlock is the second kind -- the most-pressed
+  // control in the shop, and a red button pressed fifty times a shift stops
+  // meaning "careful", which is exactly what has to survive for Clear Cart and
+  // Cancel Credits.
+  //
+  // A plain string is still accepted, so a caller with only a sentence to ask
+  // does not have to invent a shape for it.
+  function askConfirm(opts, yesLabel, kindArg) {
+    const o = typeof opts === 'string'
+      ? { title: opts, yes: yesLabel, kind: kindArg }
+      : (opts || {});
     return new Promise((resolve) => {
       const back = $('ask-backdrop'), box = $('ask');
       const yes = $('ask-yes'), no = $('ask-no');
-      $('ask-text').textContent = message;
-      yes.textContent = yesLabel || 'Confirm';
-      yes.className = 'v2-btn ' + (kind === 'primary' ? 'v2-btn-primary' : 'v2-btn-danger');
+      const danger = o.kind !== 'primary';
+
+      $('ask-text').textContent = o.title || '';
+      const sub = $('ask-sub');
+      sub.textContent = o.body || '';
+      sub.hidden = !o.body;
+
+      const icon = $('ask-icon');
+      const glyph = ASK_ICON[o.icon];
+      icon.hidden = !glyph;
+      icon.className = 'v2-ask-icon' + (danger ? ' is-danger' : ' is-primary');
+      icon.innerHTML = glyph
+        ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"'
+          + ' stroke-linecap="round" stroke-linejoin="round">' + glyph + '</svg>'
+        : '';
+
+      const strip = $('ask-stats');
+      const stats = o.stats || [];
+      strip.hidden = !stats.length;
+      strip.innerHTML = stats.map(function (st, i) {
+        return (i ? '<div class="v2-ask-rule"></div>' : '')
+          + '<div class="v2-ask-stat"><span class="v2-ask-v">' + esc(String(st.v))
+          + '</span><span class="v2-ask-k">' + esc(st.k) + '</span></div>';
+      }).join('');
+
+      yes.textContent = (o.yes || yesLabel) || 'Confirm';
+      yes.className = 'v2-btn ' + (danger ? 'v2-btn-danger' : 'v2-btn-primary');
       back.hidden = false; box.hidden = false;
 
       function done(answer) {
@@ -793,9 +839,16 @@
     const bits = [];
     if (armed)  bits.push(armed + ' armed press' + (armed !== 1 ? 'es' : ''));
     if (queued) bits.push(queued + ' queued credit' + (queued !== 1 ? 's' : ''));
-    const ok = await askConfirm(
-      'Cancel every waiting credit — ' + bits.join(' and ')
-      + ', already paid for?', 'Cancel All Credits');
+    const ok = await askConfirm({
+      icon: 'coins', kind: 'danger',
+      title: 'Write off every waiting credit?',
+      body: 'All of these have already been paid for. Cancelling refunds nobody.',
+      stats: [
+        armed  ? { v: armed,  k: 'Armed Press' + (armed !== 1 ? 'es' : '') } : null,
+        queued ? { v: queued, k: 'Queued Credit' + (queued !== 1 ? 's' : '') } : null,
+      ].filter(Boolean),
+      yes: 'Cancel All Credits',
+    });
     if (!ok) return;
     try {
       await fetch('/api/cancel-all', {
@@ -812,9 +865,17 @@
     if (armed) bits.push(armed + ' armed press' + (armed !== 1 ? 'es' : ''));
     if (queued) bits.push(queued + ' queued credit' + (queued !== 1 ? 's' : ''));
     if (!bits.length) return;
-    const ok = await askConfirm(
-      'Cancel ' + bits.join(' and ') + ' on ' + (PRODUCT[slot] || ('Slot ' + slot))
-      + ' — already paid for?', 'Cancel Credits');
+    const ok = await askConfirm({
+      icon: 'coins', kind: 'danger',
+      title: 'Write off this credit?',
+      body: 'The customer has already paid for it. Cancelling does not refund them.',
+      stats: [
+        { v: PRODUCT[slot] || ('Slot ' + slot), k: 'Product' },
+        armed  ? { v: armed,  k: 'Armed Press' + (armed !== 1 ? 'es' : '') } : null,
+        queued ? { v: queued, k: 'Queued Credit' + (queued !== 1 ? 's' : '') } : null,
+      ].filter(Boolean),
+      yes: 'Cancel Credits',
+    });
     if (!ok) return;
     try {
       await fetch('/api/cancel', {
@@ -1108,9 +1169,22 @@
     if (!cart.length) return;
     const presses = cart.reduce((a, it) => a + it.qty, 0);
     const what = cart.length === 1 ? cart[0].name : cart.length + ' products';
-    const ok = await askConfirm(
-      'Clear ' + what + ' (' + presses + ' press' + (presses !== 1 ? 'es' : '') + ') from this cart?',
-      label || 'Clear Cart');
+    let pesos = 0, priced = true;
+    for (const it of cart) {
+      if (prices[it.id] == null) priced = false; else pesos += prices[it.id] * it.qty;
+    }
+    const stats = [
+      { v: cart.length, k: 'Product' + (cart.length !== 1 ? 's' : '') },
+      { v: presses, k: 'Press' + (presses !== 1 ? 'es' : '') },
+    ];
+    if (priced) stats.push({ v: '₱' + pesos, k: 'Not Yet Charged' });
+    const ok = await askConfirm({
+      icon: 'trash', kind: 'danger',
+      title: 'Clear the cart?',
+      body: 'Nothing has been charged yet — this only empties the screen.',
+      stats: stats,
+      yes: label || 'Clear Cart',
+    });
     if (!ok) return;
     cart = [];
     renderGrid(); renderCart();
@@ -1132,11 +1206,18 @@
       if (prices[it.id] == null) priced = false;
       else pesos += prices[it.id] * it.qty;
     }
-    const ok = await askConfirm(
-      'Unlock ' + presses + ' press' + (presses !== 1 ? 'es' : '')
-      + ' across ' + cart.length + ' product' + (cart.length !== 1 ? 's' : '')
-      + (priced ? ' for ₱' + pesos : '') + '?',
-      'Unlock Buttons', 'primary');
+    const armStats = [];
+    if (priced) armStats.push({ v: '₱' + pesos, k: 'Total Amount' });
+    armStats.push({ v: presses, k: 'Press' + (presses !== 1 ? 'es' : '') });
+    armStats.push({ v: cart.length, k: 'Product' + (cart.length !== 1 ? 's' : '') });
+    const ok = await askConfirm({
+      icon: 'lock', kind: 'primary',
+      title: 'Unlock these buttons?',
+      body: 'Take the payment first. Once unlocked the presses are the '
+          + 'customer’s, whether or not they press them.',
+      stats: armStats,
+      yes: 'Unlock Buttons',
+    });
     if (!ok) return;
 
     const btn = $('btn-arm');
