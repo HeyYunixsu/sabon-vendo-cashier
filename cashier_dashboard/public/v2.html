@@ -412,6 +412,31 @@
      there is no scale conversion to get wrong either. -->
 <div id="v2-fx" aria-hidden="true"></div>
 
+<!-- ================== PRICE EDITOR ==================
+     Docked to the top edge of the on-screen keyboard, so the price being typed
+     is never the thing the keyboard is covering. OUTSIDE #v2 on purpose: this
+     has to line up with the keyboard, which is measured in real viewport
+     pixels, and inside the zoomed shell every number would need converting.
+     Prev/Next only change which row this bar is pointed at -- focus never
+     leaves it, so the keyboard cannot flicker between products. -->
+<div id="price-editor" hidden>
+  <span class="v2-ed-name" id="ed-name"></span>
+  <div class="v2-ed-row">
+    <span class="v2-ed-peso">&#8369;</span>
+    <input id="ed-input" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="4"
+           autocomplete="off" aria-label="Price in pesos">
+    <button id="ed-prev" class="v2-ed-step" type="button" aria-label="Previous product">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"
+           stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>
+    </button>
+    <button id="ed-next" class="v2-ed-step" type="button" aria-label="Next product">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"
+           stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg>
+    </button>
+    <button id="ed-done" class="v2-btn v2-btn-primary v2-ed-done" type="button">Done</button>
+  </div>
+</div>
+
 <script src="js/v2.js"></script>
 </body>
 </html>

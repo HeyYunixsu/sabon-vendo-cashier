@@ -181,6 +181,16 @@
     const vv = window.visualViewport;
     const h = vv ? Math.round(vv.height) : window.innerHeight;
     document.documentElement.style.setProperty('--vh', h + 'px');
+
+    // How much of the WINDOW the keyboard is covering, which is what the price
+    // editor docks against. The sum works in both cases without a branch:
+    // outside fullscreen the layout viewport shrinks too, so this comes out 0
+    // and bottom:0 already sits on the keyboard; in fullscreen it does not, and
+    // this is the gap.
+    const kb = vv
+      ? Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop))
+      : 0;
+    document.documentElement.style.setProperty('--kb', kb + 'px');
   }
 
   function onViewportChange() {
@@ -229,12 +239,70 @@
     }, 320);
   }
 
+  // ---- price editor -------------------------------------------------------
+  // The bar that docks to the keyboard. Only on a touch screen: with a mouse
+  // there is no keyboard to be covered by, and pulling focus out of the field
+  // somebody just clicked would be worse than the problem.
+  const touchScreen = () => {
+    try { return window.matchMedia('(pointer: coarse)').matches; }
+    catch (e) { return false; }
+  };
+
+  let edSlot = null;
+
+  const edRow = (slot) =>
+    document.querySelector('#price-list [data-price="' + slot + '"]');
+
+  // Points the bar at a row. Focus is NOT moved between rows -- the bar keeps
+  // it the whole time -- so stepping through six products never disturbs the
+  // keyboard.
+  function edPointAt(slot) {
+    const row = edRow(slot);
+    if (!row) return;
+    edSlot = slot;
+    $('ed-name').textContent = PRODUCT[slot] || ('Slot ' + slot);
+    $('ed-input').value = row.value;
+    $('ed-prev').disabled = slot <= 1;
+    $('ed-next').disabled = slot >= ACTIVE;
+  }
+
+  function edOpen(slot) {
+    clearTimeout(revealTmr);          // the sheet must not also go hunting
+    $('price-editor').hidden = false;
+    edPointAt(slot);
+    const inp = $('ed-input');
+    inp.focus();
+    // Caret at the end, so the first key appends rather than replacing. select()
+    // would wipe the price on the first digit, which is not what "edit" means.
+    try { inp.setSelectionRange(inp.value.length, inp.value.length); } catch (e) {}
+  }
+
+  function edClose() {
+    $('price-editor').hidden = true;
+    edSlot = null;
+  }
+
   document.addEventListener('focusin', (ev) => {
     const el = ev.target;
-    if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA')) revealFocused(el);
+    if (!el) return;
+    if (el.id === 'ed-input') return;              // the bar's own field
+    if (el.dataset && el.dataset.price && touchScreen()) {
+      edOpen(parseInt(el.dataset.price, 10));
+      return;
+    }
+    if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') revealFocused(el);
   });
-  document.addEventListener('focusout', () => {
+  document.addEventListener('focusout', (ev) => {
     clearTimeout(revealTmr);
+    // Closed only when focus has genuinely left the bar. A tap on Prev, Next or
+    // Done fires focusout first, and tearing the bar down there would take the
+    // keyboard with it before the button had done anything.
+    if (ev.target && ev.target.id === 'ed-input') {
+      setTimeout(() => {
+        const a = document.activeElement;
+        if (!a || !a.closest || !a.closest('#price-editor')) edClose();
+      }, 80);
+    }
     // The keyboard is on its way out; the scale it was frozen at may no longer
     // be the right one for the window that is coming back.
     setTimeout(onViewportChange, 120);
@@ -1198,6 +1266,7 @@
   function closeSettings() {
     $('settings-panel').hidden = true;
     closeHistory();
+    edClose();          // the bar belongs to the sheet that opened it
     disarmPrime();
   }
 
@@ -1577,6 +1646,36 @@
     });
     $('btn-save-prices').addEventListener('click', savePrices);
     $('btn-price-history').addEventListener('click', openHistory);
+
+    // What is typed in the bar IS the price: it is written straight through to
+    // the row, which then runs the same sanitiser and dirty check a directly
+    // typed field would. One rule for what a price may be, in one place.
+    $('ed-input').addEventListener('input', () => {
+      const row = edRow(edSlot);
+      if (!row) return;
+      row.value = $('ed-input').value;
+      markPriceDirty(row);
+      // markPriceDirty may have stripped a character; the bar has to show what
+      // was actually accepted, or the two disagree about the price.
+      if ($('ed-input').value !== row.value) {
+        const caret = row.value.length;
+        $('ed-input').value = row.value;
+        try { $('ed-input').setSelectionRange(caret, caret); } catch (e) {}
+      }
+    });
+    // pointerdown, not click: the default action of pressing a button steals
+    // focus from the field, and on a tablet that pulls the keyboard down.
+    const edHold = (ev) => ev.preventDefault();
+    ['ed-prev', 'ed-next', 'ed-done'].forEach((id) => {
+      $(id).addEventListener('pointerdown', edHold);
+    });
+    $('ed-prev').addEventListener('click', () => {
+      if (edSlot > 1) edPointAt(edSlot - 1);
+    });
+    $('ed-next').addEventListener('click', () => {
+      if (edSlot < ACTIVE) edPointAt(edSlot + 1);
+    });
+    $('ed-done').addEventListener('click', () => { $('ed-input').blur(); edClose(); });
     $('notice-x').addEventListener('click', hideNotice);
     $('notice-cart').addEventListener('click', () => {
       hideNotice();

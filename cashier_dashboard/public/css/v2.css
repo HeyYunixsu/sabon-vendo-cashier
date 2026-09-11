@@ -1318,6 +1318,47 @@ button { font: inherit; color: inherit; }
 .v2-done-k { font-size: 13px; color: var(--ink-2); }
 .v2-done-rule { width: 1px; height: 40px; background: var(--line); }
 
+/* ---- price editor ----
+   Docked to the top edge of the keyboard. OUTSIDE the zoomed shell, so every
+   number here is a real viewport pixel and lines up with a keyboard that is
+   measured the same way -- and it stays the same physical size on every
+   tablet, which is what you want of the one control you are typing into. */
+#price-editor {
+  position: fixed; left: 0; right: 0; bottom: var(--kb, 0px); z-index: 70;
+  display: flex; flex-direction: column; gap: 7px;
+  padding: 12px 16px 14px;
+  background: var(--surface);
+  border-top: 1px solid var(--line-strong);
+  box-shadow: 0 -10px 30px rgba(16, 24, 40, .22);
+}
+#price-editor[hidden] { display: none; }
+.v2-ed-name {
+  font-size: 15px; font-weight: 700; color: var(--ink-2);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.v2-ed-row { display: flex; align-items: center; gap: 10px; }
+.v2-ed-peso { font-size: 20px; font-weight: 700; color: var(--ink-2); flex: 0 0 auto; }
+#ed-input {
+  flex: 1 1 auto; min-width: 0;
+  height: 52px; padding: 0 16px;
+  border: 2px solid var(--brand); border-radius: var(--r-pill);
+  background: var(--surface-sub);
+  font-family: var(--font-display); font-size: 22px; font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--brand);
+}
+#ed-input:focus { outline: none; box-shadow: 0 0 0 4px var(--brand-tint-2); }
+.v2-ed-step {
+  flex: 0 0 auto; width: 50px; height: 52px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid var(--line-strong); border-radius: 14px;
+  background: var(--surface); color: var(--ink);
+  cursor: pointer; touch-action: manipulation;
+}
+.v2-ed-step svg { width: 22px; height: 22px; }
+.v2-ed-step:disabled { opacity: .35; cursor: default; }
+.v2-ed-done { flex: 0 0 auto; min-width: 104px; min-height: 52px; font-size: 16px; }
+
 #toast {
   position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%) translateY(8px);
   z-index: 70; padding: 12px 20px; border-radius: var(--r-pill);
