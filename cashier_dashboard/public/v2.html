@@ -123,7 +123,7 @@
       <!-- One control, full width. The trash that used to share this row now
            lives in the panel header. -->
       <div class="v2-products-footer">
-        <button id="btn-one-each" class="v2-btn v2-btn-soft" type="button">
+        <button id="btn-one-each" class="v2-btn v2-btn-primary" type="button">
           <svg class="v2-btn-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
           Add One Of Each
@@ -321,6 +321,65 @@
         <div id="history-list" class="v2-hist-list"></div>
       </div>
     </div>
+  </div>
+
+  <!-- ================== SALE DONE ==================
+       Shown after the controller accepts the ARM. It says "Buttons Unlocked"
+       rather than "Payment Successful": this dashboard never sees the money.
+       The cashier takes the cash and the software sends ARM -- it cannot know
+       whether anyone actually paid, and would otherwise print the same
+       reassurance if they walked off without paying. -->
+  <div id="done-panel" hidden>
+    <div class="v2-done-card" role="dialog" aria-modal="true" aria-labelledby="done-title">
+      <button id="done-close" class="v2-icon-btn v2-done-x" type="button" aria-label="Close">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+             stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+      <div class="v2-done-tick" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"
+             stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5.5 5.5L20 7"/></svg>
+      </div>
+      <h2 id="done-title">Buttons Unlocked</h2>
+      <p class="v2-done-sub">The customer can press their buttons now.</p>
+      <div class="v2-done-stats">
+        <div class="v2-done-stat">
+          <span class="v2-done-v" id="done-amount">&#8369;0</span>
+          <span class="v2-done-k">Total Amount</span>
+        </div>
+        <div class="v2-done-rule"></div>
+        <div class="v2-done-stat">
+          <span class="v2-done-v" id="done-items">0</span>
+          <span class="v2-done-k">Presses Unlocked</span>
+        </div>
+        <div class="v2-done-rule"></div>
+        <div class="v2-done-stat">
+          <span class="v2-done-v v2-done-when" id="done-when">--</span>
+          <span class="v2-done-k">Unlocked At</span>
+        </div>
+      </div>
+      <button id="done-ok" class="v2-btn v2-btn-primary v2-btn-lg" type="button">Done</button>
+    </div>
+  </div>
+
+  <!-- ================== NOTICE ==================
+       A richer toast: a tick, what happened, and what it means. Used where a
+       bare line of text would not say enough -- adding six products at once
+       changes the whole cart, and the cashier should see that confirmed
+       rather than have to count the steppers. -->
+  <div id="notice" hidden role="status" aria-live="polite">
+    <div class="v2-notice-tick" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"
+           stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5.5 5.5L20 7"/></svg>
+    </div>
+    <div class="v2-notice-body">
+      <p class="v2-notice-title" id="notice-title"></p>
+      <p class="v2-notice-sub" id="notice-sub"></p>
+    </div>
+    <button id="notice-cart" class="v2-notice-link" type="button">View Cart</button>
+    <button id="notice-x" class="v2-icon-btn v2-notice-x" type="button" aria-label="Dismiss">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+           stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
   </div>
 
   <!-- ================== CONFIRM DIALOG ================== -->

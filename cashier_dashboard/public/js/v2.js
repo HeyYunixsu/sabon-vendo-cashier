@@ -231,6 +231,32 @@
     toastTmr = setTimeout(() => { el.className = ''; }, 2600);
   }
 
+  // A toast says one line and goes. This says what happened AND what it means,
+  // and is used for the one action that changes the whole cart at once --
+  // adding six products should be seen confirmed, not counted off the
+  // steppers.
+  let noticeTmr;
+  function notice(title, sub, opts) {
+    const el = $('notice');
+    $('notice-title').textContent = title;
+    $('notice-sub').textContent = sub || '';
+    $('notice-sub').hidden = !sub;
+    $('notice-cart').hidden = !(opts && opts.cart);
+    el.hidden = false;
+    // Two frames, not one: the element has to be laid out at its start state
+    // before the class that transitions it can mean anything.
+    requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('is-in')));
+    clearTimeout(noticeTmr);
+    noticeTmr = setTimeout(hideNotice, 5000);
+  }
+  function hideNotice() {
+    clearTimeout(noticeTmr);
+    const el = $('notice');
+    el.classList.remove('is-in');
+    // Hidden only after it has finished sliding out, or it vanishes instead.
+    noticeTmr = setTimeout(() => { el.hidden = true; }, 260);
+  }
+
   // -------------------------------------------------------------------------
   // Confirm dialog
   //
@@ -664,6 +690,19 @@
       if (historyOpen()) renderHistory();
     } catch (e) { /* history is context, not essential */ }
   }
+
+  function showDone(presses, pesos, summary) {
+    $('done-amount').textContent = pesos == null ? '—' : '₱' + pesos;
+    $('done-items').textContent = presses;
+    $('done-when').textContent = new Date().toLocaleTimeString([],
+      { hour: 'numeric', minute: '2-digit' });
+    // What was unlocked, in the sub-line -- the figures alone do not say which
+    // buttons the customer is now able to press.
+    $('done-panel').querySelector('.v2-done-sub').textContent =
+      summary ? summary : 'The customer can press their buttons now.';
+    $('done-panel').hidden = false;
+  }
+  const closeDone = () => { $('done-panel').hidden = true; };
 
   const historyOpen = () => !$('history-panel').hidden;
 
@@ -1116,7 +1155,7 @@
       });
       const d = await r.json();
       if (d.success) {
-        toast('Buttons unlocked: ' + summary, 'success');
+        showDone(presses, priced ? pesos : null, summary);
         cart = [];
       } else {
         toast('Could not unlock: ' + (d.error || 'unknown'), 'error');
@@ -1283,9 +1322,14 @@
       // Three different outcomes, three different things to say. "Nothing
       // available" when the real reason is a full cart sends the cashier
       // hunting for a fault that is not there.
-      if (added) toast(added + ' product' + (added !== 1 ? 's' : '') + ' added', 'success');
-      else if (maxed) toast('Every product is already at ' + MAX_QTY, 'caution');
-      else toast('Nothing available to add', 'caution');
+      if (added) {
+        notice('Added ' + added + ' product' + (added !== 1 ? 's' : '') + ' to your cart',
+               'One press of each was added.', { cart: true });
+      } else if (maxed) {
+        toast('Every product is already at ' + MAX_QTY, 'caution');
+      } else {
+        toast('Nothing available to add', 'caution');
+      }
     });
 
     // One handler for both, as the handoff requires.
@@ -1317,6 +1361,9 @@
       if (ev.key !== 'Escape') return;
       // Innermost first, so Escape does not shut the sheet behind a dialog.
       if (!$('ask').hidden) return;                        // the dialog owns it
+      // Outermost first: the sale-done panel is the newest thing on screen, so
+      // Escape belongs to it before anything underneath.
+      if (!$('done-panel').hidden) { closeDone(); return; }
       if (!$('today-panel').hidden) { closeToday(); return; }
       if (!$('credits-panel').hidden) { closeCredits(); return; }
       // History sits ON TOP of settings, so it has to be offered Escape first.
@@ -1344,6 +1391,19 @@
     });
     $('btn-save-prices').addEventListener('click', savePrices);
     $('btn-price-history').addEventListener('click', openHistory);
+    $('notice-x').addEventListener('click', hideNotice);
+    $('notice-cart').addEventListener('click', () => {
+      hideNotice();
+      // On a phone the layout stacks and the cart is below the fold, which is
+      // the case this link exists for. On a tablet it is already on screen and
+      // this is a harmless no-op.
+      $('v2-cart').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
+    $('done-ok').addEventListener('click', closeDone);
+    $('done-close').addEventListener('click', closeDone);
+    $('done-panel').addEventListener('click', (ev) => {
+      if (ev.target === $('done-panel')) closeDone();   // the backdrop only
+    });
     $('history-panel').addEventListener('click', (ev) => {
       if (ev.target === $('history-panel')) closeHistory();   // the backdrop only
     });
