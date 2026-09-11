@@ -141,7 +141,22 @@
   // bottle collapsed to 41px. A lower floor keeps the effective width pinned
   // at DESIGN_W for every real tablet, which is the entire point.
   const MIN_SCALE = 0.6;
+  // A soft keyboard is not a shorter screen, and the difference matters a great
+  // deal here. The scale drives a CSS zoom over the whole shell: recomputing it
+  // when the keyboard opens relayouts and repaints everything at a new size
+  // -- on a 1280x800 tablet the keyboard takes the window to about 400px, which
+  // moved the scale from 0.80 to 0.61 -- and it drags the focused field out
+  // from under the browser's own scroll-into-view on the way.
+  //
+  // So while a field has focus the scale is frozen at whatever it was. Nothing
+  // is lost: the cashier is not resizing the window while typing into it.
+  const typing = () => {
+    const a = document.activeElement;
+    return !!a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA');
+  };
+
   function setScale() {
+    if (typing()) return;
     const w = window.innerWidth;
     const h = window.innerHeight;
     // Whichever axis runs out first decides. Width alone was not enough: a wide
@@ -156,11 +171,74 @@
     root.style.setProperty('--s', s.toFixed(4));
     root.classList.toggle('scaled', s < 0.999);
   }
+
+  // The height the shell should actually occupy. In a normal window this is
+  // just the window; in FULLSCREEN the layout viewport does not shrink for the
+  // keyboard -- only the visual viewport does -- which is exactly why the sheet
+  // stayed put behind the keyboard in fullscreen and moved correctly outside
+  // it. Reading visualViewport makes the two cases behave the same.
+  function applyViewportHeight() {
+    const vv = window.visualViewport;
+    const h = vv ? Math.round(vv.height) : window.innerHeight;
+    document.documentElement.style.setProperty('--vh', h + 'px');
+  }
+
+  function onViewportChange() {
+    applyViewportHeight();
+    setScale();
+  }
+
+  applyViewportHeight();
   setScale();
-  window.addEventListener('resize', setScale);
+  window.addEventListener('resize', onViewportChange);
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', applyViewportHeight);
+    // The visual viewport also SCROLLS when the keyboard is open, and the shell
+    // has to follow or it drifts out from under the finger.
+    window.visualViewport.addEventListener('scroll', applyViewportHeight);
+  }
   // Rotating a tablet fires resize on every engine, but orientationchange can
   // land first with the old innerWidth, so both are wired.
-  window.addEventListener('orientationchange', () => setTimeout(setScale, 60));
+  window.addEventListener('orientationchange', () => setTimeout(onViewportChange, 60));
+
+  // Bring a focused field above the keyboard. The browser does this itself when
+  // the layout viewport shrinks, and does nothing in fullscreen where it does
+  // not -- so it is done here, against the sheet's own scrollport, which is a
+  // calculation that holds either way.
+  //
+  // The rects come back in VISUAL pixels and scrollTop is read in the ZOOMED
+  // space, so the delta is divided by the scale on the way in. The delay is the
+  // keyboard's own animation; measuring before it settles centres the field on
+  // where the screen used to end.
+  let revealTmr;
+  function revealFocused(el) {
+    const body = el.closest('.v2-sheet-body, .v2-credits-body');
+    if (!body) return;
+    clearTimeout(revealTmr);
+    revealTmr = setTimeout(() => {
+      const b = body.getBoundingClientRect();
+      const r = el.getBoundingClientRect();
+      // Already comfortably in view -- on a desktop, or a field near the top
+      // of a short list -- so leave it alone. Centring every focus would make
+      // clicking from one price to the next jump the sheet for no reason.
+      const pad = 8;
+      if (r.top >= b.top + pad && r.bottom <= b.bottom - pad
+          && r.top >= 0 && r.bottom <= window.innerHeight) return;
+      const delta = (r.top + r.height / 2) - (b.top + b.height / 2);
+      body.scrollTop += delta / (curScale || 1);
+    }, 320);
+  }
+
+  document.addEventListener('focusin', (ev) => {
+    const el = ev.target;
+    if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA')) revealFocused(el);
+  });
+  document.addEventListener('focusout', () => {
+    clearTimeout(revealTmr);
+    // The keyboard is on its way out; the scale it was frozen at may no longer
+    // be the right one for the window that is coming back.
+    setTimeout(onViewportChange, 120);
+  });
 
   // Belt and braces for the CSS above. CSS user-drag is not standard on every
   // engine, and dragstart is the event that actually carries the image out to
