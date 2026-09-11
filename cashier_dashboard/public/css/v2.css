@@ -1249,6 +1249,18 @@ button { font: inherit; color: inherit; }
   display: inline-flex; align-items: center; justify-content: center;
   background: var(--green); color: #fff;
 }
+/* Solid, unlike the confirm dialog's tinted icon -- this reports something
+   that has already happened, so it is allowed to state it. */
+.v2-notice-tick.is-success { background: var(--green);  color: #fff; }
+.v2-notice-tick.is-error   { background: var(--red);    color: #fff; }
+.v2-notice-tick.is-caution { background: #C4841D;       color: #fff; }
+/* The strip down the left edge is what makes a failure readable from across
+   the counter without reading the words. Keyed off a class on the notice
+   itself rather than :has() on its child -- one less thing that has to be
+   supported by whatever browser this till ends up running. */
+#notice { border-left: 4px solid var(--green); }
+#notice.is-error   { border-left-color: var(--red); }
+#notice.is-caution { border-left-color: #C4841D; }
 .v2-notice-tick svg { width: 17px; height: 17px; }
 .v2-notice-body { flex: 1 1 auto; min-width: 0; }
 .v2-notice-title { margin: 0; font-size: 16px; font-weight: 700; color: var(--ink); line-height: 1.3; }

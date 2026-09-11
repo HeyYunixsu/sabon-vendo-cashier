@@ -381,19 +381,38 @@
   // and is used for the one action that changes the whole cart at once --
   // adding six products should be seen confirmed, not counted off the
   // steppers.
+  const NOTICE_ICON = {
+    success: '<path d="M4 12.5l5.5 5.5L20 7"/>',
+    error:   '<path d="M6 6l12 12M18 6L6 18"/>',
+    caution: '<path d="M12 4.4 2.6 19.6h18.8z"/><path d="M12 10v4"/><path d="M12 16.8v.1"/>',
+  };
+
   let noticeTmr;
   function notice(title, sub, opts) {
+    const o = opts || {};
+    const kind = o.kind || 'success';
     const el = $('notice');
     $('notice-title').textContent = title;
     $('notice-sub').textContent = sub || '';
     $('notice-sub').hidden = !sub;
-    $('notice-cart').hidden = !(opts && opts.cart);
+    $('notice-cart').hidden = !o.cart;
+    // The kind is carried on both: the tick uses it for its fill, the notice
+    // for the strip down its edge.
+    el.classList.remove('is-success', 'is-error', 'is-caution');
+    el.classList.add('is-' + kind);
+    const tick = el.querySelector('.v2-notice-tick');
+    tick.className = 'v2-notice-tick is-' + kind;
+    tick.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"'
+      + ' stroke-width="3" stroke-linecap="round" stroke-linejoin="round">'
+      + (NOTICE_ICON[kind] || NOTICE_ICON.success) + '</svg>';
     el.hidden = false;
     // Two frames, not one: the element has to be laid out at its start state
     // before the class that transitions it can mean anything.
     requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('is-in')));
     clearTimeout(noticeTmr);
-    noticeTmr = setTimeout(hideNotice, 5000);
+    // A failure stays longer than a confirmation. Something that did not work
+    // needs reading; something that did only needs noticing.
+    noticeTmr = setTimeout(hideNotice, kind === 'success' ? 5000 : 8000);
   }
   function hideNotice() {
     clearTimeout(noticeTmr);
@@ -818,6 +837,12 @@
     $('btn-save-prices').disabled = !priceDirty;
   }
 
+  // The old figure, captured at save time. By the time PRICE_ACK comes back
+  // over SSE the controller has already pushed the new PRICES, so `prices` no
+  // longer holds what it was -- and "from what" is the half of a price change
+  // worth confirming.
+  let priceBefore = {};
+
   async function savePrices() {
     const body = {};
     let bad = null;
@@ -825,10 +850,13 @@
       const slot = parseInt(i.dataset.price, 10);
       const val = parseInt(i.value, 10);
       if (!Number.isFinite(val) || val < 0 || val > MAX_PRICE) { bad = PRODUCT[slot]; return; }
+      if (prices[slot] !== val) priceBefore[slot] = prices[slot];
       body[slot] = val;
     });
     if (bad) {
-      toast('Price for ' + bad + ' must be a whole number of pesos, 0 to ' + MAX_PRICE, 'error');
+      notice('Prices not saved',
+        bad + ' must be a whole number of pesos, 0 to ' + MAX_PRICE + '.',
+        { kind: 'error' });
       return;
     }
 
@@ -841,18 +869,25 @@
       });
       const d = await r.json();
       if (!d.success) {
-        toast(d.reason === 'controller_offline'
-          ? 'Machine unreachable — prices not changed'
-          : 'Prices rejected: ' + (d.reason || 'unknown'), 'error');
+        notice('Prices not saved',
+          d.reason === 'controller_offline'
+            ? 'The machine is unreachable. Nothing was changed.'
+            : (d.reason || 'The machine refused, and did not say why.'),
+          { kind: 'error' });
         $('btn-save-prices').disabled = false;
         return;
       }
-      if (!d.changed) { toast('No price changed', 'info'); renderPrices(); return; }
+      if (!d.changed) {
+        notice('Nothing to save', 'Every price is already what it was.',
+               { kind: 'caution' });
+        renderPrices();
+        return;
+      }
       // The controller answers each change with PRICE_ACK. Wait for it rather
       // than claiming success for something it may still refuse.
       priceDirty = false;
     } catch (e) {
-      toast('Could not save prices: ' + e.message, 'error');
+      notice('Prices not saved', e.message, { kind: 'error' });
       $('btn-save-prices').disabled = false;
     }
   }
@@ -862,14 +897,29 @@
     const slot = parseInt(p[1], 10);
     const result = (p[2] || '').trim();
     const name = PRODUCT[slot] || ('Slot ' + slot);
-    if (result === 'ok') { toast(name + ' price saved', 'success'); loadPriceHistory(); return; }
+    if (result === 'ok') {
+      const was = priceBefore[slot];
+      delete priceBefore[slot];
+      notice('Price saved',
+        was == null
+          ? name + ' updated. Every later sale is worth the new price.'
+          : name + ': ₱' + was + ' → ₱' + prices[slot]
+            + '. Every later sale is worth the new price.');
+      loadPriceHistory();
+      return;
+    }
     const why = {
-      sale_in_progress: 'Cannot change prices while a sale is waiting. Finish or cancel it first.',
-      invalid_price:    name + ': price must be a whole number of pesos.',
-      invalid_slot:     'Unknown product.',
-      not_saved:        name + ' changed, but could NOT be saved — it will revert on restart.',
+      sale_in_progress: 'A sale is still waiting. Finish or cancel it, then save again.',
+      invalid_price:    'A price must be a whole number of pesos, 0 to ' + MAX_PRICE + '.',
+      invalid_slot:     'The machine does not recognise that product.',
+      not_saved:        'The machine took the change but could not write it down — '
+                      + 'it will revert when the controller restarts.',
     };
-    toast(why[result] || (name + ': ' + result), 'error');
+    notice(name + ' price not saved', why[result] || result, {
+      // not_saved is the odd one: the change IS live, it just will not survive
+      // a restart. That is a warning to act on, not a failure to retry.
+      kind: result === 'not_saved' ? 'caution' : 'error',
+    });
   }
 
   // Held so View All can render without a second round trip, and so the panel
@@ -1044,12 +1094,15 @@
 
   // ---- prime / clear air --------------------------------------------------
   let primeCounts = {}, primeArmedSlot = null, primeArmTmr = null, primeSig = null;
+  // Held, not only written to the DOM, because the confirmation quotes it.
+  let primeSeconds = 3;
 
   async function loadPrimeInfo() {
     try {
       const d = await (await fetch('/api/prime')).json();
       primeCounts = d.today || {};
-      $('prime-secs').textContent = d.seconds || 3;
+      primeSeconds = d.seconds || 3;
+      $('prime-secs').textContent = primeSeconds;
       $('prime-today').textContent = d.todayTotal || 0;
       primeSig = null;
       renderPrime();
@@ -1124,13 +1177,17 @@
       });
       const d = await r.json();
       if (!d.success) {
-        toast(d.reason === 'controller_offline'
-          ? 'Machine unreachable — nothing was sent'
-          : 'Could not clear air: ' + (d.reason || 'unknown'), 'error');
+        notice('Could not clear air',
+          d.reason === 'controller_offline'
+            ? 'The machine is unreachable, so nothing was sent to the pump.'
+            : (d.reason || 'The machine refused, and did not say why.'),
+          { kind: 'error' });
       }
       // Success here only means the command was sent. The controller decides,
       // and answers with PRIME_ACK over SSE.
-    } catch (e) { toast('Could not clear air: ' + e.message, 'error'); }
+    } catch (e) {
+      notice('Could not clear air', e.message, { kind: 'error' });
+    }
   }
 
   function onPrimeAck(raw) {
@@ -1138,14 +1195,19 @@
     const slot = parseInt(p[1], 10);
     const result = (p[2] || '').trim();
     const name = PRODUCT[slot] || ('Slot ' + slot);
-    if (result === 'ok') { toast('Cleared air from ' + name, 'success'); loadPrimeInfo(); return; }
+    if (result === 'ok') {
+      notice('Air cleared from ' + name,
+        'Ran for ' + primeSeconds + 's. No sale was recorded and no credit was touched.');
+      loadPrimeInfo();
+      return;
+    }
     const why = {
-      slot_busy:        name + ' is dispensing — try again in a moment.',
-      tank_empty:       name + ' tank is empty — refill first.',
-      machine_paused:   'Machine is paused.',
-      invalid_slot:     'Unknown product.',
+      slot_busy:      name + ' is dispensing right now — try again in a moment.',
+      tank_empty:     name + ' tank is empty. Refill it before clearing air.',
+      machine_paused: 'The machine is paused, so nothing was run.',
+      invalid_slot:   'The machine does not recognise that product.',
     };
-    toast(why[result] || (name + ': ' + result), 'error');
+    notice('Could not clear air', why[result] || (name + ': ' + result), { kind: 'error' });
   }
 
   // ---- theme --------------------------------------------------------------
