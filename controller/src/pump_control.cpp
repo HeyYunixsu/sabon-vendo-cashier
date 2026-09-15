@@ -50,12 +50,16 @@ struct PumpState {
     long long remainingTimeWhenPaused = 0;
     std::chrono::time_point<std::chrono::steady_clock> timer{};
     bool buttonWasPressedLastFrame = false;
+    // When the current press began: the first raw LOW reading, not the moment
+    // the debounce window filled. BUTTON_HOLD_MS is measured from here.
     std::chrono::time_point<std::chrono::steady_clock> pressStartTime{};
+    bool rawWasLow = false;
+    // Set from the debounced edge of a press on an idle pump until it has been
+    // held BUTTON_HOLD_MS (then it fires) or let go (then it does not).
     bool processingTrigger = false;
     int armedUnitsReserved = 0;
     std::chrono::time_point<std::chrono::steady_clock> postPressDeadline{};
     std::chrono::time_point<std::chrono::steady_clock> armTimestamp{};  // when last armed
-    bool firstPressAfterArm = false;  // true = next press needs 100ms hold
     // True while this pump is running a maintenance prime rather than a sale.
     // The completion branch checks it and skips writeTransaction() entirely --
     // not even a zero-peso record, which would still reach the cloud and
@@ -82,6 +86,12 @@ static void executeDispenseTrigger(AppState &state, int pumpIdx) {
 
     if (std::chrono::duration_cast<std::chrono::milliseconds>(
             current_time - g_last_pump_start).count() < g_pump_start_cooldown_ms) {
+        // Logged, as V1 did. Returning silently swallowed the press: the
+        // button edge is already consumed, so nothing fires until it is
+        // released and pressed again, and nothing said why.
+        log_info("pump", "Slot " + std::to_string(pumpIdx) + ": DENIED  reason=cooldown"
+                  "  (another pump started under "
+                  + std::to_string(g_pump_start_cooldown_ms) + "ms ago)");
         return;
     }
 
@@ -418,6 +428,8 @@ void pump_setup(AppState &state) {
     log_info("pump", std::string("Water sensor: empty reads ")
         + (WATER_SENSOR_EMPTY_HIGH ? "HIGH" : "LOW")
         + " (WATER_SENSOR_EMPTY_HIGH=" + std::to_string(WATER_SENSOR_EMPTY_HIGH) + ")");
+    log_info("pump", "Button hold: " + std::to_string(BUTTON_HOLD_MS)
+             + "ms to start a pour (BUTTON_HOLD_MS)");
     wiringPiSetupGpio();
 
     // Buttons: INPUT only — active-low (button wired GPIO -> GND).
@@ -492,6 +504,8 @@ void pump_loop(AppState &state) {
 
     for (int i = 1; i <= TOTAL_SLOTS; i++) {
         int raw = (digitalRead(pin_button[i]) == LOW) ? 1 : 0;
+        if (raw && !pumps[i].rawWasLow) pumps[i].pressStartTime = current_time;
+        pumps[i].rawWasLow = raw;
         sampleBuf[i][sampleIdx[i]] = raw;
         sampleIdx[i] = (sampleIdx[i] + 1) % 4;
 
@@ -499,30 +513,55 @@ void pump_loop(AppState &state) {
         for (int s = 0; s < 4; s++) sum += sampleBuf[i][s];
         bool pressed = (sum == 4);
 
+        // Restored from V1: a press on an IDLE pump must be held BUTTON_HOLD_MS
+        // before it counts; a press on a pump already running goes straight
+        // through, so a customer can tap quickly for more.
+        //
+        // The V2 port kept the fields but tested `isPumping || processingTrigger`
+        // one line after setting processingTrigger -- always true -- so every
+        // debounced press fired at once. V1 held for relay noise, and V2 then
+        // showed exactly that: pumps starting on slots nobody touched, each
+        // spending a credit and recording a sale that never poured.
+        //
+        // ponytail: the hold guards only the press that STARTS a pour. Noise on
+        // a slot already running still passes instantly, as it did in V1. If the
+        // log shows that, the fix is 10k pull-ups at the header, not a longer
+        // hold that breaks fast tapping.
         if (pressed) {
             if (!pumps[i].buttonWasPressedLastFrame) {
                 pumps[i].buttonWasPressedLastFrame = true;
-                pumps[i].pressStartTime = current_time;
-                pumps[i].processingTrigger = true;
-                // Already pumping → instant re-press
-                if (pumps[i].isPumping || pumps[i].processingTrigger) {
+                if (pumps[i].isPumping) executeDispenseTrigger(state, i);
+                else                    pumps[i].processingTrigger = true;
+            }
+            if (pumps[i].processingTrigger) {
+                auto held = std::chrono::duration_cast<std::chrono::milliseconds>(
+                    current_time - pumps[i].pressStartTime).count();
+                if (held >= BUTTON_HOLD_MS) {
                     pumps[i].processingTrigger = false;
-                    pumps[i].firstPressAfterArm = false;
                     executeDispenseTrigger(state, i);
                 }
             }
         } else {
+            if (pumps[i].processingTrigger) {
+                // Let go before the hold completed. The duration is logged so
+                // noise can be told apart from a customer tapping too lightly,
+                // and BUTTON_HOLD_MS tuned against real numbers.
+                auto held = std::chrono::duration_cast<std::chrono::milliseconds>(
+                    current_time - pumps[i].pressStartTime).count();
+                log_info("pump", "Slot " + std::to_string(i) + ": IGNORED  reason=short_press"
+                          "  held=" + std::to_string(held) + "ms  need="
+                          + std::to_string(BUTTON_HOLD_MS) + "ms");
+            }
             pumps[i].buttonWasPressedLastFrame = false;
             pumps[i].processingTrigger = false;
         }
     }
 
-    // 1b. Track ARM timestamps + first-press flag
+    // 1b. Track ARM timestamps
     static int prevArmedQty[TOTAL_SLOTS + 1] = {0};
     for (int i = 1; i <= TOTAL_SLOTS; i++) {
         if (state.armedQty[i] > prevArmedQty[i]) {
             pumps[i].armTimestamp = current_time;
-            pumps[i].firstPressAfterArm = true;
         }
         prevArmedQty[i] = state.armedQty[i];
     }

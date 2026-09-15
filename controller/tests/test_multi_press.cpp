@@ -29,17 +29,17 @@ namespace fs = std::filesystem;
 static const std::string TEST_DIR     = "tests/tmp_multipress";
 static const std::string TEST_TXN_DIR = TEST_DIR + "/transaction";
 
-// Driving a press is not instant: press() runs nine pump_loop iterations and
-// each one paces itself against the hardware, measured at ~52ms, so a press
-// costs ~466ms of wall time. Two consequences, both learned the hard way when
-// the first version of this file silently tested five separate pours:
+// Driving a press is not instant: pump_loop paces itself against the hardware
+// (~50ms a turn on a dev PC), and the first press of a pour must also be held
+// BUTTON_HOLD_MS (200ms) before it lands. Two consequences, both learned the
+// hard way when the first version of this file silently tested five separate
+// pours:
 //
-//   - The 200ms press cooldown is already satisfied by that overhead, but we
-//     enforce it explicitly rather than relying on a timing measurement that
-//     will not hold on other hardware.
+//   - The 200ms press cooldown is enforced explicitly below rather than
+//     trusted to that overhead, which will not hold on other hardware.
 //   - Each press must add MORE run time than a press costs, or the pour ends
-//     before the next press arrives. 1.0s per press against ~466ms leaves
-//     better than 2x headroom, and the margin grows with every press.
+//     before the next press arrives. 1.0s per press against a few hundred ms
+//     leaves ample headroom, and the margin grows with every press.
 static const int PRESS_SECONDS = 1;
 static const int PRESS_COOLDOWN_MS = 220;   // 200ms cooldown + margin
 
@@ -101,8 +101,13 @@ static AppState fresh_state()
 // edge fires, then release it as a finger would.
 static void press(AppState &s, int slot)
 {
+    // Held until the credit is taken, not for a fixed loop count. The first
+    // press of a pour must be held BUTTON_HOLD_MS; later ones land at once.
+    int before = s.armedQty[slot];
     mock_set_button(pin_button[slot], true);
-    for (int i = 0; i < 8; i++) pump_loop(s);
+    auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(1500);
+    while (s.armedQty[slot] == before && std::chrono::steady_clock::now() < deadline)
+        pump_loop(s);
     mock_release_all_buttons();
     pump_loop(s);
 }
@@ -253,5 +258,122 @@ void run_multi_press_tests()
     RUN_TEST(test_no_credit_comes_back_from_nowhere);
 
     fs::remove_all(TEST_DIR);
+    init_hardware_config({});
+}
+
+// ==========================================================================
+// Hold before a pour starts
+//
+// Restored from V1. A press on an IDLE pump must be held BUTTON_HOLD_MS before
+// it counts, so a noise blip on the button wire cannot start a pump, spend a
+// credit and record a sale nobody made. A press on a pump already running is
+// not held, so a customer can still tap quickly for more. V2's port kept the
+// fields but made the check always true; the log then showed pumps starting
+// on slots nobody touched.
+// ==========================================================================
+
+static AppState hold_state(const std::string &holdMs, const std::string &pourSeconds)
+{
+    fs::remove_all(TEST_DIR);
+    fs::create_directories(TEST_TXN_DIR);
+
+    init_hardware_config({{"PRICE2", "20"},
+                          {"calibrateProduct2", "(20, " + pourSeconds + ")"},
+                          {"BUTTON_HOLD_MS", holdMs}});
+    pump_reset_state();
+    mock_release_all_buttons();
+
+    AppState s;
+    s.machineId      = "23";
+    s.transactionDir = TEST_TXN_DIR;
+    // The debounce window is module state; flush whatever an earlier test left.
+    for (int i = 0; i < 4; i++) pump_loop(s);
+    return s;
+}
+
+// Hold the button for a wall-clock duration, then let go.
+static void hold_for(AppState &s, int slot, int ms)
+{
+    mock_set_button(pin_button[slot], true);
+    auto until = std::chrono::steady_clock::now() + std::chrono::milliseconds(ms);
+    while (std::chrono::steady_clock::now() < until) pump_loop(s);
+    mock_release_all_buttons();
+    pump_loop(s);
+}
+
+static void test_a_blip_on_an_idle_slot_starts_nothing()
+{
+    // Long enough to clear the debounce, far short of the hold -- the shape of
+    // the false presses seen on slots 2, 4 and 5.
+    AppState s = hold_state("1000", "5.0");
+    s.armedQty[2] = 1;
+
+    hold_for(s, 2, 300);
+
+    CHECK_EQ(s.armedQty[2], 1);                      // credit untouched
+    CHECK_EQ(s.slotBusy[2], false);                  // no pump started
+    CHECK_EQ(count_transactions(TEST_TXN_DIR), 0);
+}
+
+static void test_a_deliberate_hold_starts_the_pour()
+{
+    AppState s = hold_state("300", "5.0");
+    s.armedQty[2] = 1;
+
+    hold_for(s, 2, 900);
+
+    CHECK_EQ(s.armedQty[2], 0);
+    CHECK_EQ(s.slotBusy[2], true);
+}
+
+static void test_a_press_on_a_running_pump_is_not_held()
+{
+    // Fast tapping for more must keep working: once the pour is running, a
+    // press far shorter than the hold still takes the next credit.
+    AppState s = hold_state("1000", "5.0");
+    s.armedQty[2] = 2;
+
+    hold_for(s, 2, 1300);                            // starts the pour
+    CHECK_EQ(s.armedQty[2], 1);
+    CHECK_EQ(s.slotBusy[2], true);
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(PRESS_COOLDOWN_MS));
+    hold_for(s, 2, 300);                             // well under the 1000ms hold
+
+    CHECK_EQ(s.armedQty[2], 0);
+}
+
+static void test_zero_turns_the_hold_off()
+{
+    AppState s = hold_state("0", "5.0");
+    s.armedQty[2] = 1;
+
+    hold_for(s, 2, 300);
+
+    CHECK_EQ(s.armedQty[2], 0);
+}
+
+static void test_the_hold_setting_is_clamped()
+{
+    init_hardware_config({{"BUTTON_HOLD_MS", "99999"}});
+    CHECK_EQ(BUTTON_HOLD_MS, 1000);
+    init_hardware_config({{"BUTTON_HOLD_MS", "-5"}});
+    CHECK_EQ(BUTTON_HOLD_MS, 0);
+    init_hardware_config({});
+    CHECK_EQ(BUTTON_HOLD_MS, 200);                   // absent means the default
+}
+
+void run_button_hold_tests()
+{
+    SUITE("Hold before a pour starts");
+
+    RUN_TEST(test_a_blip_on_an_idle_slot_starts_nothing);
+    RUN_TEST(test_a_deliberate_hold_starts_the_pour);
+    RUN_TEST(test_a_press_on_a_running_pump_is_not_held);
+    RUN_TEST(test_zero_turns_the_hold_off);
+    RUN_TEST(test_the_hold_setting_is_clamped);
+
+    fs::remove_all(TEST_DIR);
+    mock_release_all_buttons();
     init_hardware_config({});
 }

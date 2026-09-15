@@ -165,6 +165,7 @@ directory by a prime - not even a zero-peso record.
 | `WATER_GPIO_PIN_4` | `11` | BCM GPIO pin for slot 4 water sensor |
 | `WATER_GPIO_PIN_5` | `8` | BCM GPIO pin for slot 5 water sensor |
 | `WATER_GPIO_PIN_6` | `9` | BCM GPIO pin for slot 6 water sensor |
+| `BUTTON_HOLD_MS` | `200` | How long a press on an idle pump must be held before it starts a pour. Filters button-wire noise that would otherwise start pumps and record sales nobody made. Presses on a running pump are instant. `0`-`1000`, `0` = off. Filtered presses are logged as `IGNORED reason=short_press held=NNms` |
 | `WATER_SENSOR_EMPTY_HIGH` | `1` | Which level means empty. `1` = empty reads HIGH, `0` = empty reads LOW. Sensors are wired to GND with a pull-up, so a disconnected one reads HIGH; the default therefore treats a dead sensor as empty and blocks the pump rather than letting it run dry |
 
 Sensor pins are read only by `water_level_monitoring.py`, which pulls them

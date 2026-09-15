@@ -17,6 +17,7 @@ int PUMP_TRIGGER_HIGH = 0;
 int PUMP_TRIGGER_LOW  = 1;
 
 int WATER_SENSOR_EMPTY_HIGH = 1;
+int BUTTON_HOLD_MS = 200;
 bool product_calibrated[TOTAL_SLOTS + 1] = {false};
 
 std::map<int, int> pin_pump {
@@ -64,6 +65,15 @@ void init_hardware_config(const std::map<std::string, std::string> &config)
     load_int("PUMP_TRIGGER_HIGH", PUMP_TRIGGER_HIGH);
     load_int("PUMP_TRIGGER_LOW",  PUMP_TRIGGER_LOW);
     load_int("WATER_SENSOR_EMPTY_HIGH", WATER_SENSOR_EMPTY_HIGH);
+
+    // Reset first, so a config without the key means the default rather than
+    // whatever an earlier call left behind.
+    BUTTON_HOLD_MS = 200;
+    load_int("BUTTON_HOLD_MS", BUTTON_HOLD_MS);
+    // 0 turns the hold off. Past a second a genuine press starts to feel
+    // broken, and a customer presses again -- which is the noise we filter.
+    if (BUTTON_HOLD_MS < 0)    { log_error("hardware", "BUTTON_HOLD_MS below 0 - using 0");       BUTTON_HOLD_MS = 0; }
+    if (BUTTON_HOLD_MS > 1000) { log_error("hardware", "BUTTON_HOLD_MS above 1000 - using 1000"); BUTTON_HOLD_MS = 1000; }
 
     pin_pump   = {{1, PUMP1}, {2, PUMP2}, {3, PUMP3}, {4, PUMP4}, {5, PUMP5}, {6, PUMP6}};
     pin_led    = {{1, LED1},  {2, LED2},  {3, LED3},  {4, LED4},  {5, LED5},  {6, LED6}};

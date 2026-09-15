@@ -33,6 +33,9 @@ void run_dry_tank_tests();
 // Several presses on one pour -- one sale per press, not one per pour
 void run_multi_press_tests();
 
+// A press on an idle pump must be held before it starts a pour
+void run_button_hold_tests();
+
 // Armed credits that time out unclaimed
 void run_unclaimed_tests();
 
@@ -62,6 +65,7 @@ int main()
     run_price_tests();
     run_dry_tank_tests();
     run_multi_press_tests();
+    run_button_hold_tests();
     run_unclaimed_tests();
 
     // Integration tests run last — they bind a real socket on port 9901

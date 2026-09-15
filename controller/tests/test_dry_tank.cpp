@@ -95,7 +95,11 @@ static void start_dispense(AppState &s, int slot)
 {
     s.armedQty[slot] = 1;
     mock_set_button(pin_button[slot], true);
-    for (int i = 0; i < 8 && s.armedQty[slot] > 0; i++) pump_loop(s);
+    // Held until the press lands rather than for a fixed number of loops: a
+    // press on an idle pump must be held BUTTON_HOLD_MS, and how many loops
+    // that takes depends on the machine running the tests.
+    auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(1500);
+    while (s.armedQty[slot] > 0 && std::chrono::steady_clock::now() < deadline) pump_loop(s);
     mock_release_all_buttons();
     pump_loop(s);
 }

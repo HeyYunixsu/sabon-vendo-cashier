@@ -80,7 +80,9 @@ Cashier arms a slot from the dashboard
     -> state.armedQty[slot] += qty, slot LED lit
 
 Customer presses that slot's button
-    -> button scan (80ms debounce) -> processTimer(slot)   [pump_control.cpp]
+    -> button scan (80ms debounce)                   [pump_control.cpp]
+    -> idle pump: held BUTTON_HOLD_MS (200ms) first; running pump: instant
+    -> executeDispenseTrigger(slot)
     -> checks: armedQty[slot] > 0 AND !slotEmpty[slot] AND !paused
     -> PumpState.timer set, pump relay driven ON
 
