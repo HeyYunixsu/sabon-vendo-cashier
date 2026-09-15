@@ -2,6 +2,7 @@
 #define PUMP_CONTROL_H
 
 #include "app_state.h"
+#include <vector>
 
 // Parses ARM_TIMEOUT_SECONDS and clamps it to 30..1800. Returns 300 for
 // anything unparseable. Exposed so the clamp can be tested without a
@@ -81,6 +82,20 @@ int pump_get_price(int slot);
 // Records credits that were paid for but never dispensed. reason is "timeout"
 // or "cancelled". Called from the socket server as well as the pump loop.
 void pump_record_unclaimed(AppState &state, int slot, int qty, const std::string &reason);
+
+// Slots whose button is NOT resting HIGH -- i.e. reading as pressed with
+// nobody touching it. Empty means all six are healthy.
+//
+// One read catches every way the button wiring goes wrong except one: a
+// missing `gpio=N=ip,pu` in config.txt, a peripheral holding the pin (GPIO14
+// is UART TXD, GPIO10 is SPI0 MOSI), a switch shorted across same-side
+// tactile legs, or a genuinely held button. The exception is a button wired
+// to 3V3 instead of GND: the pull-up holds that pin HIGH at rest and the
+// press drives it HIGH too, so it looks perfect here and simply never fires.
+// `tools/test_buttons` is what catches that one, by watching for the press.
+//
+// Call after pump_setup() has set the pin modes.
+std::vector<int> pump_stuck_buttons();
 
 // Return every pump to its power-on state. pump_setup() calls this; tests call
 // it to get a clean slate, because pump state lives in module statics that

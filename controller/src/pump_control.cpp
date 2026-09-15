@@ -276,6 +276,13 @@ static void handlePump(PumpState &pump, AppState &state) {
 // ------------------------------------------------------------------------------
 // Public API
 // ------------------------------------------------------------------------------
+std::vector<int> pump_stuck_buttons() {
+    std::vector<int> stuck;
+    for (int i = 1; i <= TOTAL_SLOTS; i++)
+        if (digitalRead(pin_button[i]) == LOW) stuck.push_back(i);
+    return stuck;
+}
+
 void pump_reset_state() {
     auto now = std::chrono::steady_clock::now();
     for (int i = 1; i <= TOTAL_SLOTS; i++) {
@@ -418,6 +425,30 @@ void pump_setup(AppState &state) {
     // NOT via wiringPi, because wiringPi's pull-up control is unreliable on Debian.
     for (int i = 1; i <= TOTAL_SLOTS; i++) {
         pinMode(pin_button[i], INPUT);
+    }
+
+    // Say out loud whether the buttons are actually wired. Until now the
+    // controller started silently whatever state they were in, so a dead
+    // button was discovered by a customer pressing it and nothing happening --
+    // with no line anywhere saying which slot or why.
+    {
+        std::vector<int> stuck = pump_stuck_buttons();
+        if (stuck.empty()) {
+            log_info("pump", "Buttons: all " + std::to_string(TOTAL_SLOTS)
+                      + " resting HIGH (wiring and pull-ups OK)");
+        } else {
+            std::string list;
+            for (size_t k = 0; k < stuck.size(); k++) {
+                if (k) list += ", ";
+                list += "BTN" + std::to_string(stuck[k])
+                      + " (GPIO" + std::to_string(pin_button[stuck[k]]) + ")";
+            }
+            log_error("pump", "Button(s) reading LOW with nothing pressed: " + list);
+            log_error("pump", "  A resting button must read HIGH. Held down, shorted to "
+                              "GND, missing gpio=<pin>=ip,pu in /boot/firmware/config.txt, "
+                              "or a peripheral owns the pin.");
+            log_error("pump", "  Check with: pinctrl get <pin>   -- want 'ip    pu | hi'");
+        }
     }
 
     // Pumps: OUTPUT, off

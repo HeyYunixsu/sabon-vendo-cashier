@@ -1,5 +1,7 @@
 #include "test_framework.h"
 #include "hardware_config.h"
+#include "pump_control.h"
+#include <wiringPi.h>
 
 // These tests pin down the BCM GPIO numbers assigned to each pump, LED and
 // button. If a pin is rewired on the physical board, exactly one of these
@@ -153,6 +155,52 @@ static void test_uncalibrated_slots_are_flagged()
     init_hardware_config({});
 }
 
+// ------------------------------------------------- button self-check ---
+//
+// A button at rest must read HIGH: the boot-time pull-up holds the line up
+// until a press shorts it to GND. Reading LOW with nobody touching it is the
+// single symptom shared by every wiring fault -- no pull-up, a peripheral
+// holding the pin, or a switch shorted across same-side tactile legs -- and
+// the controller used to start silently regardless.
+
+static void test_untouched_buttons_are_not_stuck()
+{
+    init_hardware_config({});
+    mock_release_all_buttons();
+    CHECK_EQ((int)pump_stuck_buttons().size(), 0);
+}
+
+static void test_a_button_reading_low_at_rest_is_reported()
+{
+    init_hardware_config({});
+    mock_release_all_buttons();
+    mock_set_button(pin_button[1], true);          // GPIO14 held low
+
+    std::vector<int> stuck = pump_stuck_buttons();
+    CHECK_EQ((int)stuck.size(), 1);
+    CHECK_EQ(stuck[0], 1);                          // reported by SLOT, not pin
+
+    mock_release_all_buttons();
+}
+
+static void test_every_stuck_button_is_named_not_just_the_first()
+{
+    // The fault that prompted this was several buttons at once, so stopping
+    // at the first one would have hidden most of it.
+    init_hardware_config({});
+    mock_release_all_buttons();
+    mock_set_button(pin_button[2], true);
+    mock_set_button(pin_button[5], true);
+
+    std::vector<int> stuck = pump_stuck_buttons();
+    CHECK_EQ((int)stuck.size(), 2);
+    CHECK_EQ(stuck[0], 2);
+    CHECK_EQ(stuck[1], 5);
+
+    mock_release_all_buttons();
+    CHECK_EQ((int)pump_stuck_buttons().size(), 0);   // and it clears again
+}
+
 void run_hardware_tests() {
     SUITE("hardware_config");
     RUN_TEST(test_pump1_pin_is_15);
@@ -181,4 +229,7 @@ void run_hardware_tests() {
     RUN_TEST(test_led5_pin_is_19);
     RUN_TEST(test_led6_pin_is_7);
     RUN_TEST(test_uncalibrated_slots_are_flagged);
+    RUN_TEST(test_untouched_buttons_are_not_stuck);
+    RUN_TEST(test_a_button_reading_low_at_rest_is_reported);
+    RUN_TEST(test_every_stuck_button_is_named_not_just_the_first);
 }
