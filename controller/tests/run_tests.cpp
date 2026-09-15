@@ -30,6 +30,9 @@ void run_price_tests();
 // A tank running dry mid-dispense
 void run_dry_tank_tests();
 
+// Several presses on one pour -- one sale per press, not one per pour
+void run_multi_press_tests();
+
 // Armed credits that time out unclaimed
 void run_unclaimed_tests();
 
@@ -58,6 +61,7 @@ int main()
     run_prime_tests();
     run_price_tests();
     run_dry_tank_tests();
+    run_multi_press_tests();
     run_unclaimed_tests();
 
     // Integration tests run last — they bind a real socket on port 9901

@@ -30,6 +30,7 @@
 #include <mutex>
 #include <string>
 #include <thread>
+#include <vector>
 
 // ------------------------------------------------------------------------------
 // Module-private state
@@ -39,6 +40,13 @@ struct PumpState {
     bool isPumping = false;
     bool isPaused = false;
     double amount = 0;
+    // What each press in the current pour cost, in order. The pour is one
+    // continuous run -- five presses just extend the same timer -- but it is
+    // five separate sales, and one record per press is the only way the press
+    // count can be right on the dashboard and in the cloud. Stored per press
+    // rather than divided out of a total afterwards because prices are
+    // editable mid-pour, so the presses are not always worth the same.
+    std::vector<double> pressAmounts;
     long long remainingTimeWhenPaused = 0;
     std::chrono::time_point<std::chrono::steady_clock> timer{};
     bool buttonWasPressedLastFrame = false;
@@ -104,6 +112,7 @@ static void executeDispenseTrigger(AppState &state, int pumpIdx) {
         state.phase = TxnPhase::DISPENSING;
         pump.armedUnitsReserved++;
         pump.amount += product.coins;
+        pump.pressAmounts.push_back(product.coins);
 
         int ms = (int)(product.durationSeconds * 1000);
         std::chrono::milliseconds extension(ms);
@@ -186,10 +195,17 @@ static void handlePump(PumpState &pump, AppState &state) {
                       + ": INTERRUPTED  reason=empty  amount="
                       + std::to_string(pump.amount));
 
-            if (pump.armedUnitsReserved > 0) pump.armedUnitsReserved--;
-            writeTransaction(state, pump.id, pump.amount, "");
+            // One record per press, same as a clean finish. The tank ran
+            // dry part-way, but every press was paid for, and lumping them
+            // into one record would under-count the units sold on top of the
+            // short pour somebody already has to settle.
+            pump.armedUnitsReserved = 0;
+            int postfix = 0;
+            for (double pressAmount : pump.pressAmounts)
+                writeTransaction(state, pump.id, pressAmount, "", postfix++);
             appendInterruptedLog(state, pump.id, pump.amount);
 
+            pump.pressAmounts.clear();
             pump.amount = 0;
             pump.isPumping = false;
             pump.postPressDeadline = std::chrono::steady_clock::time_point{};
@@ -225,8 +241,22 @@ static void handlePump(PumpState &pump, AppState &state) {
         } else if (pump.isPumping) {
             log_info("pump", "Pump " + std::to_string(pump.id) + ": DONE  amount="
                       + std::to_string(pump.amount));
-            if (pump.armedUnitsReserved > 0) pump.armedUnitsReserved--;
-            writeTransaction(state, pump.id, pump.amount, "");
+            // One transaction per press. Presses extend a single pour, so
+            // this branch runs once no matter how many were made -- writing
+            // one lumped record booked five sales as one. The pesos were
+            // right, so nothing looked broken, but every count derived from
+            // the records was short: the dashboard's press count, and the
+            // units-per-slot the cloud reports.
+            //
+            // Zeroed rather than decremented: the pour is finished, so no
+            // press is still in flight. Decrementing by one left the rest
+            // reserved for good, and a later jam on this slot refunded the
+            // accumulated total into armedQty as free credit.
+            pump.armedUnitsReserved = 0;
+            int postfix = 0;
+            for (double pressAmount : pump.pressAmounts)
+                writeTransaction(state, pump.id, pressAmount, "", postfix++);
+            pump.pressAmounts.clear();
             pump.amount = 0;
             pump.isPumping = false;
             pump.postPressDeadline = std::chrono::steady_clock::time_point{};
@@ -538,6 +568,9 @@ void pump_loop(AppState &state) {
             pumps[i].armedUnitsReserved = 0;
             pumps[i].postPressDeadline = std::chrono::steady_clock::time_point{};
             pumps[i].amount = 0;
+            // Refunded, not sold -- these presses must not be written as
+            // sales by whatever pour comes next on this slot.
+            pumps[i].pressAmounts.clear();
             state.slotBusy[i] = false;
             digitalWrite(pin_pump[i], PUMP_TRIGGER_LOW);
             saveStateToDisk(state, state.transactionDir);
