@@ -83,9 +83,19 @@ def send_data_to_api(api_url, data_payload):
     """
     print(f"Sending POST request to SERVER at {BASE_URL}...")
 
+    # Bound before the try so the handler below can safely test it. requests.post
+    # raises on a refused connection, which leaves this name unassigned -- the
+    # except block then died with UnboundLocalError, throwing out of this
+    # function instead of returning None, and losing the server's error body
+    # at the exact moment it was worth reading.
+    response = None
+
     try:
         headers = {'Content-Type': 'application/json'}
-        response = requests.post(api_url, headers=headers, data=json.dumps(data_payload))
+        # Without a timeout a half-open connection blocks this loop forever with
+        # no log line: sales quietly stop uploading and nothing says why.
+        response = requests.post(api_url, headers=headers,
+                                 data=json.dumps(data_payload), timeout=30)
 
         # Raise an exception for bad status codes (4xx or 5xx)
         response.raise_for_status()
