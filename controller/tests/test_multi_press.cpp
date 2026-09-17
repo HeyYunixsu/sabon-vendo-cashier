@@ -108,24 +108,23 @@ static void press(AppState &s, int slot)
     auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(1500);
     while (s.armedQty[slot] == before && std::chrono::steady_clock::now() < deadline)
         pump_loop(s);
+    // Fail here, not later. Returning quietly on the deadline made a press that
+    // never landed surface as a confusing transaction-count mismatch further
+    // down the test, pointing at the wrong thing.
+    CHECK(s.armedQty[slot] != before);
     mock_release_all_buttons();
     pump_loop(s);
 }
 
-// n presses on ONE pour. Waits out the rest of the cooldown rather than
-// sleeping a flat amount, so a press is never silently rejected on hardware
-// where the loop runs at a different speed.
+// n presses on ONE pour. The controller's cooldown runs from when the previous
+// press STARTED ITS PUMP, and press() returns just after that, so the whole
+// cooldown is waited here. Timing it from when press() began broke on the Pi:
+// the hold starts the pump ~200ms into a press, the Pi's faster loop put the
+// next press inside the cooldown, and it was refused.
 static void press_n_times(AppState &s, int slot, int n)
 {
-    auto last = std::chrono::steady_clock::now()
-                - std::chrono::milliseconds(PRESS_COOLDOWN_MS);
     for (int i = 0; i < n; i++) {
-        auto since = std::chrono::duration_cast<std::chrono::milliseconds>(
-            std::chrono::steady_clock::now() - last).count();
-        if (since < PRESS_COOLDOWN_MS)
-            std::this_thread::sleep_for(
-                std::chrono::milliseconds(PRESS_COOLDOWN_MS - since));
-        last = std::chrono::steady_clock::now();
+        if (i) std::this_thread::sleep_for(std::chrono::milliseconds(PRESS_COOLDOWN_MS));
         press(s, slot);
     }
 }
@@ -264,22 +263,18 @@ void run_multi_press_tests()
 // ==========================================================================
 // Hold before a pour starts
 //
-// Restored from V1. A press on an IDLE pump must be held BUTTON_HOLD_MS before
+// V1's rule: a press on an IDLE pump must be held BUTTON_HOLD_MS (200ms) before
 // it counts, so a noise blip on the button wire cannot start a pump, spend a
-// credit and record a sale nobody made. A press on a pump already running is
-// not held, so a customer can still tap quickly for more. V2's port kept the
-// fields but made the check always true; the log then showed pumps starting
-// on slots nobody touched.
+// credit and record a sale nobody made.
 // ==========================================================================
 
-static AppState hold_state(const std::string &holdMs, const std::string &pourSeconds)
+static AppState hold_state()
 {
     fs::remove_all(TEST_DIR);
     fs::create_directories(TEST_TXN_DIR);
 
     init_hardware_config({{"PRICE2", "20"},
-                          {"calibrateProduct2", "(20, " + pourSeconds + ")"},
-                          {"BUTTON_HOLD_MS", holdMs}});
+                          {"calibrateProduct2", "(20, 5.0)"}});
     pump_reset_state();
     mock_release_all_buttons();
 
@@ -303,12 +298,12 @@ static void hold_for(AppState &s, int slot, int ms)
 
 static void test_a_blip_on_an_idle_slot_starts_nothing()
 {
-    // Long enough to clear the debounce, far short of the hold -- the shape of
-    // the false presses seen on slots 2, 4 and 5.
-    AppState s = hold_state("1000", "5.0");
+    // Half the hold. Depending on how fast the loop runs, this is cut by the
+    // debounce or by the hold -- either way no pump may start.
+    AppState s = hold_state();
     s.armedQty[2] = 1;
 
-    hold_for(s, 2, 300);
+    hold_for(s, 2, BUTTON_HOLD_MS / 2);
 
     CHECK_EQ(s.armedQty[2], 1);                      // credit untouched
     CHECK_EQ(s.slotBusy[2], false);                  // no pump started
@@ -317,50 +312,67 @@ static void test_a_blip_on_an_idle_slot_starts_nothing()
 
 static void test_a_deliberate_hold_starts_the_pour()
 {
-    AppState s = hold_state("300", "5.0");
+    AppState s = hold_state();
     s.armedQty[2] = 1;
 
-    hold_for(s, 2, 900);
+    hold_for(s, 2, BUTTON_HOLD_MS * 4);
 
     CHECK_EQ(s.armedQty[2], 0);
     CHECK_EQ(s.slotBusy[2], true);
+}
+
+// Milliseconds from touching the button to the credit being taken. Stops
+// there: the release and the loop after it are not part of what we measure.
+static long long press_and_time(AppState &s, int slot)
+{
+    int before = s.armedQty[slot];
+    auto t0 = std::chrono::steady_clock::now();
+    mock_set_button(pin_button[slot], true);
+    auto deadline = t0 + std::chrono::milliseconds(1500);
+    while (s.armedQty[slot] == before && std::chrono::steady_clock::now() < deadline)
+        pump_loop(s);
+    long long took = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::now() - t0).count();
+    CHECK(s.armedQty[slot] != before);
+    mock_release_all_buttons();
+    pump_loop(s);
+    return took;
 }
 
 static void test_a_press_on_a_running_pump_is_not_held()
 {
-    // Fast tapping for more must keep working: once the pour is running, a
-    // press far shorter than the hold still takes the next credit.
-    AppState s = hold_state("1000", "5.0");
-    s.armedQty[2] = 2;
+    // Fast tapping must keep working: once a pour is running, the next press
+    // counts on the debounced edge rather than waiting out BUTTON_HOLD_MS.
+    // Without this, deleting the `if (isPumping)` line breaks nothing here.
+    //
+    // How long the debounce takes depends on the machine -- pump_loop paces
+    // itself against the hardware, so 4 samples span ~70ms on a Pi and ~160ms
+    // on a dev PC. The strict claim only means something when that window is
+    // comfortably shorter than the hold, so it is measured and the assertion
+    // adapts rather than going flaky on whichever machine runs it.
+    AppState s = hold_state();
 
-    hold_for(s, 2, 1300);                            // starts the pour
-    CHECK_EQ(s.armedQty[2], 1);
+    auto t0 = std::chrono::steady_clock::now();
+    for (int i = 0; i < 8; i++) pump_loop(s);
+    long long perLoop = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::now() - t0).count() / 8;
+    // An instant press lands on the 4th sample, so it costs about 4 loops.
+    // Only claim it beat the hold when 4 loops clearly fit inside it -- on a
+    // slow dev PC they do not, and the timing simply cannot tell the two paths
+    // apart there.
+    long long instantMs = perLoop * 4;
+
+    s.armedQty[2] = 2;
+    press_n_times(s, 2, 1);                      // first press: held, starts the pour
     CHECK_EQ(s.slotBusy[2], true);
 
     std::this_thread::sleep_for(std::chrono::milliseconds(PRESS_COOLDOWN_MS));
-    hold_for(s, 2, 300);                             // well under the 1000ms hold
 
-    CHECK_EQ(s.armedQty[2], 0);
-}
+    long long tookMs = press_and_time(s, 2);     // second press: pump already running
 
-static void test_zero_turns_the_hold_off()
-{
-    AppState s = hold_state("0", "5.0");
-    s.armedQty[2] = 1;
-
-    hold_for(s, 2, 300);
-
-    CHECK_EQ(s.armedQty[2], 0);
-}
-
-static void test_the_hold_setting_is_clamped()
-{
-    init_hardware_config({{"BUTTON_HOLD_MS", "99999"}});
-    CHECK_EQ(BUTTON_HOLD_MS, 1000);
-    init_hardware_config({{"BUTTON_HOLD_MS", "-5"}});
-    CHECK_EQ(BUTTON_HOLD_MS, 0);
-    init_hardware_config({});
-    CHECK_EQ(BUTTON_HOLD_MS, 200);                   // absent means the default
+    CHECK_EQ(s.armedQty[2], 0);                  // it landed
+    if (instantMs + 30 < BUTTON_HOLD_MS)
+        CHECK(tookMs < BUTTON_HOLD_MS);          // without waiting out the hold
 }
 
 void run_button_hold_tests()
@@ -370,8 +382,6 @@ void run_button_hold_tests()
     RUN_TEST(test_a_blip_on_an_idle_slot_starts_nothing);
     RUN_TEST(test_a_deliberate_hold_starts_the_pour);
     RUN_TEST(test_a_press_on_a_running_pump_is_not_held);
-    RUN_TEST(test_zero_turns_the_hold_off);
-    RUN_TEST(test_the_hold_setting_is_clamped);
 
     fs::remove_all(TEST_DIR);
     mock_release_all_buttons();

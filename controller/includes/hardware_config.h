@@ -45,9 +45,9 @@ extern std::map<int, int> pin_button;
 extern std::map<int, Product> productMap;
 
 // How long a press on an IDLE pump must be held before it starts a pour, in
-// milliseconds. Presses on a pump that is already running are not held. From
-// config.env BUTTON_HOLD_MS, clamped to 0..1000; 0 turns the hold off.
-extern int BUTTON_HOLD_MS;
+// milliseconds -- V1's fixed 200ms. Presses on a pump already running are not
+// held.
+const int BUTTON_HOLD_MS = 200;
 
 const int TOTAL_SLOTS = 6;
 // True where calibrateProductN was present in config.env. False means the slot

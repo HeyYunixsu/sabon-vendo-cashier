@@ -81,7 +81,11 @@ static std::chrono::time_point<std::chrono::steady_clock> g_last_pump_start =
 // set only by pump_setup(), so pump_loop(state) silently ignored its own
 // argument and wrote through whatever was last registered -- identical in
 // production, a dangling pointer anywhere else.
-static void executeDispenseTrigger(AppState &state, int pumpIdx) {
+// Returns false ONLY when the press was refused by the start cooldown, so the
+// caller can hold on to it and try again. Every other outcome -- accepted, or
+// denied for no credit, an empty slot, a pause -- returns true and consumes
+// the press, as V1 did.
+static bool executeDispenseTrigger(AppState &state, int pumpIdx) {
     auto current_time = std::chrono::steady_clock::now();
 
     if (std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -92,7 +96,7 @@ static void executeDispenseTrigger(AppState &state, int pumpIdx) {
         log_info("pump", "Slot " + std::to_string(pumpIdx) + ": DENIED  reason=cooldown"
                   "  (another pump started under "
                   + std::to_string(g_pump_start_cooldown_ms) + "ms ago)");
-        return;
+        return false;
     }
 
     PumpState  &pump    = pumps[pumpIdx];
@@ -153,6 +157,7 @@ static void executeDispenseTrigger(AppState &state, int pumpIdx) {
         log_info("pump", "Slot " + std::to_string(pumpIdx) + ": DENIED  reason=" + reason
                   + "  armedQty=" + std::to_string(state.armedQty[pumpIdx]));
     }
+    return true;
 }
 
 // Defined below, beside the prime record it mirrors.
@@ -429,14 +434,18 @@ void pump_setup(AppState &state) {
         + (WATER_SENSOR_EMPTY_HIGH ? "HIGH" : "LOW")
         + " (WATER_SENSOR_EMPTY_HIGH=" + std::to_string(WATER_SENSOR_EMPTY_HIGH) + ")");
     log_info("pump", "Button hold: " + std::to_string(BUTTON_HOLD_MS)
-             + "ms to start a pour (BUTTON_HOLD_MS)");
+             + "ms to start a pour (V1 rule)");
     wiringPiSetupGpio();
 
-    // Buttons: INPUT only — active-low (button wired GPIO -> GND).
-    // Pull-up is configured at boot in /boot/firmware/config.txt (gpio=X=ip,pu),
-    // NOT via wiringPi, because wiringPi's pull-up control is unreliable on Debian.
+    // Buttons: V1's setup with the polarity flipped for GND wiring. V1 wired
+    // its buttons to 3V3 and pulled them DOWN; these are wired GPIO -> GND, so
+    // they are pulled UP and a press reads LOW. Keep gpio=X=ip,pu in
+    // /boot/firmware/config.txt as well: wiringPi's pull control has been
+    // unreliable on this Debian, and the boot setting holds the line up even
+    // if this call does nothing.
     for (int i = 1; i <= TOTAL_SLOTS; i++) {
         pinMode(pin_button[i], INPUT);
+        pullUpDnControl(pin_button[i], PUD_UP);
     }
 
     // Say out loud whether the buttons are actually wired. Until now the
@@ -537,15 +546,18 @@ void pump_loop(AppState &state) {
                 auto held = std::chrono::duration_cast<std::chrono::milliseconds>(
                     current_time - pumps[i].pressStartTime).count();
                 if (held >= BUTTON_HOLD_MS) {
-                    pumps[i].processingTrigger = false;
-                    executeDispenseTrigger(state, i);
+                    // Keep the press if the cooldown refused it. Clearing the
+                    // flag first threw it away: the button is still down, so no
+                    // new edge follows, and a customer holding through the
+                    // cooldown got nothing until they let go and held again.
+                    if (executeDispenseTrigger(state, i))
+                        pumps[i].processingTrigger = false;
                 }
             }
         } else {
             if (pumps[i].processingTrigger) {
                 // Let go before the hold completed. The duration is logged so
-                // noise can be told apart from a customer tapping too lightly,
-                // and BUTTON_HOLD_MS tuned against real numbers.
+                // noise can be told apart from a customer tapping too lightly.
                 auto held = std::chrono::duration_cast<std::chrono::milliseconds>(
                     current_time - pumps[i].pressStartTime).count();
                 log_info("pump", "Slot " + std::to_string(i) + ": IGNORED  reason=short_press"
