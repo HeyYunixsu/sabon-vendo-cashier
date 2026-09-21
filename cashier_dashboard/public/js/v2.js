@@ -664,7 +664,8 @@
 
       let cls = 'v2-prod';
       if (st === 'off') cls += ' is-inactive';
-      else if (st === 'empty' || st === 'offline') cls += ' is-empty';
+      else if (st === 'empty') cls += ' is-empty';
+      else if (st === 'offline') cls += ' is-offline';
       // Two different borders for two different things, per the design: blue
       // for in this cart, teal for presses the machine is already holding.
       if (qty > 0) cls += ' in-cart';

@@ -540,6 +540,11 @@ button { font: inherit; color: inherit; }
    is both -- so these can never fight over one card. */
 .v2-prod.is-armed { --glow: rgba(18, 165, 160, .55); }
 
+/* Machine state overrides cart state: a disconnected machine is urgent red,
+   while an empty slot is clearly unavailable without competing with errors. */
+.v2-prod.is-offline { --glow: rgba(240, 101, 106, .78); }
+.v2-prod.is-empty { --glow: rgba(154, 167, 180, .72); }
+
 /* A soft bloom is legible against a dark ground and all but invisible against
    white. The light theme gets a tight halo band at the card's edge as well,
    which is what actually carries the colour on paper-coloured panels. */
@@ -550,6 +555,7 @@ button { font: inherit; color: inherit; }
 @keyframes v2-breathe { 0%, 100% { opacity: 1; } 50% { opacity: .45; } }
 .v2-prod.is-armed { border-color: #12A5A0; }
 .v2-prod.is-empty { opacity: .55; }
+.v2-prod.is-offline { opacity: .65; }
 .v2-prod.is-inactive { opacity: .35; pointer-events: none; }
 
 .v2-prod-img {
