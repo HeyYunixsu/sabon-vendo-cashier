@@ -31,7 +31,7 @@ static const std::string TEST_TXN_DIR = TEST_DIR + "/transaction";
 
 // Driving a press is not instant: pump_loop paces itself against the hardware
 // (~50ms a turn on a dev PC), and the first press of a pour must also be held
-// BUTTON_HOLD_MS (200ms) before it lands. Two consequences, both learned the
+// BUTTON_HOLD_MS (100ms) before it lands. Two consequences, both learned the
 // hard way when the first version of this file silently tested five separate
 // pours:
 //
@@ -263,7 +263,7 @@ void run_multi_press_tests()
 // ==========================================================================
 // Hold before a pour starts
 //
-// V1's rule: a press on an IDLE pump must be held BUTTON_HOLD_MS (200ms) before
+// V1's rule: a press on an IDLE pump must be held BUTTON_HOLD_MS (100ms) before
 // it counts, so a noise blip on the button wire cannot start a pump, spend a
 // credit and record a sale nobody made.
 // ==========================================================================
