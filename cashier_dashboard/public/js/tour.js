@@ -100,6 +100,9 @@
     root.querySelector('.tour-text').textContent = steps[i].text;
     const btn = root.querySelector('.tour-next');
     btn.textContent = i === steps.length - 1 ? 'Done' : 'Next';
+    // On a phone the page scrolls, and steps 3-4 sit below the fold.
+    const el = document.querySelector(steps[i].sel);
+    if (el) el.scrollIntoView({ block: 'center' });
     position();
     btn.focus();
   }
@@ -134,6 +137,8 @@
   function reflow() { if (root && !root.hidden) position(); }
   window.addEventListener('resize', reflow);
   window.addEventListener('orientationchange', reflow);
+  // Capture, so a scroll inside any panel moves the spotlight too.
+  document.addEventListener('scroll', reflow, true);
 
   window.sabonTour = { start };
 
