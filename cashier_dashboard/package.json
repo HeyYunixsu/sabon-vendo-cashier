@@ -4,7 +4,8 @@
   "description": "Cashier dashboard for Sabon Vendo — controls per-product armed state",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "test": "node tests/tour_place.test.js"
   },
   "dependencies": {
     "express": "^4.21.0"
