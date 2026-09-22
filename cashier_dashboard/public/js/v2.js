@@ -1158,8 +1158,9 @@
       $('prime-today').textContent = d.todayTotal || 0;
       primeSig = null;
       renderPrime();
-      loadPrimeHistory();
     } catch (e) { /* the panel is still usable without the count */ }
+    // Outside the try: a failed count must not also hide the history.
+    loadPrimeHistory();
   }
 
   function disarmPrime() {
