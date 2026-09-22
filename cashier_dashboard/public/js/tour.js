@@ -1,4 +1,4 @@
-/* First-run tour. Six tips pointed at the real controls, shown once per
+/* First-run tour. Nine tips pointed at the real controls, shown once per
    device and replayable from Settings -> Help. It only points: the overlay
    swallows every tap, so the tour cannot add to a cart or unlock a slot.
    See docs/superpowers/specs/2026-09-22-first-run-tour-design.md. */
@@ -29,14 +29,23 @@
       text: 'Tap a product to add one press. Tap again for more, or − to remove one. A red glow means the machine is offline; gray means the tank is empty.' },
     { sel: '#btn-one-each',
       text: 'Adds one press of every product at once.' },
+    { sel: '#btn-clear-cart',
+      text: 'Empties the cart if the customer changes their mind. Only the cart — buttons already unlocked are not touched.' },
     { sel: '#v2-cart .v2-totals',
       text: 'Check the quantity and total, then take the cash.' },
     { sel: '#btn-arm',
-      text: 'After payment, tap Unlock. The customer presses the machine’s buttons — one press, one serving. Unused presses wait under the coin button in the cart header.' },
+      text: 'After payment, tap Unlock. The cards turn teal and say Unlocked, and the customer presses the machine’s buttons — one press, one serving.' },
+    // Hidden until something is owed, so the tour shows a sample of it
+    // (see .tour-demo in v2.css) rather than skip the one button that
+    // appears on its own.
+    { sel: '#btn-credits', demo: true,
+      text: 'This appears after Unlock: presses the customer has paid for but not used yet. Tap it to see them. Cancel only if they are not coming back — cancelling writes off money already taken.' },
+    { sel: '#chip-waiting',
+      text: 'The same count at a glance. It lights up while a customer still has presses left.' },
     { sel: '#chip-today',
       text: 'Today’s sales and presses.' },
     { sel: '#btn-settings',
-      text: 'Change prices, clear air after a gallon change, and replay this tutorial.' },
+      text: 'Change prices, clear air after a gallon change, see every air clear, and replay this tutorial.' },
   ];
   const PAD = 6;       // spotlight breathing room around the control
   const GAP = 12;      // between spotlight and tip card
@@ -96,6 +105,7 @@
   }
 
   function render() {
+    document.documentElement.classList.toggle('tour-demo', !!steps[i].demo);
     root.querySelector('.tour-count').textContent = (i + 1) + ' / ' + steps.length;
     root.querySelector('.tour-text').textContent = steps[i].text;
     const btn = root.querySelector('.tour-next');
@@ -113,12 +123,13 @@
   }
 
   function finish() {
+    document.documentElement.classList.remove('tour-demo');
     if (root) root.hidden = true;
     try { localStorage.setItem(SEEN_KEY, '1'); } catch (e) { /* shows again next load */ }
   }
 
   function start() {
-    steps = STEPS.filter((s) => visible(document.querySelector(s.sel)));
+    steps = STEPS.filter((s) => s.demo || visible(document.querySelector(s.sel)));
     if (!steps.length) return;
     if (!root) build();
     root.hidden = false;

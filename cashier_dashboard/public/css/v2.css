@@ -1676,6 +1676,13 @@ button { font: inherit; color: inherit; }
 .tour-count { margin: 0 0 6px; font-size: 13px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
 .tour-text { margin: 0 0 16px; font-size: 16px; line-height: 1.45; }
 .tour-actions { display: flex; justify-content: flex-end; gap: 10px; }
+/* The Credits step shows the button even when nothing is owed, with a sample
+   count, so the cashier has seen it before it first appears for real. Only
+   while [hidden]: when credits really are owed, the real button and count
+   stay untouched. Beats the global [hidden] !important on specificity. */
+.tour-demo #btn-credits[hidden] { display: inline-flex !important; }
+.tour-demo #btn-credits[hidden] #credits-count { font-size: 0; }
+.tour-demo #btn-credits[hidden] #credits-count::after { content: '2'; font-size: 17px; }
 /* ============================== end TOUR ================================== */
 
 @media (prefers-reduced-motion: reduce) {
