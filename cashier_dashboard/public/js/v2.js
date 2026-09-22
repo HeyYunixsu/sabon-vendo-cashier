@@ -630,8 +630,10 @@
 
   function tickClock() {
     const d = new Date();
-    const p = (n) => String(n).padStart(2, '0');
-    $('v2-clock').textContent = p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
+    // 12-hour, no seconds ("8:05 AM"): shorter, so it fits the header card.
+    const h = d.getHours();
+    $('v2-clock').textContent = (h % 12 || 12) + ':' + String(d.getMinutes()).padStart(2, '0') +
+      (h < 12 ? ' AM' : ' PM');
   }
 
   // -------------------------------------------------------------------------

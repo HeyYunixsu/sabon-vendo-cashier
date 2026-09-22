@@ -364,11 +364,11 @@ button { font: inherit; color: inherit; }
 .v2-chev svg { width: 14px; height: 14px; display: block; }
 
 #v2-identity {
-  display: flex; align-items: center; gap: 14px;
-  padding: 18px 24px;
+  display: flex; align-items: center; gap: 12px;
+  padding: 18px 20px;
 }
 /* The badge is an oval, so it is sized by height and keeps its own width. */
-.v2-logo { height: 56px; width: auto; margin: -8px 0; flex: 0 0 auto; display: block; }
+.v2-logo { height: 52px; width: auto; margin: -6px 0; flex: 0 0 auto; display: block; }
 .v2-who { font-size: 18px; font-weight: 500; white-space: nowrap; }
 .v2-vsep { width: 1px; height: 26px; background: var(--line-strong); flex: 0 0 auto; }
 .v2-clock {
@@ -376,7 +376,7 @@ button { font: inherit; color: inherit; }
   font-size: 16px; font-weight: 500; color: var(--ink);
   font-variant-numeric: tabular-nums;
   /* A fixed box, or the header twitches once a second. */
-  min-width: 92px; text-align: right;
+  min-width: 76px; text-align: right; white-space: nowrap;
 }
 
 .v2-icon-btn {
@@ -1579,7 +1579,7 @@ button { font: inherit; color: inherit; }
 
   #v2-identity { padding: 10px 12px; gap: 10px; }
   .v2-who { font-size: 15px; overflow: hidden; text-overflow: ellipsis; }
-  .v2-clock { font-size: 14px; min-width: 76px; margin-left: auto; }
+  .v2-clock { font-size: 14px; min-width: 68px; margin-left: auto; }
   .v2-logo { height: 46px; margin: -8px 0; }
 
   /* Products one per row. Two columns of bottle photo at 360px leaves nothing
