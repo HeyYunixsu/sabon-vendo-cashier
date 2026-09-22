@@ -559,6 +559,14 @@ button { font: inherit; color: inherit; }
    which said "ready to sell" while the machine could not pour. Every offline
    card now reads the same: red edge, red glow, in the cart or not. */
 .v2-prod.is-offline { border-color: #F0656A; }
+/* Empty dims the product, not the card. Opacity on the card itself also faded
+   its ::after glow and the status badge -- the two things that say WHY it is
+   unavailable. Dimming only the photo and the name says "not for sale" while
+   the badge and the gray halo stay readable. The +/- buttons are left alone:
+   they show their own disabled state, and a card that goes empty while still
+   in the cart needs a - that plainly works. */
+.v2-prod.is-empty .v2-prod-img,
+.v2-prod.is-empty .v2-prod-text { opacity: .5; }
 
 /* A soft bloom is legible against a dark ground and all but invisible against
    white. The light theme gets a tight halo band at the card's edge as well,
