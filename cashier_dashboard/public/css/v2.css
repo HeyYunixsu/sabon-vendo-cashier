@@ -369,7 +369,11 @@ button { font: inherit; color: inherit; }
 }
 /* The badge is an oval, so it is sized by height and keeps its own width. */
 .v2-logo { height: 52px; width: auto; margin: -6px 0; flex: 0 0 auto; display: block; }
-.v2-who { font-size: 18px; font-weight: 500; white-space: nowrap; }
+.v2-who { font-size: 18px; font-weight: 500; white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; }
+/* The official wordmark (Wikimedia Commons, public domain). Samsung blue on
+   light; reversed to white on the dark header, where the blue disappears. */
+.v2-samsung { height: 12px; width: auto; display: block; }
+:root[data-theme="dark"] .v2-samsung { filter: brightness(0) invert(1); }
 .v2-vsep { width: 1px; height: 26px; background: var(--line-strong); flex: 0 0 auto; }
 .v2-clock {
   font-family: var(--font-display);
