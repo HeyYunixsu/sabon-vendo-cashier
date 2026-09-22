@@ -499,6 +499,7 @@ button { font: inherit; color: inherit; }
   border-radius: var(--r-panel);
   transition: border-color .15s ease, box-shadow .15s ease;
   touch-action: manipulation;
+  cursor: pointer;
   position: relative;
 }
 /* In the cart, so the card says so without anyone reading the number. */

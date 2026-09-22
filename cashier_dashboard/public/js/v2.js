@@ -1589,12 +1589,18 @@
   // -------------------------------------------------------------------------
   function wire() {
     // Delegated, because the grid and the cart are both rebuilt from scratch.
-    // Note this listens for the STEPPERS only -- the card body is inert by
-    // design, so a stray tap on the photo cannot add a press to a paid sale.
     $('v2-grid').addEventListener('click', (ev) => {
       const btn = ev.target.closest('.v2-step');
-      if (!btn || btn.disabled) return;
-      step(parseInt(btn.dataset.slot, 10), parseInt(btn.dataset.delta, 10));
+      if (btn) {
+        if (!btn.disabled)
+          step(parseInt(btn.dataset.slot, 10), parseInt(btn.dataset.delta, 10));
+        return;
+      }
+
+      // The product card is also a quick-add target. Stepper clicks return
+      // above so one tap cannot change the quantity twice.
+      const card = ev.target.closest('.v2-prod');
+      if (card) step(parseInt(card.dataset.slot, 10), 1);
     });
 
     // The wave starts under the finger, so it has to be placed from the event.
