@@ -1645,6 +1645,38 @@ button { font: inherit; color: inherit; }
 /* =============================== end PHONE ================================ */
 /* ============================ end RESPONSIVE ============================== */
 
+/* ================================ TOUR ====================================
+   First-run tour (js/tour.js). #tour is appended to <body>, outside the
+   zoomed shell, so every size here is real viewport pixels. It covers the
+   whole screen on purpose: the tour points at controls, it never lets a tap
+   reach them. Above every other layer (the price editor and toast sit at 70). */
+#tour { position: fixed; inset: 0; z-index: 80; }
+#tour[hidden] { display: none; }
+.tour-spot {
+  position: fixed;
+  border-radius: var(--r-panel);
+  /* ring, then a shadow big enough to dim the rest of the screen */
+  box-shadow: 0 0 0 3px var(--brand), 0 0 0 9999px rgba(8, 12, 18, .62);
+  pointer-events: none;
+  transition: left .25s ease, top .25s ease, width .25s ease, height .25s ease;
+}
+.tour-tip {
+  position: fixed;
+  box-sizing: border-box;
+  width: 340px;
+  max-width: calc(100vw - 32px);
+  padding: 18px 20px;
+  border-radius: var(--r-panel);
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: var(--shadow);
+  font-family: var(--font);
+}
+.tour-count { margin: 0 0 6px; font-size: 13px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.tour-text { margin: 0 0 16px; font-size: 16px; line-height: 1.45; }
+.tour-actions { display: flex; justify-content: flex-end; gap: 10px; }
+/* ============================== end TOUR ================================== */
+
 @media (prefers-reduced-motion: reduce) {
   * { animation-duration: .01ms !important; animation-iteration-count: 1 !important;
       transition-duration: .01ms !important; }
