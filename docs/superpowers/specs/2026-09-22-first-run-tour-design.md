@@ -96,3 +96,54 @@ shows `n / total`, counting only the steps that will actually show.
 - Interactive practice sale or demo mode.
 - A per-machine seen flag.
 - Translations.
+
+---
+
+## Revision 2 — longer tour, air-clear history (2026-09-22)
+
+### Tour: 6 → 9 steps
+
+| # | Target | Tip |
+|---|--------|-----|
+| 1 | First `.v2-prod` card | *(unchanged)* |
+| 2 | `#btn-one-each` | *(unchanged)* |
+| 3 | `#btn-clear-cart` | Empties the cart if the customer changes their mind. Only the cart — buttons already unlocked are not touched. |
+| 4 | `#v2-cart .v2-totals` | *(unchanged)* |
+| 5 | `#btn-arm` | After payment, tap Unlock. The cards turn teal and say Unlocked, and the customer presses the machine's buttons — one press, one serving. |
+| 6 | `#btn-credits` (demo) | This appears after Unlock: presses the customer has paid for but not used yet. Tap it to see them. Cancel only if they are not coming back — cancelling writes off money already taken. |
+| 7 | `#chip-waiting` | The same count at a glance. It lights up while a customer still has presses left. |
+| 8 | `#chip-today` | *(unchanged)* |
+| 9 | `#btn-settings` | Change prices, clear air after a gallon change, see every air clear, and replay this tutorial. |
+
+**Demo step.** `#btn-credits` is hidden unless credits are owed, and
+`v2.js` re-hides it on every status update. Step 6 therefore works through
+CSS, not by changing the button:
+- It is marked `demo: true`, so it is never filtered out as hidden.
+- While it is on screen, `<html>` has the class `tour-demo`. CSS then forces
+  a *hidden* `#btn-credits` to show, with a sample count of "2".
+- The class is removed when the step changes and when the tour ends.
+- When credits really are owed, the real button and count show unchanged.
+
+### Air clear history
+
+- **`cashier_dashboard/lib/prime_log.js` (new).**
+  - `readPrimeRecords(file)` returns every record, oldest first. It skips
+    bad lines, and a missing file gives `[]`.
+  - `latestPrimeRuns(file, limit = 200)` returns the newest runs first.
+  - Record shape (written by the controller): `{machine_id, slot, seconds,
+    date_created: "YYYY-MM-DD HH:MM:SS"}`.
+- **`server.js`.** `readPrimeCounts()` now uses `readPrimeRecords`, and a new
+  endpoint `GET /api/prime/history` returns `{ runs }` (the latest 200,
+  newest first).
+- **Settings → Maintenance.**
+  - Below the pump list: a "Last: <product>  <time>" line and a **View All**
+    button. The button is disabled while there are no runs.
+  - The line and button reload whenever the prime info reloads (opening
+    Settings, and after each run).
+- **`#prime-panel` "Air Clears".** Built like Price Changes:
+  - one row per run, showing the slot dot, "<product> · Slot n", the time,
+    and the seconds;
+  - with no runs it shows "No air clears recorded yet.";
+  - it sits above Settings, and Escape or tapping the backdrop closes it.
+- **Check.** `tests/prime_log.test.js` covers a missing file, skipping a bad
+  line, newest-first order, and the 200 cap. `npm test` runs both checks.
