@@ -14,6 +14,7 @@ const express = require('express');
 const net = require('net');
 const fs = require('fs');
 const path = require('path');
+const { readPrimeRecords, latestPrimeRuns } = require('./lib/prime_log');
 
 // ---------------------------------------------------------------------------
 // Config
@@ -445,19 +446,13 @@ function readPrimeCounts() {
   const counts = {};
   let total = 0;
   try {
-    if (!fs.existsSync(PRIME_LOG_PATH)) return { counts, total };
-
     // Local date, matching the controller's localtime timestamps.
     const now = new Date();
     const today = `${now.getFullYear()}-`
                 + `${String(now.getMonth() + 1).padStart(2, '0')}-`
                 + `${String(now.getDate()).padStart(2, '0')}`;
 
-    for (const line of fs.readFileSync(PRIME_LOG_PATH, 'utf-8').split(/\r?\n/)) {
-      if (!line.trim()) continue;
-      let rec;
-      // One malformed line must not hide the rest of the day's activity.
-      try { rec = JSON.parse(line); } catch (_) { continue; }
+    for (const rec of readPrimeRecords(PRIME_LOG_PATH)) {
       if (!rec.date_created || !String(rec.date_created).startsWith(today)) continue;
       const slot = parseInt(rec.slot, 10);
       if (!Number.isFinite(slot)) continue;
@@ -473,6 +468,15 @@ function readPrimeCounts() {
 app.get('/api/prime', (req, res) => {
   const { counts, total } = readPrimeCounts();
   res.json({ seconds: PRIME_SECONDS, today: counts, todayTotal: total });
+});
+
+// Every air clear, newest first -- the list behind Settings > Maintenance >
+// View All. Capped: the log only grows, and 200 runs is weeks of gallon changes.
+app.get('/api/prime/history', (req, res) => {
+  let runs = [];
+  try { runs = latestPrimeRuns(PRIME_LOG_PATH, 200); }
+  catch (e) { console.error(`[dashboard] Could not read prime log: ${e.message}`); }
+  res.json({ runs });
 });
 
 app.post('/api/prime', (req, res) => {

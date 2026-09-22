@@ -283,6 +283,10 @@
             are untouched. <em>No sale is recorded</em> &mdash; every run is logged.
           </p>
           <div id="prime-list"></div>
+          <div class="v2-history-row">
+            <div id="prime-last" class="v2-history"></div>
+            <button id="btn-prime-history" class="v2-btn v2-btn-ghost v2-btn-set" type="button" disabled>View All</button>
+          </div>
         </section>
 
         <section class="v2-group">
@@ -320,6 +324,21 @@
       </div>
       <div class="v2-credits-body">
         <div id="history-list" class="v2-hist-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================== AIR CLEARS ==================
+       Every prime run, newest first. A prime moves product and books no sale,
+       so every one of them has to be visible without opening a log over SSH. -->
+  <div id="prime-panel" hidden>
+    <div class="v2-credits-card" role="dialog" aria-modal="true" aria-labelledby="prime-title">
+      <div class="v2-today-head">
+        <h2 id="prime-title">Air Clears</h2>
+        <p class="v2-credits-sub"><span id="prime-count">0</span> recorded</p>
+      </div>
+      <div class="v2-credits-body">
+        <div id="prime-runs" class="v2-hist-list"></div>
       </div>
     </div>
   </div>

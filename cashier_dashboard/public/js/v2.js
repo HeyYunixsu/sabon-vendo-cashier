@@ -993,6 +993,55 @@
   }
   const closeHistory = () => { $('history-panel').hidden = true; };
 
+  // ---- air clears ---------------------------------------------------------
+  // Same shape as price history: a one-line summary in Settings, the full
+  // list behind View All.
+  let primeRuns = [];
+  const primeHistOpen = () => !$('prime-panel').hidden;
+
+  async function loadPrimeHistory() {
+    try {
+      const d = await (await fetch('/api/prime/history')).json();
+      primeRuns = (d && d.runs) || [];
+      $('btn-prime-history').disabled = !primeRuns.length;
+      const r = primeRuns[0];
+      $('prime-last').textContent = r
+        ? 'Last: ' + (PRODUCT[parseInt(r.slot, 10)] || ('Slot ' + r.slot))
+          + '   ' + (r.date_created || '')
+        : 'No air clears recorded yet.';
+      if (primeHistOpen()) renderPrimeHistory();
+    } catch (e) { /* context, not essential */ }
+  }
+
+  function renderPrimeHistory() {
+    $('prime-count').textContent = primeRuns.length;
+    if (!primeRuns.length) {
+      $('prime-runs').innerHTML =
+        '<div class="v2-empty-note">No air clears recorded yet.</div>';
+      return;
+    }
+    let h = '';
+    for (const r of primeRuns) {
+      const slot = parseInt(r.slot, 10);
+      const name = PRODUCT[slot] || ('Slot ' + r.slot);
+      h += '<div class="v2-hist-row">'
+         + '<span class="v2-hist-dot" style="background:' + (SLOT_DOT[slot] || '#98A2B3') + '"></span>'
+         + '<span class="v2-hist-name">' + esc(name) + ' &middot; Slot ' + esc(r.slot)
+         +   '<span class="v2-hist-when">' + esc(r.date_created || '') + '</span>'
+         + '</span>'
+         + '<span class="v2-hist-move">' + esc(r.seconds) + 's</span>'
+         + '</div>';
+    }
+    $('prime-runs').innerHTML = h;
+  }
+
+  function openPrimeHistory() {
+    $('prime-panel').hidden = false;
+    renderPrimeHistory();
+    loadPrimeHistory();
+  }
+  const closePrimeHistory = () => { $('prime-panel').hidden = true; };
+
   // ---- waiting credits ----------------------------------------------------
   // The one thing the mockup has no room for. These are presses a customer has
   // paid for; cancelling one writes it off, so each is its own button behind a
@@ -1109,6 +1158,7 @@
       $('prime-today').textContent = d.todayTotal || 0;
       primeSig = null;
       renderPrime();
+      loadPrimeHistory();
     } catch (e) { /* the panel is still usable without the count */ }
   }
 
@@ -1343,7 +1393,8 @@
   function closeSettings() {
     $('settings-panel').hidden = true;
     closeHistory();
-    edClose();          // the bar belongs to the sheet that opened it
+    closePrimeHistory();
+    edClose();         // the bar belongs to the sheet that opened it
     disarmPrime();
   }
 
@@ -1705,6 +1756,7 @@
       if (!$('today-panel').hidden) { closeToday(); return; }
       if (!$('credits-panel').hidden) { closeCredits(); return; }
       // History sits ON TOP of settings, so it has to be offered Escape first.
+      if (!$('prime-panel').hidden) { closePrimeHistory(); return; }
       if (!$('history-panel').hidden) { closeHistory(); return; }
       if (!$('settings-panel').hidden) closeSettings();
     });
@@ -1734,6 +1786,7 @@
     });
     $('btn-save-prices').addEventListener('click', savePrices);
     $('btn-price-history').addEventListener('click', openHistory);
+    $('btn-prime-history').addEventListener('click', openPrimeHistory);
 
     // What is typed in the bar IS the price: it is written straight through to
     // the row, which then runs the same sanitiser and dirty check a directly
@@ -1779,6 +1832,9 @@
     });
     $('history-panel').addEventListener('click', (ev) => {
       if (ev.target === $('history-panel')) closeHistory();   // the backdrop only
+    });
+    $('prime-panel').addEventListener('click', (ev) => {
+      if (ev.target === $('prime-panel')) closePrimeHistory();   // the backdrop only
     });
     $('prime-list').addEventListener('click', (ev) => {
       const b = ev.target.closest('[data-prime]');

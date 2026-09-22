@@ -5,7 +5,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test": "node tests/tour_place.test.js"
+    "test": "node tests/tour_place.test.js && node tests/prime_log.test.js"
   },
   "dependencies": {
     "express": "^4.21.0"
