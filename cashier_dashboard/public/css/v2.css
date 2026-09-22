@@ -364,15 +364,11 @@ button { font: inherit; color: inherit; }
 .v2-chev svg { width: 14px; height: 14px; display: block; }
 
 #v2-identity {
-  display: flex; align-items: center; gap: 18px;
+  display: flex; align-items: center; gap: 14px;
   padding: 18px 24px;
 }
-.v2-logo {
-  width: 38px; height: 38px; flex: 0 0 auto;
-  display: inline-flex; align-items: center; justify-content: center;
-  color: var(--brand);
-}
-.v2-logo svg { width: 100%; height: 100%; display: block; }
+/* The badge is an oval, so it is sized by height and keeps its own width. */
+.v2-logo { height: 56px; width: auto; margin: -8px 0; flex: 0 0 auto; display: block; }
 .v2-who { font-size: 18px; font-weight: 500; white-space: nowrap; }
 .v2-vsep { width: 1px; height: 26px; background: var(--line-strong); flex: 0 0 auto; }
 .v2-clock {
@@ -1584,7 +1580,7 @@ button { font: inherit; color: inherit; }
   #v2-identity { padding: 10px 12px; gap: 10px; }
   .v2-who { font-size: 15px; overflow: hidden; text-overflow: ellipsis; }
   .v2-clock { font-size: 14px; min-width: 76px; margin-left: auto; }
-  .v2-logo { width: 28px; height: 28px; }
+  .v2-logo { height: 46px; margin: -8px 0; }
 
   /* Products one per row. Two columns of bottle photo at 360px leaves nothing
      for the name. */
