@@ -1715,6 +1715,11 @@
 
     // Settings
     $('btn-settings').addEventListener('click', openSettings);
+    // The tour points at the main screen, so the sheet has to be out of the way.
+    $('btn-tour').addEventListener('click', () => {
+      closeSettings();
+      if (window.sabonTour) window.sabonTour.start();
+    });
     // No close button: the design's header has none. Tapping outside and
     // Escape both close it, which is what the backdrop listener below is.
     $('settings-panel').addEventListener('click', (ev) => {
