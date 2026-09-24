@@ -1465,13 +1465,29 @@
     renderGrid(); renderCart();
   }
 
-  function removeLine(id) {
+  // Asked, not toasted. Dropping a line is the same kind of act as Clear Cart,
+  // only smaller, and a message that flashes past is no way to tell a cashier
+  // that a mis-tap just emptied a row they had already counted out.
+  async function removeLine(id) {
     const i = cart.findIndex((x) => x.id === id);
     if (i < 0) return;
-    const name = cart[i].name;
-    cart.splice(i, 1);
+    const line = cart[i];
+    const stats = [{ v: line.qty, k: 'Press' + (line.qty !== 1 ? 'es' : '') }];
+    if (prices[line.id] != null) {
+      stats.push({ v: '₱' + (prices[line.id] * line.qty), k: 'Not Yet Charged' });
+    }
+    const ok = await askConfirm({
+      icon: 'trash', kind: 'danger',
+      title: 'Remove ' + line.name + '?',
+      body: 'Nothing has been charged yet — this only takes it off the screen.',
+      stats: stats,
+      yes: 'Remove',
+    });
+    // Rebuilt while the question was open: find it again rather than trust i.
+    const j = ok ? cart.findIndex((x) => x.id === id) : -1;
+    if (j < 0) return;
+    cart.splice(j, 1);
     renderGrid(); renderCart();
-    toast(name + ' removed', 'caution');
   }
 
   // Clears this screen's cart. Nothing has been charged yet, so it asks
