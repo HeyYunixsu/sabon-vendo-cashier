@@ -219,6 +219,9 @@ function connectToCoinSlot() {
   coinSocket.on('close', () => {
     console.log('[dashboard] controller disconnected — reconnecting in 3s...');
     coinConnected = false;
+    // Every open dashboard, at once. Without this the stream simply goes
+    // quiet, and a screen keeps showing the last status it was sent.
+    broadcastSSE('CONTROLLER_OFFLINE');
     coinSocket = null;
     setTimeout(connectToCoinSlot, 3000);
   });
@@ -341,6 +344,9 @@ app.get('/api/status/stream', (req, res) => {
     'Access-Control-Allow-Origin': '*',
   });
   res.write('data: connected\n\n');
+  // A page that opens while the controller is down would otherwise sit on
+  // "Ready" until the first STATUS that never comes.
+  if (!coinConnected) res.write('data: CONTROLLER_OFFLINE\n\n');
   sseClients.add(res);
   console.log(`[dashboard] SSE client connected (${sseClients.size} total)`);
 

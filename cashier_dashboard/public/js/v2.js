@@ -524,11 +524,30 @@
   // -------------------------------------------------------------------------
   // SSE
   // -------------------------------------------------------------------------
+  // The machine sends STATUS about twice a second, so silence is what marks it
+  // offline. Nothing else can: a Pi that loses power sends no goodbye, and the
+  // browser can hold the dead stream open for minutes without an error.
+  const STALE_MS = 6000;
+  const RETRY_MS = 15000;
+  let es = null;
+  let lastHeard = Date.now();
+  let lastRetry = 0;
+
   function connectSSE() {
-    const es = new EventSource('/api/status/stream');
+    es = new EventSource('/api/status/stream');
     es.addEventListener('message', (e) => {
+      lastHeard = Date.now();
+      // Sent the moment the controller drops, so a dead controller under a
+      // live Pi shows up at once instead of after STALE_MS.
+      if (e.data === 'CONTROLLER_OFFLINE') {
+        S.connected = false;
+        renderAll();
+        return;
+      }
       if (e.data === 'connected') {
-        S.connected = true;
+        // Says the web server answered, NOT that the machine is alive. Only a
+        // STATUS proves that, and one arrives within half a second when it is.
+        // Treating this as "online" is what kept a dead machine reading Ready.
         S.armedQty.fill(0); S.remaining.fill(0); S.wlvl.fill(false);
         S.busy.fill(false); S.queueDepth.fill(0);
         S.paused = false; S.phase = 0; S.bundleComplete = false;
@@ -551,6 +570,18 @@
       parseStatus(e.data);
     });
     es.addEventListener('error', () => { S.connected = false; renderAll(); });
+  }
+
+  // Once a second: has the machine gone quiet? A stale stream never errors on
+  // its own, so it is also rebuilt periodically -- that is what picks the Pi
+  // up again when it comes back, and after the tablet wakes from sleep.
+  function watchStream() {
+    if (Date.now() - lastHeard < STALE_MS) return;
+    if (S.connected) { S.connected = false; renderAll(); }
+    if (Date.now() - lastRetry < RETRY_MS) return;
+    lastRetry = Date.now();
+    try { if (es) es.close(); } catch (e) { /* already dead */ }
+    connectSSE();
   }
 
   function parseStatus(raw) {
@@ -1868,4 +1899,5 @@
   loadPrices();
   loadToday();
   connectSSE();
+  setInterval(watchStream, 1000);
 })();
