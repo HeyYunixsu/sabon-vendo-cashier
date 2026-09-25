@@ -7,14 +7,15 @@ reusing this repo's controller, uploaders and config.
 ## Goal
 
 A customer walks up to the machine, picks products on a touchscreen, pays by
-GCash QR or by handing cash to a staff member, and dispenses into their own
-bottle. No cashier tablet, no cashier driving the sale.
+scanning a QR with whatever e-wallet or bank app they already have, or by
+handing cash to a staff member, and dispenses into their own bottle. No cashier
+tablet, no cashier driving the sale.
 
 ## Decisions
 
 | Question | Decision |
 |---|---|
-| Payment | E-wallet QR **and** cash |
+| Payment | **QR Ph** — one QR any wallet or bank app can scan — **and** cash |
 | Cash handling | Staff take the money, confirm on the kiosk with a personal PIN |
 | Overpayment | None possible — exact amount only, no change, no top-up |
 | QR confirmation | Backend creates the payment, kiosk polls it (fast-food kiosk pattern) |
@@ -73,7 +74,9 @@ ATTRACT ──tap──▶ PICK ──▶ PAY ──paid──▶ UNLOCKED ─�
    waiting — tap to continue" chip when the machine still owes someone.
 2. **Pick.** The existing product cards with + / −, a running total. Offline or
    empty tanks are shown exactly as the dashboard shows them today.
-3. **Pay.** Two buttons: *Pay with GCash* and *Pay cash to staff*.
+3. **Pay.** Two buttons: *Pay with QR* and *Pay cash to staff*. The QR screen
+   names the apps it works with — GCash, Maya, ShopeePay, and bank apps — so
+   nobody walks away thinking the machine only takes one wallet.
 4. **Unlocked.** A modal per product: product card, **Nozzle n**, a progress
    bar, **Dispense Now**, then tap to pause and tap to resume. The pour stops
    itself at the paid amount. When a product is finished the modal moves to the
@@ -92,8 +95,11 @@ ATTRACT ──tap──▶ PICK ──▶ PAY ──paid──▶ UNLOCKED ─�
   repeated `paid` reply cannot grant a second set of presses.
 - **Exact amount only.** The QR is created for the cart total; the cash screen
   shows the same figure. Nothing is owed and nothing is returned.
-- **No internet: cash only.** The GCash button is disabled with a reason. Cash
+- **No internet: cash only.** The QR button is disabled with a reason. Cash
   and dispensing work fully offline; sales queue and upload later.
+- **Provider-agnostic.** The kiosk renders whatever QR payload the backend
+  returns and asks that same backend whether it is paid. Changing gateway, or
+  adding another wallet, is a backend change and needs no machine visit.
 - **Fees are the backend's problem.** The kiosk asks for the cart total and
   treats anything the provider deducts as the merchant's business, so the rule
   "exact payment" holds at the machine.
@@ -103,14 +109,19 @@ ATTRACT ──tap──▶ PICK ──▶ PAY ──paid──▶ UNLOCKED ─�
 ```
 POST  {API_BASE_URL}{PAYMENT_CREATE_PATH}
       {machine_id, vendor_id, amount, reference}
-   →  {reference, qr_payload | qr_image_url, expires_at}
+   →  {reference, qr_payload, expires_at}          qr_image_url also accepted
 
 GET   {API_BASE_URL}{PAYMENT_STATUS_PATH}/{reference}
    →  {reference, status: pending|paid|expired|failed, amount, paid_at}
 ```
 
+`qr_payload` is the QR Ph (EMVCo) string, and the kiosk draws it into a QR code
+on screen with a small bundled encoder. Drawing it locally means the code
+appears instantly and does not depend on an image host; a `qr_image_url` is
+accepted as a fallback for a gateway that returns only an image.
+
 The provider's webhook goes to the backend. The Pi holds no payment keys and
-needs no inbound connection.
+needs no inbound connection, and it never learns which wallet was used.
 
 ## Controller changes (the only C++ work)
 
@@ -158,7 +169,7 @@ so one firmware serves both products.
  "staff":"Ana","date_created":"2026-09-25 14:03:11"}
 ```
 
-  `method` is `cash` or `gcash`; a GCash row has no `staff`. This is a separate
+  `method` is `cash` or `qr`; a QR row has no `staff`. This is a separate
   local log: the records that upload to the API keep their six fields exactly.
 
 ## New config keys
